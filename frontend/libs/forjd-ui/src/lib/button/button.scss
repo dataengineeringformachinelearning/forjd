@@ -24,14 +24,14 @@ button:focus-visible {
 }
 
 button[data-variant='primary'] {
-  background: var(--fj-accent);
-  color: #0a0c10;
-  border-color: var(--fj-accent);
+  background: var(--fj-primary);
+  color: var(--fj-text-on-primary);
+  border-color: var(--fj-primary);
 }
 
 button[data-variant='primary']:hover {
-  background: var(--fj-accent-hover);
-  border-color: var(--fj-accent-hover);
+  background: var(--fj-primary-hover);
+  border-color: var(--fj-primary-hover);
 }
 
 button[data-variant='ghost'] {
@@ -42,5 +42,5 @@ button[data-variant='ghost'] {
 
 button[data-variant='ghost']:hover {
   background: var(--fj-surface);
-  border-color: var(--fj-text-muted);
+  border-color: var(--fj-surface-2);
 }

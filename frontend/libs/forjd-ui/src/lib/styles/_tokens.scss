@@ -1,18 +1,36 @@
-// Dark-first design tokens for forjd-ui.
-// Components read these CSS variables — keep the set small until we need more.
+// FORJD / forjd-ui tokens — "operating at the end of the earth"
+// Source palette: Void Black, Operator Blue, Cold Steel, Muted Gold.
 
 :root {
   color-scheme: dark;
 
-  --fj-bg: #0f1216;
-  --fj-surface: #171b22;
-  --fj-border: #2a313c;
-  --fj-text: #e8eaed;
-  --fj-text-muted: #9aa3b2;
-  --fj-accent: #3d8bfd;
-  --fj-accent-hover: #5a9dff;
-  --fj-focus: #7eb6ff;
+  // Core surfaces
+  --fj-bg: #0a0a0a;
+  --fj-surface: #111111;
+  --fj-surface-2: #1a1a1a;
+  --fj-border: #222222;
 
+  // Accents
+  --fj-primary: #00b4ff;
+  --fj-primary-hover: #33c3ff;
+  --fj-focus: #00b4ff;
+  --fj-gold: #d4af37;
+
+  // Status (use sparingly)
+  --fj-warning: #ff9500;
+  --fj-danger: #ff2d55;
+  --fj-success: #00e6a6;
+
+  // Text
+  --fj-text: #f0f0f0;
+  --fj-text-muted: #888888;
+  --fj-text-on-primary: #0a0a0a;
+
+  // Aliases used by early primitives (map to primary)
+  --fj-accent: var(--fj-primary);
+  --fj-accent-hover: var(--fj-primary-hover);
+
+  // Typography + spacing (unchanged structure)
   --fj-font-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
   --fj-font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 
