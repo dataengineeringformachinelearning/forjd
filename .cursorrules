@@ -1,0 +1,74 @@
+# FORJD Cursor Rules
+
+## Core Philosophy
+- Prioritize stability, security, and lightness.
+- Use latest stable versions with security focus.
+- Keep everything lightweight, auditable, and production-ready.
+- Minimal dependencies. Clear structure. Fast iteration.
+
+## Project Naming
+- Backend: forjd-backend / backend
+- Frontend: forjd-frontend / frontend
+- Overall platform: FORJD
+- Keep naming technical and precise.
+
+## Python / Backend Rules
+- Python 3.12+
+- Use uv for dependency management.
+- Core stack: FastAPI + Prefect 3 + Pathway + Dragonfly (redis) + Postgres.
+- Async-first, strong typing, Pydantic v2.
+- Folder structure: app/core, app/api/v1, app/pipelines, app/models, app/services.
+
+## Angular / Frontend Rules
+- Use latest stable Angular (v18+).
+- Standalone components + Signals by default.
+- Build our own UI library from scratch (forjd-ui).
+- No heavy external component libraries (avoid Angular Material for core primitives).
+- Focus on:
+  - Clean, dense, operational UI (inspired by Cloudscape + previous Viking-UI).
+  - Accessibility (WCAG AA) from day one.
+  - Consistent theming (SCSS variables, design tokens).
+  - Reusable primitives: buttons, cards, tables, forms, workflow canvas, live metrics.
+- Folder structure: `libs/forjd-ui/` for the library, then consume in `frontend`.
+- Use Angular's library generation (`ng generate library`).
+- Prioritize performance, tree-shakability, and customizability.
+- Keep it lightweight — only add complexity when clearly needed.
+
+## General UI Philosophy
+- Precision over flashy design.
+- Operational density (metrics, status, projections).
+- Dark-first theme with high contrast.
+
+## Docker Rules
+- Multi-stage builds mandatory.
+- Prefer distroless or slim base images for final stage.
+- Non-root user (USER 1001).
+- Minimal final image size.
+- Use specific stable tags.
+
+## Workflow & Streaming
+- Prefect 3 for configurable, versioned workflows.
+- Pathway for high-performance real-time streaming.
+- Clear separation: FastAPI for API, Prefect for orchestration, Pathway for stream processing.
+
+## Security & Stability
+- Strict input validation on backend.
+- CORS, rate limiting, secret management.
+- Structured logging.
+- Health checks and readiness probes.
+- Update dependencies regularly but cautiously (`uv lock --upgrade`).
+
+## Updating Strategy
+- One major component at a time.
+- Always test after updates.
+- Prefer stable channels.
+
+## LOG.md Purpose & Format
+- LOG.md is a detailed development journal for future writing (book, articles, etc.).
+- When making changes, append a short but informative entry.
+- Format:
+  - `- YYYY-MM-DD: Brief description of what was done and why (1-2 sentences max)`
+- Be specific enough to remember the journey (commands, decisions, challenges).
+- Example: `- 2026-07-14: Initialized backend with uv + FastAPI + Prefect + Pathway. Chose Prefect for better Pythonic workflow config over Airflow.`
+
+Follow these rules by default unless explicitly overridden.
