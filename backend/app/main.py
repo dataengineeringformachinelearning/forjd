@@ -10,6 +10,7 @@ from app.api.v1.router import api_router
 from app.core.clients import create_db_pool, create_redis_client
 from app.core.config import settings
 from app.core.logging import configure_logging
+from app.core.rollbar import configure_rollbar
 
 
 @asynccontextmanager
@@ -37,6 +38,9 @@ app = FastAPI(
     version=settings.PROJECT_VERSION,
     lifespan=lifespan,
 )
+
+# Rollbar first (when token set), then CORS
+configure_rollbar(app)
 
 app.add_middleware(
     CORSMiddleware,

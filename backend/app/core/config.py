@@ -33,5 +33,8 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
     PREFECT_API_URL: str = "http://127.0.0.1:4200/api"
 
+    # Rollbar — leave empty to disable locally
+    ROLLBAR_ACCESS_TOKEN: str = ""
+
 
 settings = Settings()
