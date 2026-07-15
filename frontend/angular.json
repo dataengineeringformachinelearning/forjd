@@ -4,7 +4,7 @@
   "cli": {
     "packageManager": "npm"
   },
-  "newProjectRoot": "projects",
+  "newProjectRoot": "libs",
   "projects": {
     "frontend": {
       "projectType": "application",
@@ -70,6 +70,32 @@
         },
         "test": {
           "builder": "@angular/build:unit-test"
+        }
+      }
+    },
+    "forjd-ui": {
+      "projectType": "library",
+      "root": "libs/forjd-ui",
+      "sourceRoot": "libs/forjd-ui/src",
+      "prefix": "forjd",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:ng-packagr",
+          "configurations": {
+            "production": {
+              "tsConfig": "libs/forjd-ui/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "libs/forjd-ui/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "libs/forjd-ui/tsconfig.spec.json"
+          }
         }
       }
     }

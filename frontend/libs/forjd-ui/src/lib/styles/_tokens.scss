@@ -1,0 +1,26 @@
+// Dark-first design tokens for forjd-ui.
+// Components read these CSS variables — keep the set small until we need more.
+
+:root {
+  color-scheme: dark;
+
+  --fj-bg: #0f1216;
+  --fj-surface: #171b22;
+  --fj-border: #2a313c;
+  --fj-text: #e8eaed;
+  --fj-text-muted: #9aa3b2;
+  --fj-accent: #3d8bfd;
+  --fj-accent-hover: #5a9dff;
+  --fj-focus: #7eb6ff;
+
+  --fj-font-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --fj-font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --fj-radius: 4px;
+  --fj-space-1: 0.25rem;
+  --fj-space-2: 0.5rem;
+  --fj-space-3: 0.75rem;
+  --fj-space-4: 1rem;
+  --fj-space-6: 1.5rem;
+  --fj-space-8: 2rem;
+}

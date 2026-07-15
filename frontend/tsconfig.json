@@ -4,6 +4,9 @@
   "compileOnSave": false,
   "compilerOptions": {
     "noImplicitOverride": true,
+    "paths": {
+      "forjd-ui": ["./libs/forjd-ui/src/public-api.ts"]
+    },
     "noPropertyAccessFromIndexSignature": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
@@ -26,6 +29,12 @@
     },
     {
       "path": "./tsconfig.spec.json"
+    },
+    {
+      "path": "./libs/forjd-ui/tsconfig.lib.json"
+    },
+    {
+      "path": "./libs/forjd-ui/tsconfig.spec.json"
     }
   ]
 }

@@ -1,12 +1,12 @@
 import { Component, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { FjButton } from 'forjd-ui';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [FjButton],
   templateUrl: './app.html',
-  styleUrl: './app.scss'
+  styleUrl: './app.scss',
 })
 export class App {
-  protected readonly title = signal('frontend');
+  protected readonly title = signal('FORJD');
 }
