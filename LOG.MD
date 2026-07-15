@@ -17,3 +17,9 @@ touch .env.example
 cp .env.example .env
 
 uv sync
+
+cd backend
+
+uv sync --group dev
+
+uv run forjd
