@@ -1,37 +1,32 @@
 # FORJD AGENTS.md
 
-## Project Overview
-FORJD is a pure data streaming pipeline platform with configurable workflows. 
-Backend: FastAPI + Prefect 3 + Pathway. 
-Frontend: Angular with custom forjd-ui library built from scratch.
+## Product
+FORJD is a data streaming pipeline platform with configurable workflows.
+Agents: read this briefing first, then enforce constraints in `.cursorrules`.
 
-## Core Principles
+## Principles
 - Stability and security over bleeding edge.
 - Lightweight and observable.
-- Precision Over Chance.
+- Precision over chance.
 - Build for learning and long-term maintainability.
 
-## Coding Standards
-- Backend: Clean FastAPI structure, async where beneficial, strong typing.
-- Frontend: Angular standalone components, Signals, custom forjd-ui primitives.
-- Docker: Multi-stage, distroless where possible, non-root.
-- Always log significant changes to LOG.md with very short lines.
+## Stack map
+| Layer | Choice |
+|-------|--------|
+| API | FastAPI |
+| Orchestration | Prefect 3 |
+| Streams | Pathway |
+| Batch tables | Polars |
+| Cache / DB | Dragonfly + Postgres |
+| UI | Angular + forjd-ui (Storybook / Chromatic) |
+| Observability | Rollbar (API); Vercel Analytics + Speed Insights (frontend) |
 
-## When Making Changes
-- Keep LOG.md entries extremely short.
-- Prefer configuration over hardcoding.
-- Make workflows configurable via YAML/JSON.
+Pathway owns live/incremental work; Polars owns finite batch DataFrames. Details: `.cursorrules`.
 
-## Tech Stack Priority
-1. FastAPI
-2. Prefect 3
-3. Pathway (streaming)
-4. Angular + forjd-ui (from scratch)
-5. Dragonfly + Postgres
-
-## Development Flow
-- Work in small, testable increments.
-- Update LOG.md after meaningful progress.
-- Keep dependencies minimal.
+## How to work
+- Small, testable increments. Do not expand scope beyond what was asked.
+- Prefer configuration (YAML/JSON) over hardcoding.
+- Keep dependencies minimal — add a package only when a concrete use case needs it.
+- After meaningful progress, append a `LOG.MD` entry (format in `.cursorrules`).
 
 Last updated: 2026-07-14

@@ -9,6 +9,7 @@ dependencies = [
     "fastapi>=0.139.0",
     "httpx>=0.28.1",
     "pathway>=0.2.0",
+    "polars>=1.42.1",
     "prefect[redis]>=3.7.8",
     "pydantic-settings>=2.14.2",
     "python-dotenv>=1.2.2",
