@@ -7,3 +7,7 @@
 - 2026-07-14: Created the basic application structure with `mkdir -p app/{core,api/v1,models,pipelines,services,utils}` and placeholder files. Added `.env.example` and ran initial `uv sync`. Tested with `uv run forjd`. Focused on keeping the setup lightweight and uv-driven.
 
 - 2026-07-14: Added `.cursorrules`, `AGENTS.md`, and began this LOG.md to capture the full development journey for future writing and reflection.
+
+npx @angular/cli new frontend --standalone --routing --style=scss --skip-git
+
+ng add @angular/pwa
