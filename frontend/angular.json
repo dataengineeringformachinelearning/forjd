@@ -96,6 +96,24 @@
           "options": {
             "tsConfig": "libs/forjd-ui/tsconfig.spec.json"
           }
+        },
+        "storybook": {
+          "builder": "@storybook/angular-vite:start-storybook",
+          "options": {
+            "configDir": ".storybook",
+            "port": 6006,
+            "compodoc": false,
+            "styles": ["src/styles.scss"]
+          }
+        },
+        "build-storybook": {
+          "builder": "@storybook/angular-vite:build-storybook",
+          "options": {
+            "configDir": ".storybook",
+            "outputDir": "dist/storybook/forjd-ui",
+            "compodoc": false,
+            "styles": ["src/styles.scss"]
+          }
         }
       }
     }

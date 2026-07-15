@@ -5,6 +5,13 @@
 /tmp
 /out-tsc
 /bazel-out
+/storybook-static
+/documentation.json
+
+# Chromatic / Storybook local
+build-storybook.log
+chromatic-diagnostics.json
+chromatic.log
 
 # Node
 /node_modules
