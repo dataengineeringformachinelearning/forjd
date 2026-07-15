@@ -13,3 +13,7 @@ mkdir -p app/{core,api/v1,models,pipelines,services,utils}
 touch app/__init__.py app/main.py app/core/config.py
 
 touch .env.example
+
+cp .env.example .env
+
+uv sync
