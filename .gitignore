@@ -9,9 +9,14 @@ build/
 .venv/
 venv/
 
-# Env & secrets
+# Env & secrets (never commit; tracked files need `git rm --cached`)
 .env
-.env.local
+.env.*
+!.env.example
+!**/.env.example
+**/.env
+**/.env.*
+!**/.env.example
 *.pem
 
 # Tooling
