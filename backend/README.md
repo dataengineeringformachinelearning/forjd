@@ -70,5 +70,5 @@ Set matching `ENGINE_URL=http://forjd-engine.internal:8080` (already in `fly.api
 
 ## Notes
 
-- **Pathway** currently fails to import on CPython **3.14** (upstream). The pulse soft-fails that layer and continues; other layers still run.
+- Backend Python is **3.12** so Pathway works (upstream + beartype still break on 3.14).
 - Rust engine: `forjd-engine` (PyO3). Rebuild with `uv sync` after engine changes.

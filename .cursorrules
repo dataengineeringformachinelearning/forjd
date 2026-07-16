@@ -17,7 +17,7 @@ Follow these unless the user explicitly overrides them.
 - Fly deploy: `engine/Dockerfile` + `engine/fly.toml` (see `engine/README.md`).
 
 ## Backend
-- Python requires 3.12+; this repo currently pins 3.14 — prefer stability when choosing majors.
+- Python requires 3.12+; this repo pins **3.12** (Pathway’s beartype pin breaks on 3.14) — prefer stability when choosing majors.
 - Manage deps with **uv** only (`uv add` / `uv sync` / `uv lock`). Do not use pip as the primary workflow.
 - Stack: FastAPI + Prefect 3 + Pathway + Polars + Dragonfly + Postgres.
 - Async-first, strong typing, Pydantic v2 / pydantic-settings.

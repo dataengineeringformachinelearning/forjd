@@ -15,7 +15,7 @@ Data streaming pipeline platform. This repo’s **pulse PoC** wires the full sta
 | Supabase project | Postgres (`POSTGRES_DSN`) |
 | [flyctl](https://fly.io/docs/hands-on/install-flyctl/) (optional) | Deploy Dragonfly / engine |
 
-Python is pinned to **3.14** in `backend/`. Pathway currently fails to import on 3.14; the pulse soft-fails that layer and continues.
+Python is pinned to **3.12** in `backend/` (Pathway does not yet run on 3.14).
 
 ## Quick start (local)
 
@@ -99,7 +99,7 @@ cargo run --no-default-features --features server   # HTTP on :8080
 |-------|----------------|
 | Rust `forjd-engine` | Validate/enrich event + Arrow/Parquet summarize (HTTP or PyO3) |
 | Polars | Batch aggregate |
-| Pathway | Finite stream reduce (soft-fail on Py 3.14) |
+| Pathway | Finite stream reduce |
 | Prefect | `forjd-pulse` flow (local fallback if server down) |
 | Postgres | Insert into `pulses` |
 | Dragonfly | Cache last pulse (`forjd:pulse:last`) |

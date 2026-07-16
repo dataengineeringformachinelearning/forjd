@@ -23,7 +23,7 @@ Agents: read this briefing first, then enforce constraints in `.cursorrules`.
 | Observability | Rollbar (API); Vercel Analytics + Speed Insights (frontend) |
 
 Pathway owns live/incremental work; Polars owns finite batch DataFrames. Details: `.cursorrules`.
-Note: Pathway currently fails to import on CPython 3.14 — the pulse PoC soft-fails that layer.
+Backend Python is pinned to **3.12** with Pathway ≥0.31 (`beartype<0.16` via uv override). Pathway still does not support 3.14.
 
 ## How to work
 - Small, testable increments. Do not expand scope beyond what was asked.

@@ -32,41 +32,32 @@ def polars_summary(values: list[float]) -> dict[str, Any]:
 def pathway_increment(values: list[float]) -> dict[str, Any]:
     """Finite Pathway reduce for the PoC.
 
-    Pathway currently fails to import on CPython 3.14 (upstream schema/beartype).
-    We soft-fail so the rest of the pulse still runs; swap Python or wait for a
-    Pathway release that supports 3.14 to light this layer up.
+    Soft-fails on import/runtime errors so other pulse layers still return.
+    Backend targets CPython 3.12 with Pathway >=0.31 (beartype<0.16).
     """
     try:
+        import pandas as pd
         import pathway as pw
     except Exception as exc:  # pragma: no cover
         logger.warning("pathway unavailable: %s", exc)
         return {
             "ok": False,
             "error": str(exc),
-            "note": "Pathway import failed (often CPython 3.14). Other layers still run.",
+            "note": "Pathway import failed. Backend should run on CPython 3.12 + pathway>=0.31.",
         }
 
     if not values:
         return {"ok": False, "error": "values must not be empty"}
 
     try:
-        # Prefer markdown helper — widely available across Pathway versions.
-        lines = [" | value"] + [f" | {v}" for v in values]
-        table = pw.debug.table_from_markdown("\n".join(lines))
+        table = pw.debug.table_from_pandas(pd.DataFrame({"value": values}))
         reduced = table.reduce(
             count=pw.reducers.count(),
             total=pw.reducers.sum(pw.this.value),
         )
-        # Finite materialization for the HTTP PoC (Pathway is normally continuous).
-        if hasattr(pw.debug, "table_to_dicts"):
-            rows = pw.debug.table_to_dicts(reduced)
-            first = next(iter(rows.values()), {})
-            count = int(first.get("count", 0))
-            total = float(first.get("total", 0.0))
-        else:
-            pw.debug.compute_and_print(reduced)
-            count = len(values)
-            total = float(sum(values))
+        frame = pw.debug.table_to_pandas(reduced)
+        count = int(frame["count"].iloc[0])
+        total = float(frame["total"].iloc[0])
         return {
             "ok": True,
             "count": count,

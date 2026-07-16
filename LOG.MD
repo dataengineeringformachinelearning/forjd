@@ -50,6 +50,8 @@
 
 - 2026-07-16: Fixed Fly 6PN private links — engine HTTP now binds `[::]` (was IPv4-only `0.0.0.0`); backend Redis/httpx prefer IPv6 for `*.internal`; redeployed Dragonfly so `DFLY_bind=::` actually applied (machine had been stuck on the first IPv4-era deploy).
 
+- 2026-07-16: Moved backend from CPython **3.14 → 3.12**, bumped Pathway **0.2.0 → 0.31.1**, and uv-override `beartype<0.16` (Pathway needs it; Prefect/pydocket wants ≥0.20 — override prefers Pathway). Pulse Pathway helper uses `table_from_pandas` / `table_to_pandas`.
+
 ## Packages
 
 Direct dependencies only. Star these on GitHub.

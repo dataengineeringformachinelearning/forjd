@@ -1,6 +1,7 @@
 # --- build Rust engine wheel + Python deps ---
 # Keep the project at /app so uv venv shebangs match the runtime image.
-FROM python:3.14-slim-trixie AS builder
+# 3.12 — Pathway (beartype pin) does not import on CPython 3.14 yet.
+FROM python:3.12-slim-bookworm AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.11.29 /uv /uvx /bin/
 
@@ -33,7 +34,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-editable
 
 # --- runtime: slim image, non-root, no uv/rust ---
-FROM python:3.14-slim-trixie AS runtime
+FROM python:3.12-slim-bookworm AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH" \
