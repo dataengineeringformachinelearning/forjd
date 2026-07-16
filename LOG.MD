@@ -38,6 +38,8 @@
 
 - 2026-07-16: Prepared the Rust engine for Fly.io: optional `server` feature with an axum HTTP binary (`/health`, `/ready`, `/v1/process`, `/v1/summarize`), multi-stage `engine/Dockerfile` (`USER 1001`, pinned `rust:1.97.0-bookworm`), and `engine/fly.toml`. Made PyO3 optional so the container builds without Python; maturin still uses `extension-module`.
 
+- 2026-07-16: Fixed Fly Dragonfly image pull — Docker Hub no longer carries current tags (`v1.39.0` 404); pointed `infra/dragonfly/Dockerfile` at `docker.dragonflydb.io/dragonflydb/dragonfly:v1.39.0` to match Compose. Volume `dragonfly_data` attached in `iad`; first deploy succeeded after the registry fix.
+
 ## Packages
 
 Direct dependencies only. Star these on GitHub.

@@ -4,7 +4,7 @@ Redis-compatible cache for the API (`REDIS_URL`). Postgres stays on **Supabase**
 
 There is **nothing to compile** — deploy pulls/wraps the official Dragonfly image.
 GitHub Fly often fails without a `Dockerfile` in this folder, so we ship a one-line
-`FROM docker.io/dragonflydb/dragonfly:v1.39.0`.
+`FROM docker.dragonflydb.io/dragonflydb/dragonfly:v1.39.0` (same registry as Compose).
 
 ## Prerequisites
 
