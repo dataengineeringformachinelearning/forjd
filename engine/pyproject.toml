@@ -1,0 +1,17 @@
+[project]
+name = "forjd-engine"
+version = "0.1.0"
+description = "FORJD Rust engine (PyO3 bindings)"
+requires-python = ">=3.12"
+classifiers = [
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: Implementation :: CPython",
+]
+
+[build-system]
+requires = ["maturin>=1.8,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+features = ["extension-module"]
+module-name = "forjd_engine"

@@ -7,6 +7,7 @@ requires-python = ">=3.14"
 dependencies = [
     "asyncpg>=0.31.0",
     "fastapi>=0.139.0",
+    "forjd-engine",
     "httpx>=0.28.1",
     "pathway>=0.2.0",
     "polars>=1.42.1",
@@ -30,8 +31,12 @@ packages = ["app"]
 
 [dependency-groups]
 dev = [
+    "maturin>=1.8.0",
     "ruff>=0.12.0",
 ]
+
+[tool.uv.sources]
+forjd-engine = { path = "../engine", editable = true }
 
 [tool.ruff]
 target-version = "py314"

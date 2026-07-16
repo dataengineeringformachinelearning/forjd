@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     )
 
     POSTGRES_DSN: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/forjd"
+    # Dragonfly (Redis protocol). Local Compose or Fly: redis://:pass@forjd-dragonfly.internal:6379/0
     REDIS_URL: str = "redis://localhost:6379/0"
     PREFECT_API_URL: str = "http://127.0.0.1:4200/api"
 

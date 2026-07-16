@@ -1,17 +1,25 @@
 [package]
-name = "engine"
+name = "forjd-engine"
 version = "0.1.0"
 edition = "2021"
-description = "FJORD High-Performance Engine (Rust core)"
+description = "FORJD high-performance engine (Rust core, Python via PyO3)"
 
 [lib]
-crate-type = ["cdylib", "rlib"]   # for Python interop + native use
+name = "forjd_engine"
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-arrow = "52"
-parquet = "52"
+arrow = "55"
+parquet = "55"
+bytes = "1"
+pyo3 = { version = "0.27" }
+
+[features]
+default = []
+# Enabled by maturin when building the Python extension.
+extension-module = ["pyo3/extension-module"]

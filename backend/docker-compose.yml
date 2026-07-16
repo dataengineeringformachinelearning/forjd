@@ -1,17 +1,17 @@
 services:
   forjd-api:
-    build: .
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
     ports:
       - "8000:8000"
     env_file:
       - .env
     environment:
-      POSTGRES_DSN: postgresql+asyncpg://postgres:postgres@postgres:5432/forjd
+      # Prefer Supabase DSN from .env; Compose only overrides Redis/Prefect hosts.
       REDIS_URL: redis://dragonfly:6379/0
       PREFECT_API_URL: http://prefect-server:4200/api
     depends_on:
-      postgres:
-        condition: service_healthy
       dragonfly:
         condition: service_healthy
       prefect-server:
@@ -52,6 +52,8 @@ services:
           path: ./pyproject.toml
         - action: rebuild
           path: ./uv.lock
+        - action: rebuild
+          path: ../engine
 
   dragonfly:
     image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.39.0
@@ -67,7 +69,10 @@ services:
       timeout: 3s
       retries: 10
 
+  # Optional local Postgres when not using Supabase:
+  #   docker compose --profile local-db up
   postgres:
+    profiles: ["local-db"]
     image: postgres:18.4-trixie
     environment:
       POSTGRES_DB: forjd

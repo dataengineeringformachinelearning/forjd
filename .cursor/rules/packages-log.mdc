@@ -1,0 +1,30 @@
+---
+description: Keep LOG.MD Packages section updated with GitHub-starrable deps
+alwaysApply: true
+---
+
+# Packages list in LOG.MD
+
+When adding, removing, or replacing a direct dependency, update the **Packages** section in `LOG.MD`.
+
+## What to list
+- Direct deps only (not transitive): `backend/pyproject.toml`, `frontend/package.json`, `engine/Cargo.toml`, and other first-party manifests.
+- Prefer the upstream **GitHub repo** URL (or the project's primary source repo) so packages can be starred.
+- Group by layer: Backend, Frontend, Engine (Rust), Infra/tooling.
+- Skip private/internal packages and pure tooling with no public repo only if there truly is none.
+
+## Format
+
+```markdown
+## Packages
+
+### Backend
+- [fastapi](https://github.com/fastapi/fastapi) — API framework
+
+### Engine (Rust)
+- [tokio](https://github.com/tokio-rs/tokio) — async runtime
+```
+
+## When
+- Same change set as the dependency edit (or the next LOG entry for that work).
+- Also append a normal dated Log line for the meaningful progress.

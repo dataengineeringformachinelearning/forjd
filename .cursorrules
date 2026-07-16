@@ -8,6 +8,12 @@ Follow these unless the user explicitly overrides them.
 - Backend: forjd-backend / `backend/`
 - Frontend: forjd-frontend / `frontend/`
 - UI library: forjd-ui / `frontend/libs/forjd-ui/`
+- Engine: forjd-engine / `engine/` (Rust core; `cdylib` + `rlib` for future Python interop)
+
+## Engine (Rust)
+- Manage with Cargo (`cargo test` / `cargo build`). Keep the crate root at `engine/src/lib.rs`.
+- Stack: tokio + serde + tracing; Arrow/Parquet for columnar I/O when needed.
+- Prefer stability when bumping Arrow majors — pin below latest if needed; Arrow 52 is broken with current chrono.
 
 ## Backend
 - Python requires 3.12+; this repo currently pins 3.14 — prefer stability when choosing majors.
@@ -47,7 +53,8 @@ Follow these unless the user explicitly overrides them.
 - Upgrade deps cautiously (`uv lock --upgrade`); one major component at a time; test after updates.
 
 ## Secrets map
-- Backend: `backend/.env` (from `backend/.env.example`) — `ROLLBAR_ACCESS_TOKEN`, `POSTGRES_DSN`, `REDIS_URL`, `PREFECT_API_URL`, CORS, etc.
+- Backend: `backend/.env` (from `backend/.env.example`) — `ROLLBAR_ACCESS_TOKEN`, `POSTGRES_DSN` (Supabase), `REDIS_URL` (Dragonfly local or Fly `.internal`), `PREFECT_API_URL`, CORS, etc.
+- Dragonfly on Fly: `DFLY_requirepass` via `fly secrets` (`infra/dragonfly/`).
 - Chromatic / frontend CI: `CHROMATIC_PROJECT_TOKEN` (root `.env` or CI secrets).
 - Never commit real tokens. Empty optional tokens disable those integrations.
 
@@ -56,3 +63,4 @@ Follow these unless the user explicitly overrides them.
 - Format: `- YYYY-MM-DD: Brief description of what and why (1–2 sentences).`
 - Specific enough to remember the journey (commands, decisions, challenges) — not a novel, not a one-word stub.
 - Example: `- 2026-07-14: Initialized backend with uv + FastAPI + Prefect + Pathway. Chose Prefect for Pythonic workflow config over Airflow.`
+- Keep the **Packages** section current: when adding/removing a direct dependency, add/remove its GitHub (or primary) repo URL so packages can be starred. See `.cursor/rules/packages-log.mdc`.

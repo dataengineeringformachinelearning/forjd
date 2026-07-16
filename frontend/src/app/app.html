@@ -1,14 +1,58 @@
 <main class="shell">
   <header class="shell__header">
     <p class="shell__brand">{{ title() }}</p>
-    <h1 class="shell__headline">Pipeline control plane</h1>
+    <h1 class="shell__headline">Connected stack pulse</h1>
     <p class="shell__lede">
-      Configurable streaming workflows. FastAPI, Prefect, and Pathway underneath.
+      Angular → FastAPI → Rust engine, Polars, Pathway, Prefect, Supabase Postgres, and Dragonfly.
+      Mockup wiring you can grow into real pipelines.
     </p>
   </header>
 
   <div class="shell__actions">
-    <forjd-button>Open console</forjd-button>
-    <forjd-button variant="ghost">Docs (soon)</forjd-button>
+    <forjd-button type="button" (click)="runPulse()" [attr.aria-busy]="busy()">
+      {{ busy() ? 'Running…' : 'Run pulse' }}
+    </forjd-button>
+    <forjd-button variant="ghost" type="button" (click)="refreshStack()">Refresh stack</forjd-button>
   </div>
+
+  @if (error()) {
+    <p class="shell__error" role="alert">{{ error() }}</p>
+  }
+
+  <section class="shell__panel" aria-label="Stack status">
+    <h2 class="shell__panel-title">Stack</h2>
+    @if (stack(); as s) {
+      <ul class="shell__checks">
+        @for (entry of s.checks | keyvalue; track entry.key) {
+          <li [attr.data-ok]="entry.value.ok">
+            <span class="shell__check-name">{{ entry.key }}</span>
+            <span class="shell__check-state">{{ entry.value.ok ? 'ok' : 'down' }}</span>
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="shell__muted">No stack status yet.</p>
+    }
+  </section>
+
+  @if (pulse(); as p) {
+    <section class="shell__panel" aria-label="Last pulse">
+      <h2 class="shell__panel-title">Last pulse</h2>
+      <p class="shell__meta">
+        {{ p.layers_ok }}/{{ p.layers_total }} layers · id {{ p.id }}
+      </p>
+      <ul class="shell__checks">
+        @for (layer of layerEntries(); track layer.name) {
+          <li [attr.data-ok]="layer.ok">
+            <span class="shell__check-name">{{ layer.name }}</span>
+            <span class="shell__check-state">{{ layer.ok ? 'ok' : 'fail' }}</span>
+          </li>
+        }
+      </ul>
+      <details class="shell__details">
+        <summary>Raw JSON</summary>
+        <pre>{{ p | json }}</pre>
+      </details>
+    </section>
+  }
 </main>
