@@ -105,12 +105,13 @@ cargo test
 ### Dragonfly → Fly.io
 
 ```bash
-cd infra/dragonfly
 fly apps create forjd-dragonfly
-fly volumes create dragonfly_data --size 1 --region iad
-fly secrets set DFLY_requirepass='strong-password'
-fly deploy
+fly volumes create dragonfly_data --size 1 --region iad -a forjd-dragonfly
+fly secrets set DFLY_requirepass='strong-password' -a forjd-dragonfly
+cd infra/dragonfly && fly deploy
 ```
+
+GitHub/Fly dashboard: working directory `infra/dragonfly`, config path `fly.toml` (not a doubled path). Create the volume before the first deploy — missing volume is a common failure.
 
 Then point the API at:
 
