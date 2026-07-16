@@ -142,7 +142,7 @@ Private URL for other Fly apps: `http://forjd-engine.internal:8080`. Set matchin
 From **repo root** (includes the Rust wheel):
 
 ```bash
-docker build -f backend/Dockerfile -t forjd-api .
+docker build -f backend/Dockerfile -t forjd-backend .
 ```
 
 Compose from `backend/`:
@@ -153,7 +153,14 @@ docker compose up --build
 
 ### Frontend → Vercel
 
-`frontend/vercel.json` is set up. Set production `apiBaseUrl` in `frontend/src/environments/environment.ts` to your API origin, and add that origin to backend `CORS_ORIGINS`.
+Domain: [https://forjd.co](https://forjd.co). `frontend/vercel.json` is set up. Production `apiBaseUrl` is `https://backend.forjd.co` — point that hostname at Fly (`forjd-backend`) and keep `https://forjd.co` / `https://www.forjd.co` in backend `CORS_ORIGINS`.
+
+### API custom domain
+
+```bash
+fly certs add backend.forjd.co -a forjd-backend
+# In Vercel DNS for forjd.co, add the A/AAAA Fly prints (→ forjd-backend)
+```
 
 ## Layout
 

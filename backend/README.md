@@ -39,7 +39,7 @@ uv run forjd
 Build from **repo root** (engine + backend):
 
 ```bash
-docker build -f backend/Dockerfile -t forjd-api .
+docker build -f backend/Dockerfile -t forjd-backend .
 ```
 
 Compose (from `backend/`):
@@ -60,9 +60,9 @@ Config: [`../fly.api.toml`](../fly.api.toml) (repo root — build context must i
 
 ```bash
 # from repo root
-fly apps create forjd-api
+fly apps create forjd-backend
 fly secrets set POSTGRES_DSN='…' REDIS_URL='redis://:…@forjd-dragonfly.internal:6379/0' \
-  ENGINE_API_TOKEN='…' ROLLBAR_ACCESS_TOKEN='…' -a forjd-api
+  ENGINE_API_TOKEN='…' ROLLBAR_ACCESS_TOKEN='…' -a forjd-backend
 fly deploy --config fly.api.toml --ha=false
 ```
 

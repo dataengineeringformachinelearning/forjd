@@ -42,6 +42,10 @@
 
 - 2026-07-16: Hardened the pulse PoC around a modern Rust-first core: engine **0.2.0** (edition 2024, Arrow/Parquet **59**, PyO3 **0.29**) with real validation/enrichment, min/max summarize stats, `ENGINE_API_TOKEN` auth, body limits, timeouts, and security headers. Backend prefers `ENGINE_URL` HTTP (Compose `forjd-engine`) with PyO3 fallback; added optional `API_KEY`, security-header middleware, tighter CORS, Dragonfly `requirepass` locally, and private-only Fly Dragonfly TCP. Dropped unused Angular `zone.js` / deprecated animation packages; bumped Angular tooling to 22.0.7.
 
+- 2026-07-16: Deployed `forjd-engine` and `forjd-backend` to Fly (`fly.api.toml` at repo root; Dockerfile venv path fix so `python -m uvicorn` starts). Renamed the API app from `forjd-api` → `forjd-backend`. Health passes; Postgres/Dragonfly readiness still need DSN/6PN follow-up.
+
+- 2026-07-16: Wired production domain [forjd.co](https://forjd.co): frontend `apiBaseUrl` → `https://backend.forjd.co`, Fly cert for `backend.forjd.co` on `forjd-backend`, CORS allows `https://forjd.co` / `www`.
+
 ## Packages
 
 Direct dependencies only. Star these on GitHub.

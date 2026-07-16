@@ -1,5 +1,5 @@
-/** Production / Vercel defaults — override API via build or runtime if needed. */
+/** Production / Vercel — UI at https://forjd.co */
 export const environment = {
   production: true,
-  apiBaseUrl: 'https://api.forjd.example',
+  apiBaseUrl: 'https://backend.forjd.co',
 };

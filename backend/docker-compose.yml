@@ -1,5 +1,5 @@
 services:
-  forjd-api:
+  forjd-backend:
     build:
       context: ..
       dockerfile: backend/Dockerfile
