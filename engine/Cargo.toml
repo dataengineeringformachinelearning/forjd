@@ -1,9 +1,10 @@
 [package]
 name = "forjd-engine"
-version = "0.1.0"
-edition = "2021"
+version = "0.2.0"
+edition = "2024"
 description = "FORJD high-performance engine (Rust core, Python via PyO3, HTTP on Fly.io)"
 default-run = "forjd-engine"
+rust-version = "1.97"
 
 [lib]
 name = "forjd_engine"
@@ -15,17 +16,20 @@ path = "src/bin/forjd-engine.rs"
 required-features = ["server"]
 
 [dependencies]
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "time"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-arrow = "55"
-parquet = "55"
+arrow = "59"
+parquet = "59"
 bytes = "1"
-pyo3 = { version = "0.27", optional = true }
+thiserror = "2"
+subtle = "2"
+pyo3 = { version = "0.29", optional = true }
 axum = { version = "0.8", optional = true }
-tower-http = { version = "0.6", optional = true, features = ["trace"] }
+tower = { version = "0.5", optional = true, features = ["limit", "timeout", "util"] }
+tower-http = { version = "0.6", optional = true, features = ["trace", "limit", "set-header", "request-id", "util"] }
 
 [features]
 default = []
@@ -34,4 +38,4 @@ python = ["dep:pyo3"]
 # Enabled by maturin when building the Python extension.
 extension-module = ["python", "pyo3/extension-module"]
 # Standalone HTTP service for Fly.io (no Python required).
-server = ["dep:axum", "dep:tower-http"]
+server = ["dep:axum", "dep:tower", "dep:tower-http"]

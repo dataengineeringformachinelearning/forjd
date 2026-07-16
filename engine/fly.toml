@@ -19,6 +19,8 @@ primary_region = 'iad'
 [env]
   RUST_LOG = 'info'
   PORT = '8080'
+  # Set via `fly secrets set ENGINE_API_TOKEN=…` so mutate routes are protected.
+  # RUST_BACKTRACE = '1'  # only while debugging
 
 [http_service]
   internal_port = 8080

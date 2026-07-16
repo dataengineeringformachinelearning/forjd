@@ -47,21 +47,26 @@ async def run_pulse(
 
     layers: dict[str, Any] = {}
 
-    # Rust engine (PyO3)
+    # Rust engine (HTTP when ENGINE_URL set, else in-process PyO3)
     try:
-        processed = engine.process_event(
+        processed = await engine.process_event(
             {
                 "id": pulse_id,
                 "timestamp": ts,
                 "payload": {"values": values, "source": source},
             }
         )
-        summarized = engine.summarize_values(values)
+        summarized = await engine.summarize_values(values)
+        status = engine.engine_status()
+        if status.get("mode") == "http":
+            remote = await engine.remote_version()
+            if remote:
+                status = {**status, "remote": remote}
         layers["engine"] = {
             "ok": True,
             "event": processed,
             "summary": summarized,
-            "status": engine.engine_status(),
+            "status": status,
         }
     except Exception as exc:
         logger.exception("engine layer failed")

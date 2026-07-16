@@ -11,6 +11,7 @@ from app.core.clients import create_db_pool, create_redis_client
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.core.rollbar import configure_rollbar
+from app.core.security import ApiKeyMiddleware, SecurityHeadersMiddleware
 
 
 @asynccontextmanager
@@ -39,15 +40,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Rollbar first (when token set), then CORS
+# Rollbar first (when token set), then security headers, optional API key, CORS
 configure_rollbar(app)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(ApiKeyMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-API-Key", "X-Request-ID"],
 )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)

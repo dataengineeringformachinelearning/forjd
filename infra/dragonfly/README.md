@@ -40,6 +40,7 @@ REDIS_URL=redis://:PASSWORD@127.0.0.1:6379/0
 
 ## Notes
 
-- Prefer **`.internal`** (no public internet). Public `services.ports` is for optional debugging.
+- **Private by default** — `fly.toml` has no public `services.ports`; use `.internal` / Flycast.
+- Prefer **`.internal`** (no public internet). Add a public port only for temporary debugging.
 - Pin the image tag in `fly.toml` (no `:latest`).
 - Scale memory if you cache large payloads (`fly scale memory 1024`).

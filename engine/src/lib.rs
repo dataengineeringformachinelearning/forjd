@@ -1,4 +1,4 @@
-//! FORJD engine — process events and summarize numeric batches via Arrow/Parquet.
+//! FORJD engine — validate/enrich events and summarize numeric batches via Arrow/Parquet.
 //!
 //! - Library / Python: `forjd_engine` (PyO3 / maturin) when built with `--features python`
 //! - HTTP service: `forjd-engine` binary when built with `--features server`
@@ -11,6 +11,39 @@ use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use parquet::arrow::ArrowWriter;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
+use thiserror::Error;
+
+/// Wire schema version for processed events (bump when payload shape changes).
+pub const SCHEMA_VERSION: u32 = 1;
+/// Maximum accepted event id length.
+pub const MAX_EVENT_ID_LEN: usize = 128;
+/// Maximum values in a summarize batch (PoC + DoS bound).
+pub const MAX_VALUES: usize = 10_000;
+/// Maximum JSON payload depth when scanning nested numbers (defense in depth).
+pub const MAX_PAYLOAD_DEPTH: usize = 8;
+
+#[derive(Debug, Error, Clone, PartialEq, Eq)]
+pub enum EngineError {
+    #[error("id must not be empty")]
+    EmptyId,
+    #[error("id exceeds {MAX_EVENT_ID_LEN} characters")]
+    IdTooLong,
+    #[error("id contains invalid characters (use printable ASCII without control chars)")]
+    IdInvalidChars,
+    #[error("timestamp must be non-negative")]
+    NegativeTimestamp,
+    #[error("values must not be empty")]
+    EmptyValues,
+    #[error("values exceed max length of {MAX_VALUES}")]
+    TooManyValues,
+    #[error("values must be finite (no NaN/Inf)")]
+    NonFiniteValue,
+    #[error("payload nesting exceeds max depth of {MAX_PAYLOAD_DEPTH}")]
+    PayloadTooDeep,
+    #[error("columnar I/O error: {0}")]
+    Columnar(String),
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
@@ -19,10 +52,90 @@ pub struct Event {
     pub payload: serde_json::Value,
 }
 
-/// Process a single event (placeholder for heavier engine work later).
-pub fn process_event(event: Event) -> Event {
-    tracing::info!(id = %event.id, "engine processed event");
-    event
+/// Validated + enriched event returned by [`process_event`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProcessedEvent {
+    pub id: String,
+    pub timestamp: i64,
+    pub payload: serde_json::Value,
+    pub engine: String,
+    pub engine_version: String,
+    pub schema_version: u32,
+    pub processed_at: i64,
+}
+
+fn now_unix_secs() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
+
+fn validate_id(id: &str) -> Result<(), EngineError> {
+    if id.is_empty() {
+        return Err(EngineError::EmptyId);
+    }
+    if id.len() > MAX_EVENT_ID_LEN {
+        return Err(EngineError::IdTooLong);
+    }
+    if !id
+        .chars()
+        .all(|c| c.is_ascii_graphic() || c == ' ')
+    {
+        return Err(EngineError::IdInvalidChars);
+    }
+    Ok(())
+}
+
+fn assert_finite_json(value: &serde_json::Value, depth: usize) -> Result<(), EngineError> {
+    if depth > MAX_PAYLOAD_DEPTH {
+        return Err(EngineError::PayloadTooDeep);
+    }
+    match value {
+        serde_json::Value::Number(n) => {
+            if let Some(f) = n.as_f64()
+                && !f.is_finite()
+            {
+                return Err(EngineError::NonFiniteValue);
+            }
+            Ok(())
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                assert_finite_json(item, depth + 1)?;
+            }
+            Ok(())
+        }
+        serde_json::Value::Object(map) => {
+            for v in map.values() {
+                assert_finite_json(v, depth + 1)?;
+            }
+            Ok(())
+        }
+        _ => Ok(()),
+    }
+}
+
+/// Validate and enrich a single event (schema checks + engine metadata).
+pub fn process_event(event: Event) -> Result<ProcessedEvent, EngineError> {
+    validate_id(&event.id)?;
+    if event.timestamp < 0 {
+        return Err(EngineError::NegativeTimestamp);
+    }
+    assert_finite_json(&event.payload, 0)?;
+
+    let processed_at = now_unix_secs();
+    tracing::info!(id = %event.id, schema_version = SCHEMA_VERSION, "engine processed event");
+
+    Ok(ProcessedEvent {
+        id: event.id,
+        timestamp: event.timestamp,
+        payload: event.payload,
+        engine: "forjd-engine".into(),
+        engine_version: engine_version().into(),
+        schema_version: SCHEMA_VERSION,
+        processed_at,
+    })
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,14 +143,28 @@ pub struct SummarizeResult {
     pub count: usize,
     pub sum: f64,
     pub mean: f64,
+    pub min: f64,
+    pub max: f64,
     pub parquet_bytes: usize,
 }
 
-/// Summarize values with an Arrow → Parquet → Arrow round-trip (PoC of columnar I/O).
-pub fn summarize_values(values: &[f64]) -> Result<SummarizeResult, String> {
+/// Reject empty / oversized / non-finite batches before columnar work.
+pub fn validate_values(values: &[f64]) -> Result<(), EngineError> {
     if values.is_empty() {
-        return Err("values must not be empty".into());
+        return Err(EngineError::EmptyValues);
     }
+    if values.len() > MAX_VALUES {
+        return Err(EngineError::TooManyValues);
+    }
+    if values.iter().any(|v| !v.is_finite()) {
+        return Err(EngineError::NonFiniteValue);
+    }
+    Ok(())
+}
+
+/// Summarize values with an Arrow → Parquet → Arrow round-trip (columnar I/O PoC).
+pub fn summarize_values(values: &[f64]) -> Result<SummarizeResult, EngineError> {
+    validate_values(values)?;
 
     let schema = Arc::new(Schema::new(vec![
         Field::new("idx", DataType::Int64, false),
@@ -59,33 +186,42 @@ pub fn summarize_values(values: &[f64]) -> Result<SummarizeResult, String> {
         schema.clone(),
         vec![Arc::new(idx), Arc::new(vals), Arc::new(labels)],
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| EngineError::Columnar(e.to_string()))?;
 
     let mut buffer: Vec<u8> = Vec::new();
     {
-        let mut writer =
-            ArrowWriter::try_new(&mut buffer, schema, None).map_err(|e| e.to_string())?;
-        writer.write(&batch).map_err(|e| e.to_string())?;
-        writer.close().map_err(|e| e.to_string())?;
+        let mut writer = ArrowWriter::try_new(&mut buffer, schema, None)
+            .map_err(|e| EngineError::Columnar(e.to_string()))?;
+        writer
+            .write(&batch)
+            .map_err(|e| EngineError::Columnar(e.to_string()))?;
+        writer
+            .close()
+            .map_err(|e| EngineError::Columnar(e.to_string()))?;
     }
     let parquet_bytes = buffer.len();
 
     let reader = ParquetRecordBatchReaderBuilder::try_new(Bytes::from(buffer))
-        .map_err(|e| e.to_string())?
+        .map_err(|e| EngineError::Columnar(e.to_string()))?
         .build()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| EngineError::Columnar(e.to_string()))?;
 
     let mut count: usize = 0;
     let mut sum = 0.0_f64;
+    let mut min = f64::INFINITY;
+    let mut max = f64::NEG_INFINITY;
     for batch in reader {
-        let batch = batch.map_err(|e| e.to_string())?;
+        let batch = batch.map_err(|e| EngineError::Columnar(e.to_string()))?;
         let col = batch
             .column(1)
             .as_any()
             .downcast_ref::<Float64Array>()
-            .ok_or_else(|| "expected float64 value column".to_string())?;
+            .ok_or_else(|| EngineError::Columnar("expected float64 value column".into()))?;
         for i in 0..col.len() {
-            sum += col.value(i);
+            let v = col.value(i);
+            sum += v;
+            min = min.min(v);
+            max = max.max(v);
             count += 1;
         }
     }
@@ -95,6 +231,8 @@ pub fn summarize_values(values: &[f64]) -> Result<SummarizeResult, String> {
         count,
         sum,
         mean,
+        min,
+        max,
         parquet_bytes,
     })
 }
@@ -104,6 +242,23 @@ pub fn engine_version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 
+/// Constant-time compare for API tokens (empty configured token → auth disabled).
+pub fn token_matches(configured: Option<&str>, provided: Option<&str>) -> bool {
+    match configured {
+        None | Some("") => true,
+        Some(expected) => {
+            let Some(got) = provided else {
+                return false;
+            };
+            use subtle::ConstantTimeEq;
+            if expected.len() != got.len() {
+                return false;
+            }
+            expected.as_bytes().ct_eq(got.as_bytes()).into()
+        }
+    }
+}
+
 #[cfg(feature = "python")]
 mod python_api {
     use super::*;
@@ -111,6 +266,10 @@ mod python_api {
     use pyo3::prelude::*;
     use pyo3::types::{PyDict, PyList};
     use pyo3::IntoPyObjectExt;
+
+    fn engine_err(err: EngineError) -> PyErr {
+        PyValueError::new_err(err.to_string())
+    }
 
     #[pyfunction]
     fn process_event_py(py: Python<'_>, event: Bound<'_, PyDict>) -> PyResult<Py<PyAny>> {
@@ -131,23 +290,29 @@ mod python_api {
             id,
             timestamp,
             payload,
-        });
+        })
+        .map_err(engine_err)?;
 
         let out = PyDict::new(py);
         out.set_item("id", processed.id)?;
         out.set_item("timestamp", processed.timestamp)?;
         out.set_item("payload", json_to_py(py, &processed.payload)?)?;
-        out.set_item("engine", "forjd-engine")?;
+        out.set_item("engine", processed.engine)?;
+        out.set_item("engine_version", processed.engine_version)?;
+        out.set_item("schema_version", processed.schema_version)?;
+        out.set_item("processed_at", processed.processed_at)?;
         Ok(out.into_any().unbind())
     }
 
     #[pyfunction]
     fn summarize_values_py(values: Vec<f64>) -> PyResult<SummarizeResultPy> {
-        let result = summarize_values(&values).map_err(PyValueError::new_err)?;
+        let result = summarize_values(&values).map_err(engine_err)?;
         Ok(SummarizeResultPy {
             count: result.count,
             sum: result.sum,
             mean: result.mean,
+            min: result.min,
+            max: result.max,
             parquet_bytes: result.parquet_bytes,
         })
     }
@@ -166,6 +331,10 @@ mod python_api {
         #[pyo3(get)]
         mean: f64,
         #[pyo3(get)]
+        min: f64,
+        #[pyo3(get)]
+        max: f64,
+        #[pyo3(get)]
         parquet_bytes: usize,
     }
 
@@ -176,6 +345,8 @@ mod python_api {
             d.set_item("count", self.count)?;
             d.set_item("sum", self.sum)?;
             d.set_item("mean", self.mean)?;
+            d.set_item("min", self.min)?;
+            d.set_item("max", self.max)?;
             d.set_item("parquet_bytes", self.parquet_bytes)?;
             Ok(d)
         }
@@ -254,6 +425,8 @@ mod python_api {
         m.add_class::<SummarizeResultPy>()?;
         m.add("process_event", m.getattr("process_event_py")?)?;
         m.add("summarize_values", m.getattr("summarize_values_py")?)?;
+        m.add("SCHEMA_VERSION", SCHEMA_VERSION)?;
+        m.add("MAX_VALUES", MAX_VALUES)?;
         Ok(())
     }
 }
@@ -263,14 +436,41 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_process_event() {
+    fn test_process_event_ok() {
         let event = Event {
             id: "test-1".to_string(),
             timestamp: 1_700_000_000,
             payload: serde_json::json!({"value": 42}),
         };
-        let result = process_event(event);
+        let result = process_event(event).unwrap();
         assert_eq!(result.id, "test-1");
+        assert_eq!(result.engine, "forjd-engine");
+        assert_eq!(result.schema_version, SCHEMA_VERSION);
+        assert_eq!(result.engine_version, engine_version());
+        assert!(result.processed_at > 0);
+    }
+
+    #[test]
+    fn test_process_event_rejects_empty_id() {
+        let event = Event {
+            id: "".into(),
+            timestamp: 1,
+            payload: serde_json::json!({}),
+        };
+        assert_eq!(process_event(event).unwrap_err(), EngineError::EmptyId);
+    }
+
+    #[test]
+    fn test_process_event_rejects_control_chars() {
+        let event = Event {
+            id: "bad\nid".into(),
+            timestamp: 1,
+            payload: serde_json::json!({}),
+        };
+        assert_eq!(
+            process_event(event).unwrap_err(),
+            EngineError::IdInvalidChars
+        );
     }
 
     #[test]
@@ -279,11 +479,38 @@ mod tests {
         assert_eq!(result.count, 3);
         assert!((result.sum - 6.0).abs() < f64::EPSILON);
         assert!((result.mean - 2.0).abs() < f64::EPSILON);
+        assert!((result.min - 1.0).abs() < f64::EPSILON);
+        assert!((result.max - 3.0).abs() < f64::EPSILON);
         assert!(result.parquet_bytes > 0);
     }
 
     #[test]
+    fn test_summarize_rejects_nan() {
+        assert_eq!(
+            summarize_values(&[1.0, f64::NAN]).unwrap_err(),
+            EngineError::NonFiniteValue
+        );
+    }
+
+    #[test]
+    fn test_summarize_rejects_empty() {
+        assert_eq!(
+            summarize_values(&[]).unwrap_err(),
+            EngineError::EmptyValues
+        );
+    }
+
+    #[test]
     fn test_engine_version() {
-        assert_eq!(engine_version(), "0.1.0");
+        assert_eq!(engine_version(), "0.2.0");
+    }
+
+    #[test]
+    fn test_token_matches() {
+        assert!(token_matches(None, None));
+        assert!(token_matches(Some(""), Some("anything")));
+        assert!(token_matches(Some("secret"), Some("secret")));
+        assert!(!token_matches(Some("secret"), Some("wrong")));
+        assert!(!token_matches(Some("secret"), None));
     }
 }

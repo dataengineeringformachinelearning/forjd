@@ -2,16 +2,16 @@
 
 Data streaming pipeline platform. This repo’s **pulse PoC** wires the full stack end to end:
 
-**Angular → FastAPI → Rust engine (PyO3) + Polars + Pathway + Prefect + Supabase Postgres + Dragonfly**
+**Angular → FastAPI → Rust engine (HTTP or PyO3) + Polars + Pathway + Prefect + Supabase Postgres + Dragonfly**
 
 ## Prerequisites
 
 | Tool | Why |
 |------|-----|
 | [uv](https://docs.astral.sh/uv/) | Backend deps + builds the Rust engine |
-| Rust (stable) | Required by maturin when building `forjd-engine` (`rustup` / Homebrew) |
+| Rust **1.97** (`engine/rust-toolchain.toml`) | maturin / `forjd-engine` |
 | Node 20+ / npm | Frontend |
-| Docker (optional) | Local Dragonfly + Prefect |
+| Docker (optional) | Local Dragonfly + Prefect + engine HTTP |
 | Supabase project | Postgres (`POSTGRES_DSN`) |
 | [flyctl](https://fly.io/docs/hands-on/install-flyctl/) (optional) | Deploy Dragonfly / engine |
 
@@ -31,15 +31,16 @@ Edit `backend/.env`:
 
 - **`POSTGRES_DSN`** — Supabase connection string, keep the `postgresql+asyncpg://…` form  
   Example: `postgresql+asyncpg://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres`
-- **`REDIS_URL`** — leave `redis://localhost:6379/0` for local Compose Dragonfly
+- **`REDIS_URL`** — leave `redis://:forjd-dev-local@localhost:6379/0` for local Compose Dragonfly
+- Optional harden: set **`API_KEY`** / **`ENGINE_API_TOKEN`** (Compose wires the latter into API + engine)
 
 Optional: run `backend/sql/001_pulses.sql` in the Supabase SQL editor (the API can also create the table on first pulse).
 
-### 2. Cache + Prefect (Docker)
+### 2. Cache + Prefect + engine (Docker)
 
 ```bash
 cd backend
-docker compose up -d dragonfly prefect-server
+docker compose up -d dragonfly prefect-server forjd-engine
 ```
 
 Optional local Postgres instead of Supabase:
@@ -53,7 +54,9 @@ docker compose --profile local-db up -d
 
 ```bash
 cd backend
-uv sync                    # builds ../engine via maturin
+uv sync                    # builds ../engine via maturin (PyO3 fallback)
+# Prefer HTTP engine from Compose:
+#   ENGINE_URL=http://127.0.0.1:8080
 uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
@@ -94,7 +97,7 @@ cargo run --no-default-features --features server   # HTTP on :8080
 
 | Layer | What happens |
 |-------|----------------|
-| Rust `forjd-engine` | Process event + Arrow/Parquet summarize |
+| Rust `forjd-engine` | Validate/enrich event + Arrow/Parquet summarize (HTTP or PyO3) |
 | Polars | Batch aggregate |
 | Pathway | Finite stream reduce (soft-fail on Py 3.14) |
 | Prefect | `forjd-pulse` flow (local fallback if server down) |
@@ -131,7 +134,7 @@ fly apps create forjd-engine
 fly deploy
 ```
 
-Private URL for other Fly apps: `http://forjd-engine.internal:8080`. Details: [`engine/README.md`](engine/README.md).
+Private URL for other Fly apps: `http://forjd-engine.internal:8080`. Set matching `ENGINE_URL` + `ENGINE_API_TOKEN` on the API. Details: [`engine/README.md`](engine/README.md).
 
 ### API image
 
