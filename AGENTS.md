@@ -17,7 +17,7 @@ Agents: read this briefing first, then enforce constraints in `.cursorrules`.
 | Orchestration | Prefect 3 |
 | Streams | Pathway |
 | Batch tables | Polars |
-| Engine | Rust (`engine/`) — tokio, Arrow/Parquet, PyO3 → Python |
+| Engine | Rust (`engine/`) — tokio, Arrow/Parquet, PyO3 → Python; optional axum HTTP on Fly.io |
 | Cache / DB | Dragonfly (Fly.io) + Postgres (Supabase) |
 | UI | Angular + forjd-ui (Storybook / Chromatic) |
 | Observability | Rollbar (API); Vercel Analytics + Speed Insights (frontend) |
@@ -31,4 +31,4 @@ Note: Pathway currently fails to import on CPython 3.14 — the pulse PoC soft-f
 - Keep dependencies minimal — add a package only when a concrete use case needs it.
 - After meaningful progress, append a `LOG.MD` entry (format in `.cursorrules`).
 
-Last updated: 2026-07-15
+Last updated: 2026-07-16
