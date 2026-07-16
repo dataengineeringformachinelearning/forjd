@@ -1,18 +1,18 @@
 # Dragonfly for FORJD — Redis-compatible cache on Fly.io
 #
 # Deploy (from this directory):
-#   fly apps create forjd-dragonfly
+#   fly apps create dragonfly
 #   fly volumes create dragonfly_data --size 1 --region iad
 #   fly secrets set DFLY_requirepass='…strong-password…'
 #   fly deploy
 #
 # Connect from other Fly apps (private network):
-#   REDIS_URL=redis://:PASSWORD@forjd-dragonfly.internal:6379/0
+#   REDIS_URL=redis://:PASSWORD@dragonfly.internal:6379/0
 #
 # Optional public TCP (debug only — prefer private .internal):
-#   fly ips allocate-v4  # then clients use forjd-dragonfly.fly.dev:6379
+#   fly ips allocate-v4  # then clients use dragonfly.fly.dev:6379
 
-app = 'forjd-dragonfly'
+app = 'dragonfly'
 primary_region = 'iad'
 
 [build]
