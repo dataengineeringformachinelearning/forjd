@@ -153,7 +153,7 @@ docker compose up --build
 
 ### Frontend → Vercel
 
-Domain: [https://forjd.co](https://forjd.co). `frontend/vercel.json` is set up. Production `apiBaseUrl` is `https://backend.forjd.co` — point that hostname at Fly (`forjd-backend`) and keep `https://forjd.co` / `https://www.forjd.co` in backend `CORS_ORIGINS`.
+Domain: [https://forjd.co](https://forjd.co). `frontend/vercel.json` is set up. Production `apiBaseUrl` is `https://backend.forjd.co` — point that hostname at Fly (`forjd-backend`) and keep `https://forjd.co` in backend `CORS_ORIGINS`.
 
 ### API custom domain
 
