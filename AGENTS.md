@@ -17,7 +17,7 @@ Agents: read this briefing first, then enforce constraints in `.cursorrules`.
 | Orchestration | Prefect 3 |
 | Streams | Pathway |
 | Batch tables | Polars |
-| Engine | Rust (`engine/`) — tokio, Arrow/Parquet, PyO3 → Python; optional axum HTTP on Fly.io |
+| Engine | Rust (`engine/`) — tokio, Arrow/Parquet **59**, PyO3 → Python; axum HTTP on Fly/Compose (`ENGINE_URL`) |
 | Cache / DB | Dragonfly (Fly.io) + Postgres (Supabase) |
 | UI | Angular + forjd-ui (Storybook / Chromatic) |
 | Observability | Rollbar (API); Vercel Analytics + Speed Insights (frontend) |

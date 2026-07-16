@@ -54,9 +54,9 @@ Follow these unless the user explicitly overrides them.
 - Upgrade deps cautiously (`uv lock --upgrade`); one major component at a time; test after updates.
 
 ## Secrets map
-- Backend: `backend/.env` (from `backend/.env.example`) — `ROLLBAR_ACCESS_TOKEN`, `POSTGRES_DSN` (Supabase), `REDIS_URL` (Dragonfly local or Fly `.internal`), `PREFECT_API_URL`, CORS, etc.
+- Backend: `backend/.env` (from `backend/.env.example`) — `ROLLBAR_ACCESS_TOKEN`, `POSTGRES_DSN` (Supabase), `REDIS_URL` (Dragonfly local or Fly `.internal`), `PREFECT_API_URL`, optional `API_KEY`, CORS, etc.
 - Dragonfly on Fly: `DFLY_requirepass` via `fly secrets` (`infra/dragonfly/`).
-- Engine on Fly: deploy from `engine/` (`fly.toml` + `Dockerfile`); optional future `ENGINE_URL=http://forjd-engine.internal:8080`.
+- Engine on Fly: deploy from `engine/` (`fly.toml` + `Dockerfile`); `ENGINE_URL=http://forjd-engine.internal:8080` + matching `ENGINE_API_TOKEN`.
 - Chromatic / frontend CI: `CHROMATIC_PROJECT_TOKEN` (root `.env` or CI secrets).
 - Never commit real tokens. Empty optional tokens disable those integrations.
 

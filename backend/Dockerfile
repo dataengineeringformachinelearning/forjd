@@ -1,12 +1,12 @@
 # --- build Rust engine wheel + Python deps ---
 FROM python:3.14-slim-trixie AS builder
 
-COPY --from=ghcr.io/astral-sh/uv:0.11.28 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.11.29 /uv /uvx /bin/
 
-# Rust toolchain for maturin / forjd-engine (PyO3)
+# Rust toolchain for maturin / forjd-engine (PyO3) — pin to match engine/rust-toolchain.toml
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl build-essential pkg-config \
-    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.97.0 \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PATH="/root/.cargo/bin:$PATH" \

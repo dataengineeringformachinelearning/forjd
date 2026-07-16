@@ -8,11 +8,16 @@ services:
     env_file:
       - .env
     environment:
-      # Prefer Supabase DSN from .env; Compose only overrides Redis/Prefect hosts.
-      REDIS_URL: redis://dragonfly:6379/0
+      # Prefer Supabase DSN from .env; Compose overrides Redis/Prefect/engine hosts.
+      REDIS_URL: redis://:${DFLY_PASSWORD:-forjd-dev-local}@dragonfly:6379/0
       PREFECT_API_URL: http://prefect-server:4200/api
+      # Out-of-process Rust engine (falls back to PyO3 wheel if unset / unreachable).
+      ENGINE_URL: http://forjd-engine:8080
+      ENGINE_API_TOKEN: ${ENGINE_API_TOKEN:-}
     depends_on:
       dragonfly:
+        condition: service_healthy
+      forjd-engine:
         condition: service_healthy
       prefect-server:
         condition: service_started
@@ -55,8 +60,38 @@ services:
         - action: rebuild
           path: ../engine
 
+  forjd-engine:
+    build:
+      context: ../engine
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      RUST_LOG: info
+      # Optional shared secret; set ENGINE_API_TOKEN in .env for both API + engine.
+      ENGINE_API_TOKEN: ${ENGINE_API_TOKEN:-}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080'",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
   dragonfly:
     image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.39.0
+    command:
+      [
+        "dragonfly",
+        "--requirepass",
+        "${DFLY_PASSWORD:-forjd-dev-local}",
+        "--dir",
+        "/data",
+      ]
     ports:
       - "6379:6379"
     volumes:
@@ -64,7 +99,14 @@ services:
     ulimits:
       memlock: -1
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "-a",
+          "${DFLY_PASSWORD:-forjd-dev-local}",
+          "ping",
+        ]
       interval: 5s
       timeout: 3s
       retries: 10

@@ -38,6 +38,8 @@
 
 - 2026-07-16: Prepared the Rust engine for Fly.io: optional `server` feature with an axum HTTP binary (`/health`, `/ready`, `/v1/process`, `/v1/summarize`), multi-stage `engine/Dockerfile` (`USER 1001`, pinned `rust:1.97.0-bookworm`), and `engine/fly.toml`. Made PyO3 optional so the container builds without Python; maturin still uses `extension-module`.
 
+- 2026-07-16: Hardened the pulse PoC around a modern Rust-first core: engine **0.2.0** (edition 2024, Arrow/Parquet **59**, PyO3 **0.29**) with real validation/enrichment, min/max summarize stats, `ENGINE_API_TOKEN` auth, body limits, timeouts, and security headers. Backend prefers `ENGINE_URL` HTTP (Compose `forjd-engine`) with PyO3 fallback; added optional `API_KEY`, security-header middleware, tighter CORS, Dragonfly `requirepass` locally, and private-only Fly Dragonfly TCP. Dropped unused Angular `zone.js` / deprecated animation packages; bumped Angular tooling to 22.0.7.
+
 ## Packages
 
 Direct dependencies only. Star these on GitHub.
@@ -49,7 +51,7 @@ Direct dependencies only. Star these on GitHub.
 - [python-dotenv](https://github.com/theskumar/python-dotenv) — `.env` loading
 - [redis-py](https://github.com/redis/redis-py) — Redis / Dragonfly client
 - [asyncpg](https://github.com/MagicStack/asyncpg) — async Postgres (Supabase)
-- [httpx](https://github.com/encode/httpx) — HTTP client
+- [httpx](https://github.com/encode/httpx) — HTTP client (engine + probes)
 - [Prefect](https://github.com/PrefectHQ/prefect) — workflow orchestration
 - [Pathway](https://github.com/pathwaycom/pathway) — streaming / incremental processing
 - [Polars](https://github.com/pola-rs/polars) — batch DataFrames
@@ -72,7 +74,6 @@ Direct dependencies only. Star these on GitHub.
 - [ng-packagr](https://github.com/ng-packagr/ng-packagr) — library packaging
 - [prettier](https://github.com/prettier/prettier) — code formatting
 - [jsdom](https://github.com/jsdom/jsdom) — DOM for tests
-- [zone.js](https://github.com/angular/angular) — Angular change-detection zone (in monorepo)
 
 ### Engine (Rust)
 - [tokio](https://github.com/tokio-rs/tokio) — async runtime
@@ -81,9 +82,12 @@ Direct dependencies only. Star these on GitHub.
 - [tracing](https://github.com/tokio-rs/tracing) — structured logging (+ subscriber)
 - [arrow-rs](https://github.com/apache/arrow-rs) — Arrow + Parquet columnar I/O
 - [bytes](https://github.com/tokio-rs/bytes) — byte buffers (Parquet reader)
+- [thiserror](https://github.com/dtolnay/thiserror) — typed engine errors
+- [subtle](https://github.com/dalek-cryptography/subtle) — constant-time token compare
 - [PyO3](https://github.com/PyO3/pyo3) — Rust↔Python bindings (`forjd_engine`)
 - [axum](https://github.com/tokio-rs/axum) — HTTP service for Fly.io (`server` feature)
-- [tower-http](https://github.com/tower-rs/tower-http) — HTTP tracing middleware
+- [tower](https://github.com/tower-rs/tower) — timeout / service stack (`server` feature)
+- [tower-http](https://github.com/tower-rs/tower-http) — tracing, body limit, headers, request IDs
 
 ### Infra (runtime, not language crates)
 - [Dragonfly](https://github.com/dragonflydb/dragonfly) — Redis-compatible cache (Fly.io: `infra/dragonfly/`)

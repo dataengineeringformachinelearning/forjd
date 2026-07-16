@@ -14,9 +14,19 @@ router = APIRouter(prefix="/stack", tags=["stack"])
 
 @router.get("")
 async def stack_status(request: Request) -> dict[str, Any]:
+    engine_check = engine.engine_status()
+    if engine_check.get("mode") == "http":
+        remote = await engine.remote_version()
+        if remote is not None:
+            engine_check = {
+                **engine_check,
+                "ok": "error" not in remote,
+                "remote": remote,
+            }
+
     checks: dict[str, Any] = {
         "api": {"ok": True, "name": settings.PROJECT_NAME, "version": settings.PROJECT_VERSION},
-        "engine": engine.engine_status(),
+        "engine": engine_check,
         "postgres": {"ok": False},
         "dragonfly": {"ok": False},
     }
