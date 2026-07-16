@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -34,8 +34,23 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
     PREFECT_API_URL: str = "http://127.0.0.1:4200/api"
 
+    # Optional shared secret for mutating API routes (empty = disabled, local PoC).
+    API_KEY: str = ""
+
+    # Out-of-process Rust engine (Fly / Compose). Empty = in-process PyO3.
+    ENGINE_URL: str = ""
+    ENGINE_API_TOKEN: str = ""
+    ENGINE_TIMEOUT_SECONDS: float = 10.0
+
     # Rollbar — leave empty to disable locally
     ROLLBAR_ACCESS_TOKEN: str = ""
+
+    @model_validator(mode="after")
+    def _secure_production_defaults(self) -> Settings:
+        if self.ENVIRONMENT.lower() in {"production", "prod"} and self.DEBUG:
+            # Prefer explicit DEBUG=false in prod; coerce if someone left the example default.
+            object.__setattr__(self, "DEBUG", False)
+        return self
 
 
 settings = Settings()

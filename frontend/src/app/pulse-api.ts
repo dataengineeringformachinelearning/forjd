@@ -21,7 +21,7 @@ export interface PulseResult {
 }
 
 export interface PulseSnapshot {
-  engine: { ok: boolean; version?: string; error?: string };
+  engine: { ok: boolean; mode?: string; version?: string; error?: string; [key: string]: unknown };
   cached: Record<string, unknown> | null;
   recent: Array<Record<string, unknown>>;
 }
