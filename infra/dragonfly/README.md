@@ -12,10 +12,20 @@ Redis-compatible cache for the API (`REDIS_URL`). Postgres stays on **Supabase**
 ```bash
 cd infra/dragonfly
 fly apps create forjd-dragonfly          # once; rename in fly.toml if taken
-fly volumes create dragonfly_data --size 1 --region iad
+fly volumes create dragonfly_data --size 1 --region iad   # required before first deploy
 fly secrets set DFLY_requirepass='replace-with-strong-password'
 fly deploy
 ```
+
+Fly will log something like:
+
+```text
+Using build strategies '[the "docker.dragonflydb.io/…/dragonfly:v1.39.0" docker image]'
+```
+
+That is **success** for this app: there is no Dockerfile to compile. Fly pulls the
+pinned official image and starts a Machine. Do **not** remove `[build]` or switch
+to a Dockerfile unless you need a custom image.
 
 Dragonfly reads `DFLY_REQUIREPASS` as `--requirepass`. Clients must include the password:
 

@@ -6,11 +6,12 @@
 #   fly secrets set DFLY_requirepass='…strong-password…'
 #   fly deploy
 #
-# Connect from other Fly apps (private 6PN only — no public TCP):
+# Connect from other Fly apps (private 6PN — no public TCP):
 #   REDIS_URL=redis://:PASSWORD@forjd-dragonfly.internal:6379/0
 #
-# Debug public access (avoid in production):
-#   Add [[services.ports]] port = 6379, then `fly ips allocate-v4`
+# Note: `[build] image = …` is intentional. Fly does not compile Dragonfly;
+# it pulls the official image. That “build strategies '[…docker image]'" log
+# line means the image path was chosen successfully — not a failed Dockerfile build.
 
 app = 'forjd-dragonfly'
 primary_region = 'iad'
@@ -22,23 +23,15 @@ primary_region = 'iad'
   # Persist snapshots under the mounted volume.
   DFLY_dir = '/data'
   DFLY_dbfilename = 'dragonfly'
+  # Listen on IPv6 so other Machines can reach us via *.internal (6PN).
+  DFLY_bind = '::'
 
 [mounts]
   source = 'dragonfly_data'
   destination = '/data'
 
-# Internal TCP only — reachable via *.internal / Flycast, not the public internet.
-[[services]]
-  protocol = 'tcp'
-  internal_port = 6379
-  auto_stop_machines = 'off'
-  auto_start_machines = true
-  min_machines_running = 1
-
-  [[services.tcp_checks]]
-    interval = '15s'
-    timeout = '2s'
-    grace_period = '10s'
+# No [[services]] / public ports — .internal traffic goes Machine→Machine on 6PN.
+# (A services block without ports is invalid; public TCP is opt-in only for debug.)
 
 [[vm]]
   size = 'shared-cpu-1x'
