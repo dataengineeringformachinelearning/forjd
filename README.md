@@ -13,7 +13,7 @@ Data streaming pipeline platform. This repo’s **pulse PoC** wires the full sta
 | Node 20+ / npm | Frontend |
 | Docker (optional) | Local Dragonfly + Prefect |
 | Supabase project | Postgres (`POSTGRES_DSN`) |
-| [flyctl](https://fly.io/docs/hands-on/install-flyctl/) (optional) | Deploy Dragonfly |
+| [flyctl](https://fly.io/docs/hands-on/install-flyctl/) (optional) | Deploy Dragonfly / engine |
 
 Python is pinned to **3.14** in `backend/`. Pathway currently fails to import on 3.14; the pulse soft-fails that layer and continues.
 
@@ -86,6 +86,7 @@ Open [http://localhost:4200](http://localhost:4200). Use **Run pulse** / **Refre
 ```bash
 cd engine
 cargo test
+cargo run --no-default-features --features server   # HTTP on :8080
 # or rebuild Python bindings from backend/: uv sync
 ```
 
@@ -120,6 +121,18 @@ REDIS_URL=redis://:strong-password@forjd-dragonfly.internal:6379/0
 
 Details: [`infra/dragonfly/README.md`](infra/dragonfly/README.md).
 
+### Engine → Fly.io
+
+Standalone Rust HTTP service (process / summarize). Config lives in `engine/`:
+
+```bash
+cd engine
+fly apps create forjd-engine
+fly deploy
+```
+
+Private URL for other Fly apps: `http://forjd-engine.internal:8080`. Details: [`engine/README.md`](engine/README.md).
+
 ### API image
 
 From **repo root** (includes the Rust wheel):
@@ -142,9 +155,10 @@ docker compose up --build
 
 ```text
 backend/     FastAPI, Prefect, Polars/Pathway services, Compose
-engine/      Rust core (PyO3 → forjd_engine)
+engine/      Rust core (PyO3 + Fly HTTP binary / Dockerfile / fly.toml)
 frontend/    Angular app + forjd-ui
 infra/dragonfly/   Fly.io Dragonfly
+infra/engine/      Pointer to engine Fly deploy docs
 ```
 
 More detail: [`backend/README.md`](backend/README.md), [`AGENTS.md`](AGENTS.md), [`LOG.MD`](LOG.MD).

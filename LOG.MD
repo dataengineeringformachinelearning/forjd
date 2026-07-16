@@ -34,6 +34,8 @@
 
 - 2026-07-15: Wired an end-to-end **pulse PoC**: Angular UI → FastAPI → Rust `forjd-engine` (PyO3 + Arrow/Parquet), Polars, Pathway (soft-fail on CPython 3.14), Prefect, Supabase-ready Postgres, and Dragonfly. Added `POST/GET /api/v1/pulse`, `/api/v1/stack`, `sql/001_pulses.sql`, and Fly-ready `infra/dragonfly/`. Docker builds from repo root so the API image includes the engine wheel.
 
+- 2026-07-16: Prepared the Rust engine for Fly.io: optional `server` feature with an axum HTTP binary (`/health`, `/ready`, `/v1/process`, `/v1/summarize`), multi-stage `engine/Dockerfile` (`USER 1001`, pinned `rust:1.97.0-bookworm`), and `engine/fly.toml`. Made PyO3 optional so the container builds without Python; maturin still uses `extension-module`.
+
 ## Packages
 
 Direct dependencies only. Star these on GitHub.
@@ -78,9 +80,11 @@ Direct dependencies only. Star these on GitHub.
 - [arrow-rs](https://github.com/apache/arrow-rs) — Arrow + Parquet columnar I/O
 - [bytes](https://github.com/tokio-rs/bytes) — byte buffers (Parquet reader)
 - [PyO3](https://github.com/PyO3/pyo3) — Rust↔Python bindings (`forjd_engine`)
+- [axum](https://github.com/tokio-rs/axum) — HTTP service for Fly.io (`server` feature)
+- [tower-http](https://github.com/tower-rs/tower-http) — HTTP tracing middleware
 
 ### Infra (runtime, not language crates)
 - [Dragonfly](https://github.com/dragonflydb/dragonfly) — Redis-compatible cache (Fly.io: `infra/dragonfly/`)
 - [PostgreSQL](https://github.com/postgres/postgres) — primary database (hosted on Supabase)
 - [Supabase](https://github.com/supabase/supabase) — hosted Postgres for FORJD
-- [Fly.io](https://github.com/superfly/fly) — Dragonfly deployment target
+- [Fly.io](https://github.com/superfly/fly) — Dragonfly + engine deployment target

@@ -12,8 +12,9 @@ Follow these unless the user explicitly overrides them.
 
 ## Engine (Rust)
 - Manage with Cargo (`cargo test` / `cargo build`). Keep the crate root at `engine/src/lib.rs`.
-- Stack: tokio + serde + tracing; Arrow/Parquet for columnar I/O when needed.
+- Stack: tokio + serde + tracing; Arrow/Parquet for columnar I/O when needed; axum behind `--features server` for Fly HTTP.
 - Prefer stability when bumping Arrow majors — pin below latest if needed; Arrow 52 is broken with current chrono.
+- Fly deploy: `engine/Dockerfile` + `engine/fly.toml` (see `engine/README.md`).
 
 ## Backend
 - Python requires 3.12+; this repo currently pins 3.14 — prefer stability when choosing majors.
@@ -55,6 +56,7 @@ Follow these unless the user explicitly overrides them.
 ## Secrets map
 - Backend: `backend/.env` (from `backend/.env.example`) — `ROLLBAR_ACCESS_TOKEN`, `POSTGRES_DSN` (Supabase), `REDIS_URL` (Dragonfly local or Fly `.internal`), `PREFECT_API_URL`, CORS, etc.
 - Dragonfly on Fly: `DFLY_requirepass` via `fly secrets` (`infra/dragonfly/`).
+- Engine on Fly: deploy from `engine/` (`fly.toml` + `Dockerfile`); optional future `ENGINE_URL=http://forjd-engine.internal:8080`.
 - Chromatic / frontend CI: `CHROMATIC_PROJECT_TOKEN` (root `.env` or CI secrets).
 - Never commit real tokens. Empty optional tokens disable those integrations.
 
