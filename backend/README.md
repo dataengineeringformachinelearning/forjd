@@ -54,6 +54,20 @@ docker compose --profile local-db up --build
 
 See [`../infra/dragonfly/README.md`](../infra/dragonfly/README.md). Point `REDIS_URL` at `redis://:PASSWORD@forjd-dragonfly.internal:6379/0`.
 
+## API → Fly.io
+
+Config: [`../fly.api.toml`](../fly.api.toml) (repo root — build context must include `engine/`).
+
+```bash
+# from repo root
+fly apps create forjd-api
+fly secrets set POSTGRES_DSN='…' REDIS_URL='redis://:…@forjd-dragonfly.internal:6379/0' \
+  ENGINE_API_TOKEN='…' ROLLBAR_ACCESS_TOKEN='…' -a forjd-api
+fly deploy --config fly.api.toml --ha=false
+```
+
+Set matching `ENGINE_URL=http://forjd-engine.internal:8080` (already in `fly.api.toml`) and the same `ENGINE_API_TOKEN` on `forjd-engine`.
+
 ## Notes
 
 - **Pathway** currently fails to import on CPython **3.14** (upstream). The pulse soft-fails that layer and continues; other layers still run.

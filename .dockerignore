@@ -1,17 +1,29 @@
-# Build context is the repo root (see backend/docker-compose.yml).
+# Build context is the repo root (see backend/Dockerfile / fly.api.toml).
 .git
 .cursor
+.github
 **/.venv
+**/.venv/**
 **/node_modules
+**/node_modules/**
 **/target
+**/target/**
 **/__pycache__
 **/.ruff_cache
 **/.angular
 **/dist
+**/storybook-static
 frontend
+frontend/**
+infra
+infra/**
 *.md
 !backend/README.md
 .env
 **/.env
 **/.env.*
 !**/.env.example
+**/*.pyc
+**/.DS_Store
+agent-transcripts
+**/.pytest_cache

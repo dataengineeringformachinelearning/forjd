@@ -1,0 +1,51 @@
+# FORJD API (FastAPI) on Fly.io
+#
+# Build context is the **repo root** (Dockerfile copies engine/ for the PyO3 wheel):
+#   fly apps create forjd-api
+#   fly secrets set POSTGRES_DSN=… REDIS_URL=… ENGINE_API_TOKEN=… -a forjd-api
+#   fly deploy --config fly.api.toml
+#
+# Health: https://forjd-api.fly.dev/health
+# Private: http://forjd-api.internal:8000
+
+app = 'forjd-api'
+primary_region = 'iad'
+
+[build]
+  dockerfile = 'backend/Dockerfile'
+  ignorefile = '.dockerignore'
+
+[env]
+  ENVIRONMENT = 'production'
+  DEBUG = 'false'
+  HOST = '0.0.0.0'
+  PORT = '8000'
+  # Engine over Fly 6PN (token via secrets)
+  ENGINE_URL = 'http://forjd-engine.internal:8080'
+  ENGINE_TIMEOUT_SECONDS = '10'
+  # Prefect optional — soft-fail when unreachable
+  PREFECT_API_URL = ''
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+  [http_service.concurrency]
+    type = 'requests'
+    hard_limit = 100
+    soft_limit = 50
+
+  [[http_service.checks]]
+    interval = '15s'
+    timeout = '5s'
+    grace_period = '45s'
+    method = 'GET'
+    path = '/health'
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '1024mb'
