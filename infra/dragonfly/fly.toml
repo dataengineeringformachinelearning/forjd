@@ -1,31 +1,28 @@
 # Dragonfly for FORJD — Redis-compatible cache on Fly.io
 #
-# Deploy (from this directory):
+# First-time setup (CLI):
 #   fly apps create forjd-dragonfly
-#   fly volumes create dragonfly_data --size 1 --region iad
-#   fly secrets set DFLY_requirepass='…strong-password…'
-#   fly deploy
+#   fly volumes create dragonfly_data --size 1 --region iad -a forjd-dragonfly
+#   fly secrets set DFLY_requirepass='…strong-password…' -a forjd-dragonfly
+#   cd infra/dragonfly && fly deploy
 #
 # Connect from other Fly apps (private 6PN — no public TCP):
 #   REDIS_URL=redis://:PASSWORD@forjd-dragonfly.internal:6379/0
-#
-# Note: `[build] image = …` is intentional. Fly does not compile Dragonfly;
-# it pulls the official image. That “build strategies '[…docker image]'" log
-# line means the image path was chosen successfully — not a failed Dockerfile build.
 
 app = 'forjd-dragonfly'
 primary_region = 'iad'
 
 [build]
-  image = 'docker.dragonflydb.io/dragonflydb/dragonfly:v1.39.0'
+  dockerfile = 'Dockerfile'
 
 [env]
-  # Persist snapshots under the mounted volume.
   DFLY_dir = '/data'
   DFLY_dbfilename = 'dragonfly'
   # Listen on IPv6 so other Machines can reach us via *.internal (6PN).
   DFLY_bind = '::'
 
+# Required before first successful deploy:
+#   fly volumes create dragonfly_data --size 1 --region iad -a forjd-dragonfly
 [mounts]
   source = 'dragonfly_data'
   destination = '/data'
