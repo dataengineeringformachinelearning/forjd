@@ -56,7 +56,17 @@ def _auth_headers() -> dict[str, str]:
 async def _http_json(method: str, path: str, *, json_body: dict[str, Any] | None = None) -> Any:
     base = settings.ENGINE_URL.rstrip("/")
     timeout = httpx.Timeout(settings.ENGINE_TIMEOUT_SECONDS)
-    async with httpx.AsyncClient(base_url=base, timeout=timeout, headers=_auth_headers()) as client:
+    # Fly 6PN is IPv6-only — bind the client to :: so we do not attempt IPv4.
+    transport = None
+    host = base.split("://", 1)[-1].split("/", 1)[0].split(":")[0].lower()
+    if host.endswith(".internal") or host.endswith(".flycast"):
+        transport = httpx.AsyncHTTPTransport(local_address="::")
+    async with httpx.AsyncClient(
+        base_url=base,
+        timeout=timeout,
+        headers=_auth_headers(),
+        transport=transport,
+    ) as client:
         response = await client.request(method, path, json=json_body)
         if response.status_code >= 400:
             detail: str

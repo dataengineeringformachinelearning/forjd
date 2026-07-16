@@ -1,7 +1,7 @@
 //! FORJD engine HTTP service — Fly.io / container entrypoint.
 //!
 //! Build: `cargo build --release --no-default-features --features server`
-//! Listen: `PORT` (default 8080) on `0.0.0.0`.
+//! Listen: `PORT` (default 8080) on `[::]` (IPv6 dual-stack) so Fly `.internal` 6PN works.
 //!
 //! Security (env):
 //! - `ENGINE_API_TOKEN` — when set, mutate routes require `Authorization: Bearer <token>`
@@ -52,7 +52,9 @@ async fn main() {
         .ok()
         .and_then(|p| p.parse().ok())
         .unwrap_or(8080);
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    // Fly private DNS (*.internal) is IPv6-only. Binding [::] accepts 6PN +
+    // IPv4-mapped addresses used by the public proxy on Linux.
+    let addr = SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], port));
 
     let api_token = std::env::var("ENGINE_API_TOKEN")
         .ok()

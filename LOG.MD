@@ -48,6 +48,8 @@
 
 - 2026-07-16: Kept Fly `forjd-backend` / `forjd-engine` always on (`auto_stop_machines=off`, `min_machines_running=1`) so idle stop + 6PN engine calls do not leave the stack suspended.
 
+- 2026-07-16: Fixed Fly 6PN private links — engine HTTP now binds `[::]` (was IPv4-only `0.0.0.0`); backend Redis/httpx prefer IPv6 for `*.internal`; redeployed Dragonfly so `DFLY_bind=::` actually applied (machine had been stuck on the first IPv4-era deploy).
+
 ## Packages
 
 Direct dependencies only. Star these on GitHub.
