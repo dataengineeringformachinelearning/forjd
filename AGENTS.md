@@ -17,16 +17,16 @@ Agents: read this briefing first, then enforce constraints in `.cursorrules`.
 | Orchestration | Prefect 3 |
 | Streams | Pathway |
 | Batch tables | Polars |
-| Engine | Rust (`engine/`) — tokio, Arrow/Parquet **59**, PyO3 → Python; axum HTTP on Fly/Compose (`ENGINE_URL`) |
-| Data plane | Rust `forjd-daemon` (`engine/daemon/`) — role-selected relay/scheduler/probe/normalizer/ingest; Postgres outbox + Dragonfly Streams (no Kafka) |
+| Engine | Rust (`engine/`) — one `forjd-engine` binary: Arrow/Parquet **59** + PyO3 + axum process HTTP + data plane (`FORJD_ROLE`, Postgres outbox, Dragonfly Streams) |
 | Cache / DB | Dragonfly (Fly.io) + Postgres (Supabase) |
 | UI | Angular + forjd-ui (Storybook / Chromatic) |
 | Observability | Rollbar (API); Vercel Analytics + Speed Insights (frontend) |
 | ML (optional PoC) | PyTorch LSTM-AE (`uv sync --group ml`) + Supabase pgvector latents |
 | Auth / E2EE | Supabase Auth JWT + X25519/HKDF session keys + AES-256-GCM sealed ingest (`sql/003`–`008`) |
-| Workflows | YAML/JSON under `backend/workflows/` → Prefect + Pathway + pluggable detectors |
+| Workflows | YAML/JSON under `backend/workflows/` → `EventType` / `PipelineConfig` / `ProjectionDefinition` → Prefect + Pathway + pluggable detectors |
 | Projections | Checkpointed durable `stream_results` + replay/DLQ (`/api/v1/projections`, `/api/v1/replay`) |
 | Status | Tenant status pages (`/api/v1/status`) — public when published |
+| Audit | Metadata-only `audit_events` (`sql/010`) — never ciphertext/keys |
 
 Pathway owns live/incremental work; Polars owns finite batch DataFrames. Details: `.cursorrules`.
 Backend Python is pinned to **3.12** with Pathway ≥0.31 (`beartype<0.16` via uv override). Pathway still does not support 3.14.
@@ -37,7 +37,7 @@ Backend Python is pinned to **3.12** with Pathway ≥0.31 (`beartype<0.16` via u
 - Keep dependencies minimal — add a package only when a concrete use case needs it.
 - After meaningful progress, append a `LOG.MD` entry (format in `.cursorrules`).
 
-Last updated: 2026-07-16
+Last updated: 2026-07-17
 
 ## Cursor Cloud specific instructions
 

@@ -14,7 +14,7 @@ use tracing::{error, info, warn};
 use url::Url;
 use uuid::Uuid;
 
-use crate::config::Config;
+use crate::data_plane::config::Config;
 
 #[derive(Clone, Debug, sqlx::FromRow)]
 struct MonitoredService {

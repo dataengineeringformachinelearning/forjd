@@ -283,31 +283,25 @@ async def advance_checkpoint_from_meta(
             )
 
 
-# --- Run projection for a tenant (Prefect soft-fail) ---
-async def run_projection(
+# --- Core projection run (no membership check — caller must authorize) ---
+async def run_projection_core(
     pool: asyncpg.Pool,
     *,
-    user: AuthUser,
     tenant_id: UUID,
     workflow_id: str | None = None,
     limit: int = 200,
 ) -> dict[str, Any]:
+    """Advance a durable projection from sealed metadata only.
+
+    Intended for: (1) user-facing API after `require_member`, (2) background
+    workers using the service-role pool (no synthetic AuthUser).
+    """
     await tenant_svc.ensure_secure_schema(pool)
-    await tenant_svc.require_member(
-        pool,
-        tenant_id=tenant_id,
-        user_id=user.user_id,
-        min_roles=frozenset({"owner", "admin", "member"}),
-    )
     limit = max(1, min(limit, 1000))
 
-    # Resolve workflow for projection name + processor config.
     content_type = "application/forjd-event+v1"
     if workflow_id:
-        wf = resolve_workflow(
-            content_type=content_type,
-            workflow_id=workflow_id,
-        )
+        wf = resolve_workflow(content_type=content_type, workflow_id=workflow_id)
     else:
         wf = resolve_workflow(content_type=content_type)
     proj_name = wf.pipeline.projection_name
@@ -373,6 +367,29 @@ async def run_projection(
         "anomaly_count": pathway.get("anomaly_count", 0),
         "prefect": {k: v for k, v in flow.items() if k not in {"pathway", "stream_results"}},
     }
+
+
+# --- User-facing projection (membership gated) ---
+async def run_projection(
+    pool: asyncpg.Pool,
+    *,
+    user: AuthUser,
+    tenant_id: UUID,
+    workflow_id: str | None = None,
+    limit: int = 200,
+) -> dict[str, Any]:
+    await tenant_svc.require_member(
+        pool,
+        tenant_id=tenant_id,
+        user_id=user.user_id,
+        min_roles=frozenset({"owner", "admin", "member"}),
+    )
+    return await run_projection_core(
+        pool,
+        tenant_id=tenant_id,
+        workflow_id=workflow_id,
+        limit=limit,
+    )
 
 
 # --- List durable projection rows ---

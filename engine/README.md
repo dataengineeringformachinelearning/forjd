@@ -1,102 +1,91 @@
 # FORJD engine (Rust)
 
-Rust tree for FORJD. Layout:
+One crate, one binary, one Fly app: **Arrow/Parquet process + data plane**.
 
-| Path | Crate | Role |
-|------|-------|------|
-| `engine/` (this package) | `forjd-engine` | Arrow/Parquet process + summarize; PyO3 + Fly HTTP |
-| [`daemon/`](daemon/) | `forjd-daemon` | Role-selected data plane (relay, scheduler, probe, normalizer, ingest, CPE) — Dragonfly Streams bus |
+| Feature | Cargo flag | Role |
+|---------|------------|------|
+| Library / PyO3 | `python` / `extension-module` | In-process from FastAPI (maturin) |
+| HTTP process/summarize | `server` | `/v1/process`, `/v1/summarize` |
+| Data plane | `data-plane` (implies `server`) | Outbox relay, ingest edge, probes, normalizer, scheduler |
 
----
-
-# forjd-engine on Fly.io
-
-Standalone Rust HTTP service for `forjd-engine` (Arrow/Parquet process + summarize).
-The Python extension path (maturin / in-process) is unchanged — Compose/Fly prefer this binary.
-
-## Prerequisites
-
-- [flyctl](https://fly.io/docs/hands-on/install-flyctl/) logged in (`fly auth login`)
-- Docker available for local image builds (Fly remote builders work without a local daemon)
+Fly/Compose build: `--features server,data-plane`.
 
 ## Endpoints
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/health` | Liveness |
-| GET | `/ready` | Readiness (no external deps yet) |
-| GET | `/v1/version` | Crate + schema version |
-| POST | `/v1/process` | Validate/enrich event (auth when token set) |
-| POST | `/v1/summarize` | Arrow/Parquet summary (auth when token set) |
+| Method | Path | When | Purpose |
+|--------|------|------|---------|
+| GET | `/health` | always | Liveness |
+| GET | `/ready` | always | Readiness (Postgres when data plane HTTP is up) |
+| GET | `/v1/version` | always | Crate + schema version |
+| POST | `/v1/process` | always | Validate/enrich event |
+| POST | `/v1/summarize` | always | Arrow/Parquet summary |
+| POST | `/api/v1/ingest` | `FORJD_ROLE` includes ingest/`all` | Edge → `outbox_events` |
+| POST | `/unique` | `FORJD_ROLE=cpe` only | Optional CPE lookup |
 
-Security defaults:
+## `FORJD_ROLE`
 
-- `ENGINE_API_TOKEN` — when set, mutate routes require `Authorization: Bearer …` or `X-Engine-Token`
-- 64 KiB body limit, 30s request timeout, security response headers, request IDs
+| Value | Behavior |
+|-------|----------|
+| unset / `engine` / `none` | Process HTTP only |
+| `all` | Relay + scheduler + probe + normalizer + ingest |
+| `relay` / `scheduler` / `probe` / `normalizer` / `ingest` | Single background role |
+| `cpe` | Optional CPE plugin (not included in `all`) |
+
+Secrets when the data plane is active: `DATABASE_URL` (or `POSTGRES_DSN`), `REDIS_URL` (Dragonfly).
 
 ## Local binary
 
 ```bash
 cd engine
-cargo test
-cargo test --features server --no-run
-cargo run --no-default-features --features server
+cp .env.example .env
+cargo test --no-default-features --features server,data-plane
+FORJD_ROLE=engine cargo run --no-default-features --features server,data-plane
 curl -s http://127.0.0.1:8080/health
 curl -s -X POST http://127.0.0.1:8080/v1/summarize \
   -H 'Content-Type: application/json' \
   -d '{"values":[1,2,3]}'
 ```
 
-With auth:
-
-```bash
-ENGINE_API_TOKEN=dev-secret cargo run --no-default-features --features server
-curl -s -X POST http://127.0.0.1:8080/v1/summarize \
-  -H 'Content-Type: application/json' \
-  -H 'Authorization: Bearer dev-secret' \
-  -d '{"values":[1,2,3]}'
-```
-
-## Local Docker image
+## Docker
 
 ```bash
 cd engine
 docker build -t forjd-engine .
-docker run --rm -p 8080:8080 -e ENGINE_API_TOKEN=dev-secret forjd-engine
+docker run --rm -p 8080:8080 \
+  -e ENGINE_API_TOKEN=dev-secret \
+  -e FORJD_ROLE=engine \
+  forjd-engine
 ```
 
-## Deploy
+## Fly.io
 
 ```bash
 cd engine
-fly apps create forjd-engine          # once; rename in fly.toml if taken
-fly secrets set ENGINE_API_TOKEN='…strong-token…'
+fly apps create forjd-engine          # once
+fly secrets set ENGINE_API_TOKEN='…' \
+  DATABASE_URL='postgresql://…?sslmode=require' \
+  REDIS_URL='redis://:…@forjd-dragonfly.internal:6379/0'
 fly deploy
 ```
 
-Smoke-check:
+VM defaults: `shared-cpu-2x` / 2GB (process + data plane). Scale further if needed:
 
 ```bash
-fly status
-curl -s https://forjd-engine.fly.dev/health
-curl -s https://forjd-engine.fly.dev/v1/version
+fly scale memory 4096 --app forjd-engine
 ```
 
-## Wiring other Fly apps
-
-Prefer the private network (no public internet for app traffic):
+Private wiring for the backend:
 
 ```text
 ENGINE_URL=http://forjd-engine.internal:8080
 ENGINE_API_TOKEN=…same as engine secret…
 ```
 
-The FastAPI backend uses HTTP when `ENGINE_URL` is set, otherwise the in-process PyO3 wheel.
+Apply `backend/sql/009`–`010` for outbox / API keys / audit before enabling `FORJD_ROLE=all`.
 
 ## Notes
 
-- Image is multi-stage (`rust:1.97.0-bookworm` → `debian:bookworm-slim`), `USER 1001`, pinned tags.
-- Build uses `--no-default-features --features server` so the image does not need Python/PyO3.
-- Arrow/Parquet **59**, PyO3 **0.29**, edition **2024**.
-- Scale memory if Parquet batches grow (`fly scale memory 1024`).
-- Set `RUST_LOG=debug` / `RUST_BACKTRACE=1` via secrets only when debugging.
+- Multi-stage image (`rust:1.97.0-bookworm` → `debian:bookworm-slim`), `USER 1001`.
+- PyO3 path stays lean (no `data-plane` deps).
+- Arrow/Parquet **59**, edition **2024**, rustc **1.97**.
+- Former `engine/daemon/` crate is folded into `src/data_plane/` — see `daemon/README.md`.

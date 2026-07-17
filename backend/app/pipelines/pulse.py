@@ -10,6 +10,8 @@ from typing import Any
 
 from prefect import flow, task
 
+from app.pipelines.soft_fail import run_with_local_fallback
+
 
 @task(name="pulse-ack")
 def ack_pulse(pulse_id: str, n_values: int) -> dict[str, Any]:
@@ -29,9 +31,9 @@ def pulse_flow(pulse_id: str, n_values: int = 0) -> dict[str, Any]:
 
 def run_pulse_flow(*, pulse_id: str, n_values: int) -> dict[str, Any]:
     """Invoke the flow; on API/client errors fall back to the task body."""
-    try:
-        return pulse_flow(pulse_id, n_values)
-    except Exception as exc:
-        # Local/dev without Prefect server — still exercise the task logic.
+
+    def _local(exc: Exception) -> dict[str, Any]:
         body = ack_pulse.fn(pulse_id, n_values)
         return {"ok": True, "mode": "local-fallback", "error": str(exc), **body}
+
+    return run_with_local_fallback(pulse_flow, pulse_id, n_values, fallback=_local)

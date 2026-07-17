@@ -12,9 +12,10 @@ Follow these unless the user explicitly overrides them.
 
 ## Engine (Rust)
 - Manage with Cargo (`cargo test` / `cargo build`). Keep the crate root at `engine/src/lib.rs`.
-- Stack: tokio + serde + tracing; Arrow/Parquet for columnar I/O when needed; axum behind `--features server` for Fly HTTP.
+- One binary `forjd-engine`: Arrow/Parquet process (`server`) + data plane (`data-plane` → outbox/ingest/probes via `FORJD_ROLE`).
+- Stack: tokio + serde + tracing; Arrow/Parquet; axum; sqlx/redis behind `data-plane`.
 - Prefer stability when bumping Arrow majors — pin below latest if needed; Arrow 52 is broken with current chrono.
-- Fly deploy: `engine/Dockerfile` + `engine/fly.toml` (see `engine/README.md`).
+- Fly deploy: single app via `engine/Dockerfile` + `engine/fly.toml` (`--features server,data-plane`).
 
 ## Backend
 - Python requires 3.12+; this repo pins **3.12** (Pathway’s beartype pin breaks on 3.14) — prefer stability when choosing majors.
@@ -56,8 +57,7 @@ Follow these unless the user explicitly overrides them.
 ## Secrets map
 - Backend: `backend/.env` (from `backend/.env.example`) — `ROLLBAR_ACCESS_TOKEN`, `POSTGRES_DSN` (Supabase), `REDIS_URL` (Dragonfly local or Fly `.internal`), `PREFECT_API_URL`, optional `API_KEY`, CORS, etc.
 - Dragonfly on Fly: `DFLY_requirepass` via `fly secrets` (`infra/dragonfly/`).
-- Engine on Fly: deploy from `engine/` (`fly.toml` + `Dockerfile`); `ENGINE_URL=http://forjd-engine.internal:8080` + matching `ENGINE_API_TOKEN`.
-- Daemon (`engine/daemon/`): `FORJD_ROLE`, `DATABASE_URL`/`POSTGRES_DSN`, `REDIS_URL` (Dragonfly Streams bus), optional `FORJD_INTERNODE_*`; apply `sql/009_daemon_data_plane.sql`.
+- Engine on Fly: deploy from `engine/` (`fly.toml` + `Dockerfile`); `ENGINE_URL=http://forjd-engine.internal:8080` + `ENGINE_API_TOKEN`; data plane via `FORJD_ROLE=all`, `DATABASE_URL`/`POSTGRES_DSN`, `REDIS_URL`, optional `FORJD_INTERNODE_*`; apply `sql/009`–`010`.
 - Chromatic / frontend CI: `CHROMATIC_PROJECT_TOKEN` (root `.env` or CI secrets).
 - Never commit real tokens. Empty optional tokens disable those integrations.
 

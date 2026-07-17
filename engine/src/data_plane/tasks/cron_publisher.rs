@@ -13,8 +13,8 @@ use sqlx::PgPool;
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-use crate::bus;
-use crate::tasks::maintenance;
+use crate::data_plane::bus;
+use crate::data_plane::tasks::maintenance;
 
 const RUST_NATIVE_TASKS: &[&str] = &["db_cleanup", "optimize_database"];
 const MAX_TASK_ATTEMPTS: i32 = 5;
@@ -182,7 +182,7 @@ async fn execute_run(pool: &PgPool, client: &Client, owner: Uuid, run: Scheduled
         task: &run.task_name,
         scheduled_for: run.scheduled_for.to_rfc3339(),
         triggered_at: Utc::now().to_rfc3339(),
-        source: "forjd-daemon:scheduler",
+        source: "forjd-engine:scheduler",
     };
     let result = async {
         let mut conn = bus::connect(client).await?;
@@ -357,7 +357,7 @@ mod tests {
             task: "forjd_projection_tick",
             scheduled_for: scheduled_for.clone(),
             triggered_at: "2026-07-15T16:05:01+00:00".to_owned(),
-            source: "forjd-daemon:scheduler",
+            source: "forjd-engine:scheduler",
         };
         let payload = serde_json::to_value(trigger).expect("serialize");
         assert_eq!(payload["scheduled_for"], scheduled_for);

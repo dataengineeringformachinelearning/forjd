@@ -66,10 +66,9 @@ def pathway_sealed_process(
         }
     )
 
-    params_by_step: dict[str, dict[str, Any]] = {}
-    if workflow is not None:
-        params_by_step["size_anomaly"] = workflow.pipeline.size_anomaly.model_dump()
-        params_by_step["rate_anomaly"] = workflow.pipeline.rate_anomaly.model_dump()
+    params_by_step = (
+        workflow.pipeline.params_for_detectors() if workflow is not None else {}
+    )
     anomalies = run_detectors(
         sanitized, steps=steps, params_by_step=params_by_step
     )

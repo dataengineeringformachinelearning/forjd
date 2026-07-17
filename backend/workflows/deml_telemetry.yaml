@@ -1,17 +1,25 @@
-# DEML is one registered use case — not the platform.
+# Example use case (threat / telemetry SaaS) — not platform core.
+# Same blind processor as default; tighter thresholds + tagged outputs.
 id: deml_telemetry
-name: DEML telemetry
+name: Threat telemetry (example)
 description: >
-  Sealed telemetry for DEML (detection / response). Same blind processor as
-  default, with tighter size thresholds and DEML output tags.
+  Sealed telemetry for a detection/response product. Demonstrates how a
+  specialized SaaS vertical is just YAML — same E2EE ingest and projections.
 version: 1
 enabled: true
 default: false
 
+event_types:
+  - name: deml.metric
+    content_type: application/forjd-telemetry+v1
+    description: Numeric / counter telemetry
+  - name: deml.alert
+    content_type: application/forjd-telemetry+v1
+    description: Alert / finding envelope
+
 match:
   content_types:
     - application/forjd-telemetry+v1
-  # Empty = any event_type; clients may still set deml.metric / deml.alert / etc.
   event_types: []
 
 encryption:
@@ -20,7 +28,10 @@ encryption:
 
 pipeline:
   processor: sealed_metadata
-  projection_name: deml.sealed_rollup
+  projection:
+    name: deml.sealed_rollup
+    version: 1
+    description: Sealed rollup + anomaly scores for threat telemetry
   steps:
     - rollup
     - size_anomaly

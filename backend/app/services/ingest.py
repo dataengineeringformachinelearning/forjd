@@ -27,6 +27,7 @@ from app.models.ingest import (
     IngestEventResult,
 )
 from app.pipelines.ingest import run_ingest_flow
+from app.services import audit
 from app.services import projections as proj_svc
 from app.services import sessions as session_svc
 from app.services import tenants as tenant_svc
@@ -170,6 +171,21 @@ async def ingest_events(
         prefect_runs.append({"ok": False, "error": str(exc)})
         pathway_summary["ok"] = False
         pathway_summary["error"] = str(exc)
+
+    # Metadata-only audit (never ciphertext / keys).
+    for tid in tenant_ids:
+        await audit.record(
+            pool,
+            action=audit.ACTION_INGEST_BATCH,
+            actor_user_id=user.user_id,
+            tenant_id=tid,
+            resource_type="ingest_batch",
+            details={
+                "accepted": len(results),
+                "workflows": list(by_workflow.keys()),
+                "anomaly_count": pathway_summary.get("anomaly_count", 0),
+            },
+        )
 
     return {
         "ok": True,

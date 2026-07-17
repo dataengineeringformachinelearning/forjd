@@ -8,6 +8,12 @@ version: 1
 enabled: true
 default: false
 
+event_types:
+  - name: page.view
+    content_type: application/forjd-analytics+v1
+  - name: feature.used
+    content_type: application/forjd-analytics+v1
+
 match:
   content_types:
     - application/forjd-analytics+v1
@@ -19,7 +25,10 @@ encryption:
 
 pipeline:
   processor: sealed_metadata
-  projection_name: analytics.rollup
+  projection:
+    name: analytics.rollup
+    version: 1
+    description: Product analytics sealed rollup
   steps:
     - rollup
   size_anomaly:

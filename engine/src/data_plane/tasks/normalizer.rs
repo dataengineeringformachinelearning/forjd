@@ -13,7 +13,7 @@ use tracing::{error, info, warn};
 use url::Url;
 use uuid::Uuid;
 
-use crate::{bus, config::Config};
+use crate::data_plane::{bus, config::Config};
 
 const TELEMETRY_STREAM: &str = "telemetry-raw";
 const TELEMETRY_DLQ: &str = "telemetry-raw-dlq";

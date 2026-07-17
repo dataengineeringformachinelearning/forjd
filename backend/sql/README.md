@@ -12,11 +12,13 @@ Apply in order in the Supabase SQL editor (or `psql`).
 | `006_universal_stream.sql` | `event_type` / `workflow_id`, `use_cases`, `sealed_events` view |
 | `007_projections.sql` | Durable projections, checkpoints, DLQ |
 | `008_status_pages.sql` | Status pages / services / incidents (public when published) |
+| `009_daemon_data_plane.sql` | Rust daemon outbox, scheduler, API keys, normalizer, probes |
+| `010_audit_and_rate_limits.sql` | Metadata-only `audit_events` + `daemon_api_keys.rate_limit_rpm` |
 
-## Secure path (`003`–`008`)
+## Secure path (`003`–`010`)
 
 1. Enable extensions **vector** and **pgcrypto** (Dashboard → Database → Extensions).
-2. Run `003` → `008` in order.
+2. Run `003` → `010` in order.
 3. Optional Realtime: Dashboard → Replication → add `telemetry_events` and/or `stream_results`.
 4. Set backend env: `SUPABASE_URL`, `SUPABASE_JWT_SECRET` (or rely on JWKS), `POSTGRES_DSN`.
 5. Add SaaS use cases as YAML under `backend/workflows/` (see that folder’s README).

@@ -6,10 +6,15 @@ import logging
 from pathlib import Path
 
 from app.core.config import settings
+from app.workflows.detectors import REGISTRY as DETECTOR_REGISTRY
 from app.workflows.loader import load_workflows_dir
 from app.workflows.models import WorkflowDefinition
+from app.workflows.processors import REGISTRY as PROCESSOR_REGISTRY
 
 logger = logging.getLogger("forjd.workflows")
+
+# Built-in non-detector pipeline steps (processor-local).
+_BUILTIN_STEPS = frozenset({"rollup"})
 
 _CACHE: list[WorkflowDefinition] | None = None
 
@@ -41,6 +46,8 @@ def all_workflows(*, reload: bool = False) -> list[WorkflowDefinition]:
         if not loaded:
             loaded = [_builtin_default()]
             logger.warning("no workflow files found; using built-in default_sealed")
+        for wf in loaded:
+            _warn_unknown_extensions(wf)
         _CACHE = loaded
     return list(_CACHE)
 
@@ -53,6 +60,27 @@ def _builtin_default() -> WorkflowDefinition:
         default=True,
         match={"content_types": ["application/forjd-event+v1"]},
     )
+
+
+def _warn_unknown_extensions(wf: WorkflowDefinition) -> None:
+    """Fail soft on unknown processors/detectors so YAML stays extensible."""
+    proc = wf.pipeline.processor
+    if proc not in PROCESSOR_REGISTRY:
+        logger.warning(
+            "workflow %s references unknown processor %r; known: %s",
+            wf.id,
+            proc,
+            ", ".join(sorted(PROCESSOR_REGISTRY)) or "(none)",
+        )
+    for step in wf.pipeline.steps:
+        if step in _BUILTIN_STEPS or step in DETECTOR_REGISTRY:
+            continue
+        logger.warning(
+            "workflow %s step %r is not a built-in or registered detector "
+            "(will be skipped at runtime)",
+            wf.id,
+            step,
+        )
 
 
 # --- Resolution ---
@@ -123,8 +151,15 @@ def list_workflow_summaries() -> list[dict[str, object]]:
             "default": w.default,
             "content_types": w.match.content_types,
             "event_types": w.match.event_types,
+            "catalog_event_types": [e.model_dump() for e in w.event_types],
             "processor": w.pipeline.processor,
             "steps": w.pipeline.steps,
+            "projection": (
+                w.pipeline.projection.model_dump()
+                if w.pipeline.projection
+                else {"name": w.pipeline.projection_name, "version": 1}
+            ),
+            "encryption": w.encryption.model_dump(),
         }
         for w in all_workflows()
     ]

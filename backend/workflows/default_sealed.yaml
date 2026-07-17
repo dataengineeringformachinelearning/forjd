@@ -19,7 +19,10 @@ encryption:
 
 pipeline:
   processor: sealed_metadata
-  projection_name: sealed.default
+  projection:
+    name: sealed.default
+    version: 1
+    description: Universal sealed-stream rollup
   steps:
     - rollup
     - size_anomaly

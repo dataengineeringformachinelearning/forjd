@@ -8,7 +8,7 @@ use redis::{AsyncCommands, Client, Value as RedisValue};
 use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::{config::Config, internode};
+use crate::data_plane::{config::Config, internode};
 
 /// Stream message claimed from a consumer group.
 #[derive(Debug, Clone)]

@@ -1,10 +1,43 @@
-"""Pydantic schema for YAML/JSON workflow definitions (use-case config)."""
+"""Universal workflow schema — EventType, PipelineConfig, ProjectionDefinition.
+
+YAML/JSON under `backend/workflows/` maps 1:1 onto these models. Adding a SaaS
+use case is a config file (+ optional detector/processor registration), never a
+fork of ingest or crypto.
+"""
 
 from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+# --- EventType (logical class clients may send) ---
+class EventType(BaseModel):
+    """Typed event class for routing and catalog discovery.
+
+    On the wire, clients still send plain `event_type` / `content_type` strings;
+    `WorkflowMatch` resolves them. This model is the SaaS-facing contract.
+    """
+
+    name: str = Field(
+        ...,
+        min_length=1,
+        max_length=128,
+        pattern=r"^[a-z0-9][a-z0-9_.-]*$",
+        description="Stable event type id (e.g. page.view, deml.alert)",
+    )
+    content_type: str = Field(
+        default="application/forjd-event+v1",
+        max_length=128,
+        description="MIME-like content type this event travels under",
+    )
+    description: str = ""
+
+    @field_validator("name")
+    @classmethod
+    def _lower_name(cls, value: str) -> str:
+        return value.strip().lower()
 
 
 # --- Match rules (content_type / event_type → this workflow) ---
@@ -16,7 +49,7 @@ class WorkflowMatch(BaseModel):
     )
 
 
-# --- Detector params (pluggable; see app.workflows.detectors) ---
+# --- Detector params (built-in; custom detectors use detector_params) ---
 class SizeAnomalyParams(BaseModel):
     zscore: float = 2.5
     max_cipher_len: int = 262_144
@@ -27,20 +60,88 @@ class RateAnomalyParams(BaseModel):
     window_sec: int = 60  # reserved for continuous projector windows
 
 
+# --- ProjectionDefinition (durable consumer contract) ---
+class ProjectionDefinition(BaseModel):
+    """Named durable projection stamped onto stream_results + checkpoints."""
+
+    name: str = Field(
+        ...,
+        min_length=1,
+        max_length=128,
+        pattern=r"^[a-z0-9][a-z0-9_.-]*$",
+        description="Stable projection id (e.g. sealed.default)",
+    )
+    version: int = Field(default=1, ge=1)
+    description: str = ""
+    # Soft retention hint for consumers / cleanup jobs (None = platform default).
+    retention_days: int | None = Field(default=None, ge=1, le=3650)
+
+    @field_validator("name")
+    @classmethod
+    def _lower_name(cls, value: str) -> str:
+        return value.strip().lower()
+
+
 class PipelineConfig(BaseModel):
-    """Declares which registered processor runs and which steps it enables."""
+    """Declares which registered processor runs and which steps it enables.
+
+    `steps` are free-form registry keys (`rollup` + detector names). Unknown
+    detector steps are skipped at runtime and warned at load time — add a
+    detector module + REGISTRY entry to activate them.
+    """
 
     processor: str = Field(
         default="sealed_metadata",
         description="Key in app.workflows.processors.REGISTRY",
     )
-    steps: list[Literal["rollup", "size_anomaly", "rate_anomaly"]] = Field(
-        default_factory=lambda: ["rollup", "size_anomaly"]
-    )
+    steps: list[str] = Field(default_factory=lambda: ["rollup", "size_anomaly"])
     size_anomaly: SizeAnomalyParams = Field(default_factory=SizeAnomalyParams)
     rate_anomaly: RateAnomalyParams = Field(default_factory=RateAnomalyParams)
-    # Durable projection name stamped onto stream_results.
+    # Extensibility: params for custom detectors keyed by step name.
+    detector_params: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    # Durable projection — prefer `projection`; `projection_name` kept for YAML.
+    projection: ProjectionDefinition | None = None
     projection_name: str = Field(default="sealed.default", max_length=128)
+
+    @field_validator("steps")
+    @classmethod
+    def _normalize_steps(cls, value: list[str]) -> list[str]:
+        out: list[str] = []
+        seen: set[str] = set()
+        for raw in value:
+            step = str(raw).strip().lower()
+            if not step or step in seen:
+                continue
+            if not all(c.isalnum() or c in "._-" for c in step):
+                raise ValueError(f"invalid pipeline step name: {raw!r}")
+            seen.add(step)
+            out.append(step)
+        return out or ["rollup"]
+
+    @model_validator(mode="after")
+    def _sync_projection(self) -> PipelineConfig:
+        if self.projection is not None:
+            object.__setattr__(self, "projection_name", self.projection.name)
+        elif self.projection_name:
+            object.__setattr__(
+                self,
+                "projection",
+                ProjectionDefinition(name=self.projection_name.strip().lower()),
+            )
+        return self
+
+    def params_for_detectors(self) -> dict[str, dict[str, Any]]:
+        """Merge built-in typed params with open detector_params dict."""
+        merged: dict[str, dict[str, Any]] = dict(self.detector_params)
+        merged["size_anomaly"] = {
+            **self.size_anomaly.model_dump(),
+            **(merged.get("size_anomaly") or {}),
+        }
+        merged["rate_anomaly"] = {
+            **self.rate_anomaly.model_dump(),
+            **(merged.get("rate_anomaly") or {}),
+        }
+        return merged
 
 
 class WorkflowOutputs(BaseModel):
@@ -63,6 +164,8 @@ class WorkflowDefinition(BaseModel):
     version: int = Field(default=1, ge=1)
     enabled: bool = True
     default: bool = False
+    # Optional catalog of EventTypes this workflow understands (docs / UI).
+    event_types: list[EventType] = Field(default_factory=list)
     match: WorkflowMatch = Field(default_factory=WorkflowMatch)
     encryption: EncryptionPolicy = Field(default_factory=EncryptionPolicy)
     pipeline: PipelineConfig = Field(default_factory=PipelineConfig)

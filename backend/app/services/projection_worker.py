@@ -1,4 +1,7 @@
-"""Optional background projection tick — catch-up for durable watermarks."""
+"""Optional background projection tick — catch-up for durable watermarks.
+
+Uses the service-role pool via `run_projection_core` (no synthetic AuthUser).
+"""
 
 from __future__ import annotations
 
@@ -9,7 +12,6 @@ from uuid import UUID
 
 import asyncpg
 
-from app.core.auth import AuthUser
 from app.core.config import settings
 from app.services import projections as proj_svc
 from app.workflows.registry import all_workflows
@@ -31,37 +33,18 @@ async def _tenant_ids_with_events(pool: asyncpg.Pool, *, limit: int = 50) -> lis
     return [UUID(str(r["tenant_id"])) for r in rows]
 
 
-# --- One catch-up pass (system user; membership bypass via service path) ---
+# --- One catch-up pass (service role; no impersonation) ---
 async def tick_projections(pool: asyncpg.Pool) -> dict[str, Any]:
-    """Advance projections for tenants that have sealed events.
-
-    Uses a synthetic system AuthUser only for require_member-compatible APIs —
-    worker path calls run_projection internals via service role after listing.
-    """
+    """Advance projections for tenants that have sealed events."""
     tenants = await _tenant_ids_with_events(pool)
     workflows = [w for w in all_workflows() if w.enabled]
     processed = 0
     written = 0
-    # System actor: membership check needs a real member — use owner of each tenant.
     for tid in tenants:
-        owner = await pool.fetchval(
-            """
-            SELECT user_id::text FROM tenant_members
-            WHERE tenant_id = $1::uuid AND role = 'owner'
-            LIMIT 1
-            """,
-            str(tid),
-        )
-        if not owner:
-            continue
-        user = AuthUser(
-            user_id=owner, email=None, role="authenticated", raw_claims={}
-        )
         for wf in workflows:
             try:
-                result = await proj_svc.run_projection(
+                result = await proj_svc.run_projection_core(
                     pool,
-                    user=user,
                     tenant_id=tid,
                     workflow_id=wf.id,
                     limit=200,
@@ -75,7 +58,12 @@ async def tick_projections(pool: asyncpg.Pool) -> dict[str, Any]:
                     wf.id,
                     exc,
                 )
-    return {"ok": True, "tenants": len(tenants), "processed": processed, "written": written}
+    return {
+        "ok": True,
+        "tenants": len(tenants),
+        "processed": processed,
+        "written": written,
+    }
 
 
 # --- Lifespan background loop ---

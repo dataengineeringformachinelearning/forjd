@@ -1,12 +1,12 @@
+//! Data-plane HTTP routes (ingest edge + optional CPE) — merged into forjd-engine.
+
 use std::sync::Arc;
 
 use axum::{
-    body::Body,
     extract::{DefaultBodyLimit, State},
-    http::{HeaderMap, Request, StatusCode},
-    middleware::{self, Next},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::post,
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
@@ -14,17 +14,17 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use subtle::ConstantTimeEq;
-use tracing::info;
 use uuid::Uuid;
 
-use crate::config::Config;
+use crate::data_plane::config::Config;
+use crate::data_plane::cpe;
 
 #[derive(Clone)]
-struct AppState {
-    pool: PgPool,
-    redis: Option<redis::Client>,
-    cpe_redis: Option<redis::Client>,
-    cpe_only: bool,
+pub struct DataPlaneState {
+    pub pool: PgPool,
+    pub redis: Option<redis::Client>,
+    pub cpe_redis: Option<redis::Client>,
+    pub cpe_only: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -42,25 +42,11 @@ struct IngestResponse {
 
 struct AuthenticatedAccount {
     account_id: Uuid,
-    tier: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(untagged)]
-enum CpeQueryInput {
-    Text(String),
-    Words(Vec<String>),
-}
-
-#[derive(Debug, Deserialize)]
-struct CpeQuery {
-    query: CpeQueryInput,
-    #[serde(default)]
-    part: Option<String>,
+    rate_limit_rpm: i32,
 }
 
 #[derive(Debug)]
-struct ApiError(StatusCode, String);
+pub struct ApiError(pub StatusCode, pub String);
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
@@ -68,46 +54,58 @@ impl IntoResponse for ApiError {
     }
 }
 
-pub async fn run(
-    pool: PgPool,
-    cfg: Config,
-    enable_ingest: bool,
-    enable_cpe: bool,
-) -> anyhow::Result<()> {
+// --- Build shared state for ingest / CPE routes ---
+pub async fn build_state(pool: PgPool, cfg: &Config) -> anyhow::Result<Arc<DataPlaneState>> {
+    let enable_ingest = cfg.role.enable_ingest();
+    let enable_cpe = cfg.role.enable_cpe();
     let redis = build_redis_client(cfg.redis_url.as_deref(), cfg.redis_ssl_ca_pem.as_deref())?;
     if enable_ingest && redis.is_none() {
-        anyhow::bail!("REDIS_URL is required when FORJD_ROLE=ingest");
+        anyhow::bail!("REDIS_URL is required when FORJD_ROLE enables ingest");
     }
     let cpe_redis = build_redis_client(
         cfg.cpe_redis_url.as_deref(),
         cfg.redis_ssl_ca_pem.as_deref(),
     )?;
     if enable_cpe && cpe_redis.is_none() {
-        anyhow::bail!("CPE_REDIS_URL is required when FORJD_ROLE=cpe");
+        anyhow::bail!("CPE_REDIS_URL is required when FORJD_ROLE enables cpe");
     }
-    let state = Arc::new(AppState {
+    Ok(Arc::new(DataPlaneState {
         pool,
         redis,
         cpe_redis,
         cpe_only: enable_cpe && !enable_ingest,
-    });
-    let mut router = Router::new()
-        .route("/health", get(health))
-        .route("/ready", get(ready));
-    if enable_ingest {
+    }))
+}
+
+/// Routes mounted under the unified engine HTTP server (no /health — engine owns that).
+pub fn build_data_plane_router(state: Arc<DataPlaneState>, cfg: &Config) -> Router {
+    let mut router = Router::new();
+    if cfg.role.enable_ingest() {
         router = router.route("/api/v1/ingest", post(ingest));
     }
-    if enable_cpe {
-        router = router.route("/unique", post(cpe_unique));
+    if cfg.role.enable_cpe() {
+        router = router.route("/unique", post(cpe::cpe_unique));
     }
-    let router = router
+    router
         .layer(DefaultBodyLimit::max(2 * 1024 * 1024))
-        .layer(middleware::from_fn(security_headers))
-        .with_state(state);
-    let listener = tokio::net::TcpListener::bind(&cfg.bind_address).await?;
-    info!(address = %cfg.bind_address, enable_ingest, enable_cpe, "http: listening");
-    axum::serve(listener, router).await?;
-    Ok(())
+        .with_state(state)
+}
+
+/// Readiness probe for data-plane dependencies (Postgres / CPE index).
+pub async fn data_plane_ready(state: &DataPlaneState) -> (StatusCode, Json<Value>) {
+    if state.cpe_only {
+        return cpe::ready_cpe(state).await;
+    }
+    match sqlx::query_scalar::<_, i32>("SELECT 1")
+        .fetch_one(&state.pool)
+        .await
+    {
+        Ok(_) => (StatusCode::OK, Json(json!({"status": "ready"}))),
+        Err(_) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({"status": "not_ready", "reason": "postgres"})),
+        ),
+    }
 }
 
 fn build_redis_client(
@@ -131,157 +129,10 @@ fn build_redis_client(
     Ok(Some(client))
 }
 
-#[tracing::instrument(name = "cpe_lookup", skip_all)]
-async fn cpe_unique(
-    State(state): State<Arc<AppState>>,
-    Json(payload): Json<CpeQuery>,
-) -> Result<Json<Value>, ApiError> {
-    let part = payload.part.unwrap_or_default().to_ascii_lowercase();
-    if !part.is_empty() && !matches!(part.as_str(), "a" | "h" | "o") {
-        return Err(ApiError(
-            StatusCode::BAD_REQUEST,
-            "part must be a, h, or o".to_string(),
-        ));
-    }
-    let words = match payload.query {
-        CpeQueryInput::Text(text) => tokenize_cpe_query(&text),
-        CpeQueryInput::Words(words) => words
-            .into_iter()
-            .flat_map(|word| tokenize_cpe_query(&word))
-            .collect(),
-    };
-    if words.is_empty() || words.len() > 20 {
-        return Err(ApiError(
-            StatusCode::BAD_REQUEST,
-            "query must contain between 1 and 20 words".to_string(),
-        ));
-    }
-    let client = state.cpe_redis.as_ref().ok_or_else(|| {
-        ApiError(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "CPE index unavailable".to_string(),
-        )
-    })?;
-    let mut connection = client
-        .get_multiplexed_async_connection()
-        .await
-        .map_err(|_| {
-            ApiError(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "CPE index unavailable".to_string(),
-            )
-        })?;
-    let script = redis::Script::new(
-        r#"
-        local candidates = redis.call('SINTER', unpack(KEYS))
-        local best = false
-        local best_score = -1
-        for _, cpe in ipairs(candidates) do
-          local cpe_part = string.match(cpe, '^cpe:2%.3:([aho]):')
-          if ARGV[1] == '' or cpe_part == ARGV[1] then
-            local score = tonumber(redis.call('ZSCORE', 'rank:cpe', cpe) or '0')
-            for index = 2, #ARGV do
-              score = score + tonumber(redis.call('ZSCORE', 's:' .. ARGV[index], cpe) or '0')
-            end
-            if score > best_score or (score == best_score and (best == false or cpe > best)) then
-              best = cpe
-              best_score = score
-            end
-          end
-        end
-        return best
-        "#,
-    );
-    let mut invocation = script.prepare_invoke();
-    for word in &words {
-        invocation.key(format!("w:{word}"));
-    }
-    invocation.arg(&part);
-    for word in &words {
-        invocation.arg(word);
-    }
-    let result: Option<String> =
-        invocation
-            .invoke_async(&mut connection)
-            .await
-            .map_err(|error| {
-                tracing::error!(%error, "cpe: lookup failed");
-                ApiError(
-                    StatusCode::SERVICE_UNAVAILABLE,
-                    "CPE index unavailable".to_string(),
-                )
-            })?;
-    Ok(Json(json!({"cpe_2_3": result})))
-}
-
-fn tokenize_cpe_query(raw: &str) -> Vec<String> {
-    raw.split(|character: char| {
-        character.is_whitespace() || matches!(character, '/' | '(' | ')' | ',' | ';')
-    })
-    .map(|word| {
-        word.trim_matches(|character: char| {
-            !(character.is_ascii_alphanumeric() || matches!(character, '.' | '-' | '_'))
-        })
-    })
-    .filter(|word| word.len() >= 2)
-    .map(str::to_ascii_lowercase)
-    .collect()
-}
-
-async fn security_headers(request: Request<Body>, next: Next) -> Response {
-    let mut response = next.run(request).await;
-    response.headers_mut().insert(
-        "x-content-type-options",
-        "nosniff".parse().expect("static header is valid"),
-    );
-    response.headers_mut().insert(
-        "cache-control",
-        "no-store".parse().expect("static header is valid"),
-    );
-    response
-}
-
-async fn health() -> Json<Value> {
-    Json(json!({"status": "ok"}))
-}
-
-async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    if state.cpe_only {
-        let available = if let Some(client) = &state.cpe_redis {
-            match client.get_multiplexed_async_connection().await {
-                Ok(mut connection) => redis::cmd("PING")
-                    .query_async::<String>(&mut connection)
-                    .await
-                    .is_ok(),
-                Err(_) => false,
-            }
-        } else {
-            false
-        };
-        return if available {
-            (StatusCode::OK, Json(json!({"status": "ready"})))
-        } else {
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(json!({"status": "not_ready"})),
-            )
-        };
-    }
-    match sqlx::query_scalar::<_, i32>("SELECT 1")
-        .fetch_one(&state.pool)
-        .await
-    {
-        Ok(_) => (StatusCode::OK, Json(json!({"status": "ready"}))),
-        Err(_) => (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(json!({"status": "not_ready"})),
-        ),
-    }
-}
-
+// --- Edge ingest → durable outbox ---
 #[tracing::instrument(name = "rust_ingest", skip_all, fields(batch_id = %payload.batch_id))]
 async fn ingest(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<DataPlaneState>>,
     headers: HeaderMap,
     Json(payload): Json<IngestPayload>,
 ) -> Result<(StatusCode, Json<IngestResponse>), ApiError> {
@@ -314,7 +165,7 @@ async fn ingest(
     .bind(Uuid::new_v4())
     .bind(account.account_id.to_string())
     .bind(event)
-    .bind(json!({"version": "1.0", "event_type": "ingestion", "source": "forjd-rust-ingest"}))
+    .bind(json!({"version": "1.0", "event_type": "ingestion", "source": "forjd-engine"}))
     .bind(idempotency_key)
     .fetch_optional(&state.pool)
     .await
@@ -395,25 +246,48 @@ async fn authenticate(
     }
     let prefix = &token[..8];
     let presented_hash = hex::encode(Sha256::digest(token.as_bytes()));
-    let row = sqlx::query_as::<_, (String, Uuid, String)>(
+    let modern = sqlx::query_as::<_, (String, Uuid, i32)>(
         r#"
-        SELECT key_hash, tenant_id, tier
+        SELECT key_hash, tenant_id, rate_limit_rpm
         FROM daemon_api_keys
         WHERE prefix = $1 AND is_active = true
         "#,
     )
     .bind(prefix)
     .fetch_optional(pool)
-    .await
-    .map_err(|_| {
-        ApiError(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "authentication unavailable".to_string(),
-        )
-    })?
-    .ok_or_else(|| ApiError(StatusCode::UNAUTHORIZED, "invalid API key".to_string()))?;
-    if row
-        .0
+    .await;
+
+    let (key_hash, account_id, rpm) = match modern {
+        Ok(Some((hash, tid, rpm))) => (hash, tid, rpm),
+        Ok(None) => {
+            return Err(ApiError(
+                StatusCode::UNAUTHORIZED,
+                "invalid API key".to_string(),
+            ));
+        }
+        Err(_) => {
+            let legacy = sqlx::query_as::<_, (String, Uuid, String)>(
+                r#"
+                SELECT key_hash, tenant_id, tier
+                FROM daemon_api_keys
+                WHERE prefix = $1 AND is_active = true
+                "#,
+            )
+            .bind(prefix)
+            .fetch_optional(pool)
+            .await
+            .map_err(|_| {
+                ApiError(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "authentication unavailable".to_string(),
+                )
+            })?
+            .ok_or_else(|| ApiError(StatusCode::UNAUTHORIZED, "invalid API key".to_string()))?;
+            (legacy.0, legacy.1, tier_default_rpm(&legacy.2))
+        }
+    };
+
+    if key_hash
         .as_bytes()
         .ct_eq(presented_hash.as_bytes())
         .unwrap_u8()
@@ -425,13 +299,20 @@ async fn authenticate(
         ));
     }
     Ok(AuthenticatedAccount {
-        account_id: row.1,
-        tier: row.2,
+        account_id,
+        rate_limit_rpm: rpm.max(1),
     })
 }
 
+fn tier_default_rpm(tier: &str) -> i32 {
+    match tier.to_ascii_lowercase().as_str() {
+        "pro" | "enterprise" => 1_000,
+        _ => 60,
+    }
+}
+
 async fn enforce_rate_limit(
-    state: &AppState,
+    state: &DataPlaneState,
     account: &AuthenticatedAccount,
 ) -> Result<(), ApiError> {
     let client = state.redis.as_ref().ok_or_else(|| {
@@ -449,7 +330,7 @@ async fn enforce_rate_limit(
                 "rate limiter unavailable".to_string(),
             )
         })?;
-    let limit = if account.tier == "Pro" { 1_000 } else { 60 };
+    let limit = account.rate_limit_rpm;
     let now_ms = chrono::Utc::now().timestamp_millis();
     let key = format!("rate_limit:account:{}", account.account_id);
     let member = Uuid::new_v4().to_string();
@@ -487,7 +368,7 @@ async fn enforce_rate_limit(
 
 #[cfg(test)]
 mod tests {
-    use super::{tokenize_cpe_query, validate_payload, IngestPayload};
+    use super::{validate_payload, IngestPayload};
     use serde_json::json;
 
     #[test]
@@ -502,13 +383,5 @@ mod tests {
             records: vec![json!({"x": 1})],
         };
         assert!(validate_payload(&invalid).is_err());
-    }
-
-    #[test]
-    fn tokenizes_cpe_queries_deterministically() {
-        assert_eq!(
-            tokenize_cpe_query("Apache HTTP Server 2.4"),
-            vec!["apache", "http", "server", "2.4"]
-        );
     }
 }

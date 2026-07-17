@@ -160,12 +160,13 @@ Details: [`infra/dragonfly/README.md`](infra/dragonfly/README.md).
 
 ### Engine → Fly.io
 
-Standalone Rust HTTP service (process / summarize). Config lives in `engine/`:
+Unified Rust service (process / summarize + data plane via `FORJD_ROLE`). Config lives in `engine/`:
 
 ```bash
 cd engine
 fly apps create forjd-engine
-fly deploy
+fly secrets set ENGINE_API_TOKEN='…' DATABASE_URL='…' REDIS_URL='redis://:…@forjd-dragonfly.internal:6379/0'
+fly deploy   # shared-cpu-2x / 2GB; FORJD_ROLE=all
 ```
 
 Private URL for other Fly apps: `http://forjd-engine.internal:8080`. Set matching `ENGINE_URL` + `ENGINE_API_TOKEN` on the API. Details: [`engine/README.md`](engine/README.md).
@@ -203,7 +204,7 @@ fly certs add backend.forjd.co -a forjd-backend
 
 ```text
 backend/     FastAPI, Prefect, Polars/Pathway services, Compose
-engine/      Rust core (PyO3 + Fly HTTP binary / Dockerfile / fly.toml)
+engine/      Rust core (PyO3 + unified process/data-plane binary / Dockerfile / fly.toml)
 frontend/    Angular app + forjd-ui
 infra/dragonfly/   Fly.io Dragonfly
 infra/engine/      Pointer to engine Fly deploy docs

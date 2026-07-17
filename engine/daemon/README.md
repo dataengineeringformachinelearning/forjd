@@ -1,51 +1,20 @@
-# forjd-daemon
+# Moved: data plane is part of `forjd-engine`
 
-FORJD role-selected Rust data plane (migrated from DEML `deml-daemon`).
+The former `forjd-daemon` binary lives inside the unified engine crate:
 
-**Bus:** Dragonfly Streams via `REDIS_URL` (no Redpanda/Kafka).  
-**Durability:** Postgres outbox (`outbox_events`) + `LISTEN forjd_outbox`.  
-**Schema:** apply `backend/sql/009_daemon_data_plane.sql` after `008`.
+| Was | Now |
+|-----|-----|
+| `engine/daemon/` crate | `engine/src/data_plane/` module |
+| `forjd-daemon` binary | `forjd-engine` (`--features server,data-plane`) |
+| Separate Docker/Fly app | Same `engine/Dockerfile` + `engine/fly.toml` |
 
-One compiled binary; choose the role with `FORJD_ROLE`:
+Set `FORJD_ROLE` on the engine process:
 
-| Role | Purpose |
-|------|---------|
-| `relay` | Lease `outbox_events` → Dragonfly Streams (`XADD`) |
-| `scheduler` | Durable UTC buckets → native cleanup or `internal-tasks` stream |
-| `probe` | Bounded HTTP probes for `status_services.probe_url` |
-| `normalizer` | Consume `telemetry-raw` stream → `endpoint_observations` |
-| `ingest` | Axum high-volume edge → outbox (+ Dragonfly rate limits) |
-| `cpe` | CPE dictionary lookups from Dragonfly |
-| `all` | Local/dev: run every role in one process |
+| Value | Behavior |
+|-------|----------|
+| unset / `engine` / `none` | Process + summarize HTTP only |
+| `all` | Relay + scheduler + probe + normalizer + ingest |
+| `relay` / `scheduler` / `probe` / `normalizer` / `ingest` | Single role |
+| `cpe` | Optional threat-intel plugin only |
 
-## Local run
-
-```bash
-cd engine/daemon
-cp .env.example .env   # set DATABASE_URL, REDIS_URL, FORJD_ROLE
-cargo test
-cargo run
-```
-
-## Docker
-
-```bash
-cd engine/daemon
-docker build -t forjd-daemon .
-docker run --rm \
-  -e FORJD_ROLE=relay \
-  -e DATABASE_URL=postgresql://… \
-  -e REDIS_URL=redis://:…@dragonfly:6379/0 \
-  -p 8080:8080 forjd-daemon
-```
-
-## HTTP surface
-
-| Path | When | Purpose |
-|------|------|---------|
-| `GET /health` | always | Liveness |
-| `GET /ready` | always | Readiness (DB / Redis as configured) |
-| `POST /api/v1/ingest` | `ingest` | High-volume telemetry → `outbox_events` |
-| `POST /unique` | `cpe` | CPE unique lookup |
-
-`forjd-engine` (Arrow/Parquet process + summarize) remains the separate HTTP service under `engine/`.
+See [`../README.md`](../README.md).

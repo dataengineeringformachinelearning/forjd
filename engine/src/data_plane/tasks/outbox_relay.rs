@@ -9,7 +9,7 @@ use sqlx::{postgres::PgListener, PgPool};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-use crate::{bus, config::Config, db};
+use crate::data_plane::{bus, config::Config, db};
 
 pub async fn run(pool: PgPool, client: Client, cfg: Config) -> anyhow::Result<()> {
     let owner = Uuid::new_v4();

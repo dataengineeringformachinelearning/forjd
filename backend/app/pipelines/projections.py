@@ -6,6 +6,7 @@ from typing import Any
 
 from prefect import flow, task
 
+from app.pipelines.soft_fail import run_with_local_fallback
 from app.workflows.processors import get_processor
 from app.workflows.registry import resolve_workflow
 
@@ -67,15 +68,7 @@ def run_project_flow(
     event_type: str | None = None,
     workflow_id: str | None = None,
 ) -> dict[str, Any]:
-    try:
-        return project_flow(
-            tenant_id,
-            events,
-            content_type,
-            event_type,
-            workflow_id,
-        )
-    except Exception as exc:  # noqa: BLE001
+    def _local(exc: Exception) -> dict[str, Any]:
         pathway = process_projection_batch.fn(
             events,
             content_type=content_type,
@@ -90,3 +83,13 @@ def run_project_flow(
             "pathway": pathway,
             "stream_results": pathway.get("results") or [],
         }
+
+    return run_with_local_fallback(
+        project_flow,
+        tenant_id,
+        events,
+        content_type,
+        event_type,
+        workflow_id,
+        fallback=_local,
+    )

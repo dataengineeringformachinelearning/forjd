@@ -90,7 +90,12 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _secure_production_defaults(self) -> Settings:
-        is_prod = self.ENVIRONMENT.lower() in {"production", "prod"}
+        # Align with daemon: ENVIRONMENT=prod|production OR Fly (FLY_APP_NAME).
+        import os
+
+        env = self.ENVIRONMENT.lower().strip()
+        on_fly = bool(os.environ.get("FLY_APP_NAME"))
+        is_prod = env in {"production", "prod"} or on_fly
         if is_prod and self.DEBUG:
             # Prefer explicit DEBUG=false in prod; coerce if someone left the example default.
             object.__setattr__(self, "DEBUG", False)
@@ -99,6 +104,10 @@ class Settings(BaseSettings):
             object.__setattr__(self, "SOFT_MIGRATE_SCHEMA", False)
             object.__setattr__(self, "REQUIRE_RLS", True)
             object.__setattr__(self, "REQUIRE_CRYPTO_SESSION", True)
+            if not self.SUPABASE_AUTH_REQUIRED and (
+                self.SUPABASE_URL or self.SUPABASE_JWT_SECRET
+            ):
+                object.__setattr__(self, "SUPABASE_AUTH_REQUIRED", True)
         return self
 
 

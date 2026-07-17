@@ -1,8 +1,8 @@
 -- =============================================================================
 -- FORJD Rust data-plane tables (daemon outbox, scheduler, probes, normalizer)
 -- =============================================================================
--- Apply after 008. Replaces DEML Kafka/Redpanda + Django outbox with:
---   Postgres durable outbox + LISTEN/NOTIFY, Dragonfly Streams bus, FORJD tenants.
+-- Apply after 008. Durable data plane for forjd-daemon:
+--   Postgres outbox + LISTEN/NOTIFY, Dragonfly Streams bus, FORJD tenants.
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------

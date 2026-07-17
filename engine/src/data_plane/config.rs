@@ -1,4 +1,4 @@
-//! Environment-driven daemon configuration (`FORJD_ROLE` and related secrets).
+//! Environment-driven data-plane configuration (`FORJD_ROLE` and related secrets).
 
 use std::env;
 
@@ -7,6 +7,8 @@ use anyhow::{bail, Context, Result};
 // --- Role selection ---
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Role {
+    /// Process/summarize HTTP only (default when `FORJD_ROLE` unset).
+    None,
     Relay,
     Scheduler,
     Probe,
@@ -18,24 +20,36 @@ pub enum Role {
 
 impl Role {
     fn from_env() -> Result<Self> {
-        let raw = env::var("FORJD_ROLE").context("FORJD_ROLE must be set explicitly")?;
+        let Ok(raw) = env::var("FORJD_ROLE") else {
+            return Ok(Self::None);
+        };
         match raw.to_ascii_lowercase().as_str() {
+            "" | "none" | "engine" | "process" => Ok(Self::None),
             "relay" => Ok(Self::Relay),
             "scheduler" => Ok(Self::Scheduler),
             "probe" => Ok(Self::Probe),
             "normalizer" => Ok(Self::Normalizer),
             "ingest" => Ok(Self::Ingest),
+            // Optional threat-intel plugin (not required for universal sealed streaming).
             "cpe" => Ok(Self::Cpe),
             "all" => Ok(Self::All),
             _ => {
                 bail!(
-                    "FORJD_ROLE must be relay, scheduler, probe, normalizer, ingest, cpe, or all"
+                    "FORJD_ROLE must be none|engine|relay|scheduler|probe|normalizer|ingest|cpe|all"
                 )
             }
         }
     }
 
+    pub fn is_active(self) -> bool {
+        !matches!(self, Self::None)
+    }
+
     pub fn runs(self, target: Self) -> bool {
+        // CPE is opt-in only — never implied by `all`.
+        if target == Self::Cpe {
+            return self == Self::Cpe;
+        }
         self == Self::All || self == target
     }
 
@@ -44,6 +58,14 @@ impl Role {
             self,
             Self::Relay | Self::Scheduler | Self::Normalizer | Self::All
         )
+    }
+
+    pub fn enable_ingest(self) -> bool {
+        self.runs(Self::Ingest)
+    }
+
+    pub fn enable_cpe(self) -> bool {
+        matches!(self, Self::Cpe)
     }
 }
 
@@ -76,9 +98,6 @@ pub struct Config {
     /// Maximum simultaneous Dragonfly publishes or HTTP probes.
     pub max_concurrency: usize,
 
-    /// Health/ingestion HTTP bind address.
-    pub bind_address: String,
-
     /// Dragonfly/Redis URL (bus + rate limit + CPE).
     pub redis_url: Option<String>,
 
@@ -88,17 +107,14 @@ pub struct Config {
     /// Private CA for verified Dragonfly TLS (base64 PEM).
     pub redis_ssl_ca_pem: Option<Vec<u8>>,
 
-    /// Consumer group for the telemetry normalizer.
+    /// Consumer group for the sealed-event / telemetry normalizer.
     pub normalizer_group_id: String,
-
-    /// Optional Prefect API URL (reserved for future HTTP flow triggers).
-    #[allow(dead_code)]
-    pub prefect_api_url: Option<String>,
 }
 
 impl Config {
     // --- Load + validate from env ---
     pub fn from_env() -> Result<Self> {
+        let role = Role::from_env()?;
         let max_concurrency = env::var("MAX_CONCURRENCY")
             .ok()
             .and_then(|v| v.parse().ok())
@@ -107,14 +123,17 @@ impl Config {
             bail!("MAX_CONCURRENCY must be greater than zero");
         }
 
-        let database_url = env::var("DATABASE_URL")
-            .or_else(|_| env::var("POSTGRES_DSN"))
-            .context("DATABASE_URL or POSTGRES_DSN must be set")?;
-        // sqlx wants postgresql://; backend often uses postgresql+asyncpg://
-        let database_url = database_url.replace("postgresql+asyncpg://", "postgresql://");
+        let database_url = if role.is_active() {
+            let raw = env::var("DATABASE_URL")
+                .or_else(|_| env::var("POSTGRES_DSN"))
+                .context("DATABASE_URL or POSTGRES_DSN must be set when FORJD_ROLE is active")?;
+            raw.replace("postgresql+asyncpg://", "postgresql://")
+        } else {
+            String::new()
+        };
 
         let config = Self {
-            role: Role::from_env()?,
+            role,
             database_url,
             batch_size: env::var("BATCH_SIZE")
                 .ok()
@@ -139,20 +158,23 @@ impl Config {
                 .map(|v| v.eq_ignore_ascii_case("true"))
                 .unwrap_or(false),
             max_concurrency,
-            bind_address: format!(
-                "0.0.0.0:{}",
-                env::var("PORT").unwrap_or_else(|_| "8080".to_string())
-            ),
             redis_url: env::var("REDIS_URL").ok().filter(|v| !v.is_empty()),
             cpe_redis_url: env::var("CPE_REDIS_URL").ok().filter(|v| !v.is_empty()),
             redis_ssl_ca_pem: decode_bytes_env("REDIS_SSL_CA_B64")?,
             normalizer_group_id: env::var("NORMALIZER_GROUP_ID")
-                .unwrap_or_else(|_| "forjd-telemetry-normalizer-v1".to_string()),
-            prefect_api_url: env::var("PREFECT_API_URL").ok().filter(|v| !v.is_empty()),
+                .unwrap_or_else(|_| "forjd-event-normalizer-v1".to_string()),
         };
-        config.validate_transport_security()?;
+        if config.role.is_active() {
+            config.validate_transport_security()?;
+        }
         if config.role.needs_bus() && config.redis_url.is_none() {
             bail!("REDIS_URL (Dragonfly) is required for role {:?}", config.role);
+        }
+        if config.role.enable_ingest() && config.redis_url.is_none() {
+            bail!("REDIS_URL is required when FORJD_ROLE enables ingest");
+        }
+        if config.role.enable_cpe() && config.cpe_redis_url.is_none() {
+            bail!("CPE_REDIS_URL is required when FORJD_ROLE enables cpe");
         }
         Ok(config)
     }
@@ -202,7 +224,7 @@ impl Config {
 }
 
 /// True when `FORJD_ENV=production` or the process is running on Fly.io.
-fn is_production() -> bool {
+pub fn is_production() -> bool {
     if env::var("FORJD_ENV")
         .map(|value| value.eq_ignore_ascii_case("production"))
         .unwrap_or(false)

@@ -79,6 +79,38 @@ class TestWorkflowRegistry(unittest.TestCase):
         wf = WorkflowDefinition(id="x", name="X", default=True)
         self.assertEqual(wf.pipeline.processor, "sealed_metadata")
         self.assertIn("e2ee", wf.encryption.modes)
+        self.assertEqual(wf.pipeline.projection_name, "sealed.default")
+        self.assertIsNotNone(wf.pipeline.projection)
+        self.assertEqual(wf.pipeline.projection.name, "sealed.default")
+
+    def test_projection_object_syncs_name(self) -> None:
+        text = """
+id: proj_wf
+name: Proj
+match:
+  content_types: [application/forjd-event+v1]
+pipeline:
+  processor: sealed_metadata
+  steps: [rollup]
+  projection:
+    name: custom.proj
+    version: 2
+    retention_days: 30
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "proj.yaml"
+            path.write_text(text, encoding="utf-8")
+            loaded = load_workflow_file(path)
+        self.assertEqual(loaded.pipeline.projection_name, "custom.proj")
+        self.assertEqual(loaded.pipeline.projection.version, 2)
+
+    def test_extensible_steps(self) -> None:
+        wf = WorkflowDefinition(
+            id="ext",
+            name="Ext",
+            pipeline={"steps": ["rollup", "size_anomaly", "my_custom_detector"]},
+        )
+        self.assertIn("my_custom_detector", wf.pipeline.steps)
 
 
 if __name__ == "__main__":

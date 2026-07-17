@@ -82,6 +82,10 @@
 
 - 2026-07-17: Began DEML→FORJD Rust data-plane migration — ported `deml-daemon` into `engine/daemon` as `forjd-daemon`, skipped the macOS app, replaced Redpanda/Kafka with Dragonfly Streams + Postgres `outbox_events` (`sql/009_daemon_data_plane.sql`), and dropped ClickHouse-specific maintenance in favor of FORJD table retention.
 
+- 2026-07-17: Full modernization pass for universal secure SaaS — promoted `EventType` / `PipelineConfig` / `ProjectionDefinition` (extensible `pipeline.steps` + `detector_params`), extracted daemon CPE into an optional plugin module with config-driven `rate_limit_rpm`, added metadata-only `audit_events` (`sql/010`), fail-closed prod defaults (Fly-aware), shared Prefect soft-fail helper, and service-role projection ticks without synthetic AuthUser. DEML remains one example YAML, not platform core.
+
+- 2026-07-17: Merged `forjd-daemon` into `forjd-engine` — one crate/binary/Fly app (`src/data_plane/`, `--features server,data-plane`, `FORJD_ROLE`). Bumped Fly VM to shared-cpu-2x / 2GB; Compose wires Postgres/Dragonfly into the engine. CPE stays opt-in (`FORJD_ROLE=cpe`), not part of `all`.
+
 ## Packages
 
 Direct dependencies only. Star these on GitHub.
@@ -123,7 +127,7 @@ Direct dependencies only. Star these on GitHub.
 - [prettier](https://github.com/prettier/prettier) — code formatting
 - [jsdom](https://github.com/jsdom/jsdom) — DOM for tests
 
-### Engine (Rust)
+### Engine (Rust — process + data plane)
 - [tokio](https://github.com/tokio-rs/tokio) — async runtime
 - [serde](https://github.com/serde-rs/serde) — serialization
 - [serde_json](https://github.com/serde-rs/json) — JSON values
@@ -133,16 +137,14 @@ Direct dependencies only. Star these on GitHub.
 - [thiserror](https://github.com/dtolnay/thiserror) — typed engine errors
 - [subtle](https://github.com/dalek-cryptography/subtle) — constant-time token compare
 - [PyO3](https://github.com/PyO3/pyo3) — Rust↔Python bindings (`forjd_engine`)
-- [axum](https://github.com/tokio-rs/axum) — HTTP service for Fly.io (`server` feature)
-- [tower](https://github.com/tower-rs/tower) — timeout / service stack (`server` feature)
-- [tower-http](https://github.com/tower-rs/tower-http) — tracing, body limit, headers, request IDs
-
-### Daemon (Rust — `engine/daemon`)
-- [sqlx](https://github.com/launchbadge/sqlx) — async Postgres (outbox / scheduler / probes)
-- [redis-rs](https://github.com/redis-rs/redis-rs) — Dragonfly Streams bus + rate limits
-- [reqwest](https://github.com/seanmonstar/reqwest) — health probes / OTLP HTTP
-- [aes-gcm](https://github.com/RustCrypto/AEADs) — internode stream envelope encryption
-- [anyhow](https://github.com/dtolnay/anyhow) — daemon error context
+- [axum](https://github.com/tokio-rs/axum) — HTTP (`server` / `data-plane`)
+- [tower](https://github.com/tower-rs/tower) — timeout / service stack
+- [tower-http](https://github.com/tokio-rs/tower-http) — tracing, body limit, headers, request IDs
+- [sqlx](https://github.com/launchbadge/sqlx) — Postgres outbox / scheduler / probes (`data-plane`)
+- [redis-rs](https://github.com/redis-rs/redis-rs) — Dragonfly Streams bus + rate limits (`data-plane`)
+- [reqwest](https://github.com/seanmonstar/reqwest) — health probes / OTLP (`data-plane`)
+- [aes-gcm](https://github.com/RustCrypto/AEADs) — internode envelope encryption (`data-plane`)
+- [anyhow](https://github.com/dtolnay/anyhow) — data-plane error context
 - [uuid](https://github.com/uuid-rs/uuid) — lease / event ids
 - [chrono](https://github.com/chronotope/chrono) — scheduler UTC buckets
 - [futures](https://github.com/rust-lang/futures-rs) — bounded concurrency

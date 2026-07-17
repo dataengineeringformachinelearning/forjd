@@ -66,11 +66,19 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
+    env_file:
+      - .env
     environment:
       PORT: "8080"
       RUST_LOG: info
-      # Optional shared secret; set ENGINE_API_TOKEN in .env for both API + engine.
+      # Process + data plane in one container (override FORJD_ROLE=engine for process-only).
+      FORJD_ROLE: ${FORJD_ROLE:-all}
       ENGINE_API_TOKEN: ${ENGINE_API_TOKEN:-}
+      REDIS_URL: redis://:${DFLY_PASSWORD:-forjd-dev-local}@dragonfly:6379/0
+      # POSTGRES_DSN / DATABASE_URL come from .env (Supabase or local-db profile).
+    depends_on:
+      dragonfly:
+        condition: service_healthy
     healthcheck:
       test:
         [
@@ -80,7 +88,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 10
-      start_period: 5s
+      start_period: 15s
 
   dragonfly:
     image: docker.dragonflydb.io/dragonflydb/dragonfly:v1.39.0

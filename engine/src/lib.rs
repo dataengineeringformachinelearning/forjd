@@ -2,6 +2,10 @@
 //!
 //! - Library / Python: `forjd_engine` (PyO3 / maturin) when built with `--features python`
 //! - HTTP service: `forjd-engine` binary when built with `--features server`
+//! - Data plane: outbox / ingest / probes when built with `--features data-plane`
+
+#[cfg(feature = "data-plane")]
+pub mod data_plane;
 
 use arrow::array::{Float64Array, Int64Array, StringArray};
 use arrow::datatypes::{DataType, Field, Schema};
@@ -502,7 +506,7 @@ mod tests {
 
     #[test]
     fn test_engine_version() {
-        assert_eq!(engine_version(), "0.2.0");
+        assert_eq!(engine_version(), "0.3.0");
     }
 
     #[test]

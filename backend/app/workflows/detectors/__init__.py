@@ -37,9 +37,15 @@ def run_detectors(
     params_by_step: dict[str, dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Run all detector steps; merge anomaly rows (metadata only)."""
+    import logging
+
+    logger = logging.getLogger("forjd.detectors")
     out: list[dict[str, Any]] = []
     for step in steps:
+        if step == "rollup":
+            continue  # processor-local; not a detector
         if step not in REGISTRY:
+            logger.debug("skipping unregistered detector step %r", step)
             continue
         fn = REGISTRY[step]
         out.extend(fn(events, params_by_step.get(step) or {}))
