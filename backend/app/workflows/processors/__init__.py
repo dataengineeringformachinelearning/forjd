@@ -12,13 +12,16 @@ from collections.abc import Callable
 from typing import Any
 
 from app.workflows.models import WorkflowDefinition
-from app.workflows.processors import sealed_metadata
+from app.workflows.processors import rust_sealed_metadata, sealed_metadata
 
 ProcessorFn = Callable[[list[dict[str, Any]], WorkflowDefinition], dict[str, Any]]
 
 # --- Registered processors (extend without touching ingest routes) ---
 REGISTRY: dict[str, ProcessorFn] = {
+    # Prefer Rust sealed pipeline with Pathway/Python soft-fallback.
     "sealed_metadata": sealed_metadata.process,
+    # Explicit Rust-first alias for YAML clarity / multi-SaaS configs.
+    "rust_sealed_metadata": rust_sealed_metadata.process,
 }
 
 

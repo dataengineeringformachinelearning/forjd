@@ -56,7 +56,12 @@ async def get_checkpoint(
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
     from app.services import tenants as tenant_svc
 
-    await tenant_svc.require_member(pool, tenant_id=tenant_id, user_id=user.user_id)
+    await tenant_svc.require_tenant_access(
+        pool,
+        principal=user,
+        tenant_id=tenant_id,
+        required_scopes=frozenset({"projections:read"}),
+    )
     ckpt = await proj_svc.get_checkpoint(
         pool,
         tenant_id=tenant_id,

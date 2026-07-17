@@ -715,8 +715,12 @@ dev = [
 ]
 ml = [
     { name = "numpy" },
+    { name = "scikit-learn" },
     { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
     { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
+]
+storage = [
+    { name = "boto3" },
 ]
 
 [package.metadata]
@@ -745,8 +749,10 @@ dev = [
 ]
 ml = [
     { name = "numpy", specifier = ">=2.0.0" },
+    { name = "scikit-learn", specifier = ">=1.5.0" },
     { name = "torch", specifier = ">=2.6.0", index = "https://download.pytorch.org/whl/cpu" },
 ]
+storage = [{ name = "boto3", specifier = ">=1.35.0" }]
 
 [[package]]
 name = "forjd-engine"

@@ -1,4 +1,8 @@
-"""Universal E2EE ingestion API — JWT + ciphertext-only + workflow routing."""
+"""Universal E2EE ingestion API — user/service principal + ciphertext-only.
+
+Accepts enterprise Supabase user JWTs and tenant-scoped service tokens
+(subprocessors such as DEML). Server never sees plaintext payloads.
+"""
 
 from __future__ import annotations
 

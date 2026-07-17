@@ -7,6 +7,9 @@
 #[cfg(feature = "data-plane")]
 pub mod data_plane;
 
+/// Sealed-metadata pipeline (rollup + detectors) — E2EE-safe, always available.
+pub mod pipeline;
+
 use arrow::array::{Float64Array, Int64Array, StringArray};
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
@@ -421,14 +424,77 @@ mod python_api {
         }
     }
 
+    /// Run sealed-metadata pipeline (ciphertext-blind). Prefer this for ingest/project.
+    #[pyfunction]
+    #[pyo3(name = "run_sealed_pipeline", signature = (events, steps=None, params=None, tags=None, projection_name=None, workflow_id=None))]
+    fn run_sealed_pipeline_py(
+        py: Python<'_>,
+        events: Bound<'_, PyAny>,
+        steps: Option<Bound<'_, PyAny>>,
+        params: Option<Bound<'_, PyAny>>,
+        tags: Option<Bound<'_, PyAny>>,
+        projection_name: Option<String>,
+        workflow_id: Option<String>,
+    ) -> PyResult<Py<PyAny>> {
+        let events_json = pythonize_value(&events)?;
+        let events_vec = events_json
+            .as_array()
+            .cloned()
+            .ok_or_else(|| PyValueError::new_err("events must be a list"))?;
+
+        let steps_vec: Vec<String> = if let Some(s) = steps {
+            match pythonize_value(&s)? {
+                serde_json::Value::Array(arr) => arr
+                    .into_iter()
+                    .filter_map(|v| v.as_str().map(str::to_string))
+                    .collect(),
+                _ => {
+                    return Err(PyValueError::new_err("steps must be a list of strings"));
+                }
+            }
+        } else {
+            vec!["rollup".into(), "size_anomaly".into()]
+        };
+
+        let params_map = if let Some(p) = params {
+            match pythonize_value(&p)? {
+                serde_json::Value::Object(m) => m,
+                _ => return Err(PyValueError::new_err("params must be a dict")),
+            }
+        } else {
+            serde_json::Map::new()
+        };
+        let tags_map = if let Some(t) = tags {
+            match pythonize_value(&t)? {
+                serde_json::Value::Object(m) => m,
+                _ => return Err(PyValueError::new_err("tags must be a dict")),
+            }
+        } else {
+            serde_json::Map::new()
+        };
+
+        let req = crate::pipeline::SealedPipelineRequest {
+            events: events_vec,
+            steps: steps_vec,
+            params: params_map,
+            tags: tags_map,
+            projection_name: projection_name.unwrap_or_else(|| "sealed.default".into()),
+            workflow_id,
+        };
+        let out = crate::pipeline::run_sealed_pipeline(req).map_err(PyValueError::new_err)?;
+        json_to_py(py, &out)
+    }
+
     #[pymodule]
     fn forjd_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
         m.add_function(wrap_pyfunction!(process_event_py, m)?)?;
         m.add_function(wrap_pyfunction!(summarize_values_py, m)?)?;
         m.add_function(wrap_pyfunction!(engine_version_py, m)?)?;
+        m.add_function(wrap_pyfunction!(run_sealed_pipeline_py, m)?)?;
         m.add_class::<SummarizeResultPy>()?;
         m.add("process_event", m.getattr("process_event_py")?)?;
         m.add("summarize_values", m.getattr("summarize_values_py")?)?;
+        m.add("run_sealed_pipeline", m.getattr("run_sealed_pipeline_py")?)?;
         m.add("SCHEMA_VERSION", SCHEMA_VERSION)?;
         m.add("MAX_VALUES", MAX_VALUES)?;
         Ok(())

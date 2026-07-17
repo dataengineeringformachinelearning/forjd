@@ -88,6 +88,21 @@ class Settings(BaseSettings):
     ML_MODEL_DIR: str = "data/models"
     ML_MODEL_VERSION: str = "lstm-ae-v1"
 
+    # --- Domain scanners / integrations (DEML extract; optional) ---
+    PAGESPEED_API_KEY: str = ""
+    HIBP_API_KEY: str = ""
+    TOR_PROXY_URL: str = ""
+    FIRECRAWL_API_KEY: str = ""
+    FIRECRAWL_API_URL: str = "https://api.firecrawl.dev"
+    SCANNER_SERVICE_URL: str = ""
+    # S3-compatible object storage for exports/reports (empty = local filesystem)
+    OBJECT_STORAGE_ENDPOINT: str = ""
+    OBJECT_STORAGE_ACCESS_KEY: str = ""
+    OBJECT_STORAGE_SECRET_KEY: str = ""
+    OBJECT_STORAGE_BUCKET: str = "forjd-exports"
+    OBJECT_STORAGE_REGION: str = "us-east-1"
+    OBJECT_STORAGE_ADDRESSING_STYLE: str = "path"
+
     @model_validator(mode="after")
     def _secure_production_defaults(self) -> Settings:
         # Align with daemon: ENVIRONMENT=prod|production OR Fly (FLY_APP_NAME).

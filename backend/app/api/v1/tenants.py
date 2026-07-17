@@ -7,7 +7,7 @@ from typing import Any
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from app.core.auth import AuthUser, get_current_user, pool_from_request
+from app.core.auth import AuthUser, get_current_user, pool_from_request, require_user_principal
 from app.models.tenant import TenantCreate
 from app.services import tenants as tenant_svc
 
@@ -23,6 +23,19 @@ async def list_tenants(
     pool = pool_from_request(request)
     if pool is None:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
+    # Service principals are bound to exactly one tenant (no membership listing).
+    if user.is_service:
+        return {
+            "ok": True,
+            "tenants": [
+                {
+                    "id": user.tenant_id,
+                    "role": "service",
+                    "subprocessor": user.subprocessor or "",
+                    "scopes": sorted(user.scopes),
+                }
+            ],
+        }
     try:
         await tenant_svc.ensure_secure_schema(pool)
         items = await tenant_svc.list_tenants_for_user(pool, user_id=user.user_id)
@@ -41,6 +54,7 @@ async def create_tenant(
     body: TenantCreate,
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
+    require_user_principal(user)
     pool = pool_from_request(request)
     if pool is None:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")

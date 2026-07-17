@@ -1,4 +1,8 @@
-"""Tenant membership helpers (service-role DB access after JWT verification)."""
+"""Tenant membership helpers (service-role DB access after principal verification).
+
+Humans: `tenant_members` role check.
+Services: hard-bound to one `tenant_id` + capability scopes (see sql/014).
+"""
 
 from __future__ import annotations
 
@@ -9,6 +13,7 @@ from uuid import UUID
 import asyncpg
 from fastapi import HTTPException, status
 
+from app.core.auth import AuthUser, PrincipalKind
 from app.core.config import settings
 
 logger = logging.getLogger("forjd.tenants")
@@ -224,8 +229,19 @@ async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             expires_at TIMESTAMPTZ,
+            revoked_at TIMESTAMPTZ,
             UNIQUE (tenant_id, session_id)
         )
+        """
+    )
+    await pool.execute(
+        "ALTER TABLE crypto_sessions ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ"
+    )
+    # Nonce reuse guard (sql/013); soft-migrate for local/dev.
+    await pool.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS telemetry_events_tenant_key_nonce_uidx
+          ON telemetry_events (tenant_id, key_id, nonce)
         """
     )
     # Durable projections + DLQ + status pages (shapes; RLS via sql/007–008).
@@ -303,6 +319,137 @@ async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
         )
         """
     )
+    # --- Domain security tables (sql/011; soft-migrate for local/dev) ---
+    await pool.execute(
+        """
+        CREATE TABLE IF NOT EXISTS threat_intelligence (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID REFERENCES tenants (id) ON DELETE CASCADE,
+            is_platform BOOLEAN NOT NULL DEFAULT FALSE,
+            source TEXT NOT NULL,
+            ip_address INET,
+            location TEXT,
+            abuse_confidence_score INT NOT NULL DEFAULT 0,
+            otx_pulses INT NOT NULL DEFAULT 0,
+            is_malicious BOOLEAN NOT NULL DEFAULT FALSE,
+            raw_payload JSONB,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """
+    )
+    await pool.execute(
+        """
+        CREATE TABLE IF NOT EXISTS incident_cases (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'open',
+            severity TEXT NOT NULL DEFAULT 'medium',
+            assigned_actor_id UUID,
+            status_incident_id UUID,
+            correlation_rule_ids TEXT[] NOT NULL DEFAULT '{}',
+            metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+            created_by_actor_id UUID,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """
+    )
+    await pool.execute(
+        """
+        CREATE TABLE IF NOT EXISTS playbooks (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            is_active BOOLEAN NOT NULL DEFAULT TRUE,
+            trigger_conditions JSONB NOT NULL DEFAULT '{}'::jsonb,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """
+    )
+    await pool.execute(
+        """
+        CREATE TABLE IF NOT EXISTS playbook_actions (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            playbook_id UUID NOT NULL REFERENCES playbooks (id) ON DELETE CASCADE,
+            action_type TEXT NOT NULL,
+            configuration JSONB NOT NULL DEFAULT '{}'::jsonb,
+            sort_order INT NOT NULL DEFAULT 0,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """
+    )
+    await pool.execute(
+        """
+        CREATE TABLE IF NOT EXISTS export_jobs (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
+            format TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            source_kind TEXT NOT NULL DEFAULT 'stream_results',
+            object_key TEXT,
+            checksum_sha256 TEXT,
+            error TEXT,
+            created_by_actor_id UUID,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            completed_at TIMESTAMPTZ
+        )
+        """
+    )
+    await pool.execute(
+        """
+        CREATE TABLE IF NOT EXISTS training_runs (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
+            model_name TEXT NOT NULL,
+            model_version TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'completed',
+            metrics JSONB NOT NULL DEFAULT '{}'::jsonb,
+            artifact_path TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """
+    )
+    await pool.execute(
+        """
+        CREATE TABLE IF NOT EXISTS threat_reports (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
+            score DOUBLE PRECISION NOT NULL DEFAULT 0,
+            features JSONB NOT NULL DEFAULT '[]'::jsonb,
+            summary TEXT NOT NULL DEFAULT '',
+            metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """
+    )
+    # sql/014 — M2M / subprocessor principals (opaque token or bound Auth user).
+    await pool.execute(
+        """
+        CREATE TABLE IF NOT EXISTS service_accounts (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            subprocessor TEXT NOT NULL DEFAULT '',
+            prefix TEXT UNIQUE,
+            key_hash TEXT,
+            auth_user_id UUID UNIQUE,
+            scopes TEXT[] NOT NULL DEFAULT ARRAY[
+                'ingest:write', 'ingest:read',
+                'projections:read', 'projections:run'
+            ]::text[],
+            is_active BOOLEAN NOT NULL DEFAULT TRUE,
+            revoked_at TIMESTAMPTZ,
+            created_by UUID,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            last_used_at TIMESTAMPTZ
+        )
+        """
+    )
 
 
 # --- Membership checks ---
@@ -333,6 +480,45 @@ async def require_member(
     if min_roles is not None and role not in min_roles:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="insufficient role")
     return role
+
+
+def _service_has_scope(scopes: frozenset[str], required: frozenset[str]) -> bool:
+    if "*" in scopes:
+        return True
+    return bool(scopes & required)
+
+
+async def require_tenant_access(
+    pool: asyncpg.Pool,
+    *,
+    principal: AuthUser,
+    tenant_id: UUID,
+    min_roles: frozenset[str] | None = None,
+    required_scopes: frozenset[str] | None = None,
+) -> str:
+    """Authorize a human member or a tenant-bound service principal.
+
+    Services cannot cross tenants — `principal.tenant_id` must equal `tenant_id`.
+    """
+    if principal.kind == PrincipalKind.SERVICE:
+        if not principal.tenant_id or principal.tenant_id != str(tenant_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="service principal is bound to a different tenant",
+            )
+        if required_scopes and not _service_has_scope(principal.scopes, required_scopes):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="insufficient service scope",
+            )
+        return "service"
+
+    return await require_member(
+        pool,
+        tenant_id=tenant_id,
+        user_id=principal.user_id,
+        min_roles=min_roles,
+    )
 
 
 # --- Tenant CRUD ---

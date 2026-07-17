@@ -55,3 +55,24 @@ async def list_sessions(
         pool, user=user, tenant_id=tenant_id, limit=limit
     )
     return {"ok": True, "tenant_id": str(tenant_id), "sessions": sessions}
+
+
+# --- Revoke compromised / logged-out device session ---
+@router.delete("/{session_id}")
+async def revoke_session(
+    request: Request,
+    session_id: str,
+    tenant_id: UUID,
+    user: AuthUser = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Revoke a session so its key_id can no longer ingest sealed events."""
+    pool = pool_from_request(request)
+    if pool is None:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
+    try:
+        session = await session_svc.revoke_session(
+            pool, user=user, tenant_id=tenant_id, session_id=session_id
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return {"ok": True, "session": session}

@@ -22,14 +22,19 @@ Agents: read this briefing first, then enforce constraints in `.cursorrules`.
 | UI | Angular + forjd-ui (Storybook / Chromatic) |
 | Observability | Rollbar (API); Vercel Analytics + Speed Insights (frontend) |
 | ML (optional PoC) | PyTorch LSTM-AE (`uv sync --group ml`) + Supabase pgvector latents |
-| Auth / E2EE | Supabase Auth JWT + X25519/HKDF session keys + AES-256-GCM sealed ingest (`sql/003`–`008`) |
-| Workflows | YAML/JSON under `backend/workflows/` → `EventType` / `PipelineConfig` / `ProjectionDefinition` → Prefect + Pathway + pluggable detectors |
+| Auth / E2EE | Supabase Auth **user** JWTs + tenant-scoped **service accounts** (`sql/014`, `backend/docs/AUTH.md`); X25519/HKDF + AES-256-GCM sealed ingest (`sql/003`–`008`, `013`) |
+| Workflows | YAML under `backend/workflows/` → Prefect + **Rust sealed pipeline** (Pathway fallback) + pluggable detectors |
 | Projections | Checkpointed durable `stream_results` + replay/DLQ (`/api/v1/projections`, `/api/v1/replay`) |
 | Status | Tenant status pages (`/api/v1/status`) — public when published |
 | Audit | Metadata-only `audit_events` (`sql/010`) — never ciphertext/keys |
+| Domain security | Threat intel, SOC, playbooks, exports, ML, scanners (`sql/011`–`012`) — `tenant_id`; no ClickHouse |
+| Edge | Supabase Edge Functions under `supabase/functions/` (e.g. `peer-sessions`) |
 
-Pathway owns live/incremental work; Polars owns finite batch DataFrames. Details: `.cursorrules`.
-Backend Python is pinned to **3.12** with Pathway ≥0.31 (`beartype<0.16` via uv override). Pathway still does not support 3.14.
+**Architecture:** see root `ARCHITECTURE.md`. Supabase = Auth + Postgres + pgvector + Realtime. No ClickHouse.
+DEML (and similar apps) are **subprocessors**: they keep their own end-user auth (e.g. Firebase) and call FORJD with a tenant-bound service token — never with end-user tokens.
+Rust owns hot-path sealed pipeline (`/v1/sealed/pipeline`, PyO3 `run_sealed_pipeline`) and data-plane roles.
+Pathway is soft-fallback for sealed rollups; Polars owns finite batch DataFrames.
+Backend Python is pinned to **3.12** with Pathway ≥0.31 (`beartype<0.16` via uv override).
 
 ## How to work
 - Small, testable increments. Do not expand scope beyond what was asked.
@@ -37,7 +42,7 @@ Backend Python is pinned to **3.12** with Pathway ≥0.31 (`beartype<0.16` via u
 - Keep dependencies minimal — add a package only when a concrete use case needs it.
 - After meaningful progress, append a `LOG.MD` entry (format in `.cursorrules`).
 
-Last updated: 2026-07-17
+Last updated: 2026-07-17 (service accounts / subprocessor auth)
 
 ## Cursor Cloud specific instructions
 

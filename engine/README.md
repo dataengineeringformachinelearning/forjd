@@ -19,7 +19,8 @@ Fly/Compose build: `--features server,data-plane`.
 | GET | `/v1/version` | always | Crate + schema version |
 | POST | `/v1/process` | always | Validate/enrich event |
 | POST | `/v1/summarize` | always | Arrow/Parquet summary |
-| POST | `/api/v1/ingest` | `FORJD_ROLE` includes ingest/`all` | Edge → `outbox_events` |
+| POST | `/v1/sealed/pipeline` | always | Ciphertext-safe detectors → `stream_results` rows |
+| POST | `/api/v1/ingest` | `FORJD_ROLE` includes ingest/`all` | Sealed edge → `outbox_events` (ciphertext required) |
 | POST | `/unique` | `FORJD_ROLE=cpe` only | Optional CPE lookup |
 
 ## `FORJD_ROLE`

@@ -37,8 +37,9 @@ uv run forjd
 | POST | `/api/v1/anomaly/fit` | Train LSTM-AE (synthetic normals by default) |
 | POST | `/api/v1/anomaly/score` | Score a window + store latent in pgvector |
 | GET | `/api/v1/anomaly` | ML status + recent embeddings |
-| GET/POST | `/api/v1/tenants` | List / create tenants (Supabase JWT) |
-| POST | `/api/v1/ingest` | Sealed event ingest (any use case; ciphertext only) |
+| GET/POST | `/api/v1/tenants` | List / create tenants (enterprise user JWT) |
+| GET/POST/DELETE | `/api/v1/service-accounts` | Mint / list / revoke tenant-scoped M2M tokens |
+| POST | `/api/v1/ingest` | Sealed event ingest (user JWT or service token) |
 | POST | `/api/v1/ingest/events` | Alias of `/ingest` |
 | POST | `/api/v1/ingest/events:batch` | Batch ingest (≤100) |
 | GET | `/api/v1/ingest/events?tenant_id=` | List event metadata (no ciphertext bodies) |
@@ -55,13 +56,13 @@ uv run forjd
 
 ### Secure streaming (Supabase Auth + E2EE)
 
-1. Run SQL `003`→`008` (see [`sql/README.md`](sql/README.md)).
+1. Run SQL `003`→`014` (see [`sql/README.md`](sql/README.md)).
 2. Set `SUPABASE_URL` and/or `SUPABASE_JWT_SECRET` in `.env`.
-3. Clients: sign in with Supabase Auth → `Authorization: Bearer <access_token>`.
-4. Publish X25519 *public* keys via `POST /api/v1/sessions` (private keys stay on device).
-5. Derive AES-256 via X25519 ECDH + HKDF; seal with AES-256-GCM; `POST /api/v1/ingest` with `content_type` / optional `event_type` / `workflow_id`.
-6. Prefect `forjd-ingest` / `forjd-project` load workflows from [`workflows/`](workflows/), run Pathway + pluggable detectors, write durable `stream_results`.
-7. Use `POST /api/v1/projections/run` for live catch-up, `POST /api/v1/replay` for reprocess, `/api/v1/status/*` for ops pages.
+3. **Enterprise users:** Supabase Auth → `Authorization: Bearer <access_token>`.
+4. **Subprocessors (e.g. DEML):** admin mints `POST /api/v1/service-accounts` → DEML calls with `Bearer fjsvc_…` (see [`docs/AUTH.md`](docs/AUTH.md)). DEML keeps Firebase for its end-users.
+5. Publish X25519 *public* keys via `POST /api/v1/sessions` (private keys stay on device / subprocessor).
+6. Derive AES-256 via X25519 ECDH + HKDF; seal with AES-256-GCM; `POST /api/v1/ingest` with `content_type` / optional `event_type` / `workflow_id`.
+7. Prefect / Rust sealed pipeline write durable `stream_results`; `POST /api/v1/projections/run` for catch-up.
 
 **New use case:** add `workflows/my_saas.yaml` (or a detector under `app/workflows/detectors/`) — no ingest/API fork required.
 

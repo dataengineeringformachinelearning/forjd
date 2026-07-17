@@ -1,5 +1,6 @@
-"""Optional PyTorch models for the unsupervised ML PoC."""
+"""Optional PyTorch models (LSTM-AE PoC + DEML threat/CES/SLA models)."""
 
 from app.services.ml.lstm_autoencoder import LSTMAutoencoder, torch_available
+from app.services.ml.threat_model import CESModel, ThreatModel
 
-__all__ = ["LSTMAutoencoder", "torch_available"]
+__all__ = ["CESModel", "LSTMAutoencoder", "ThreatModel", "torch_available"]

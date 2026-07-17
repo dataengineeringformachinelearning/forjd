@@ -32,6 +32,7 @@ async def require_active_session(
         FROM crypto_sessions
         WHERE tenant_id = $1::uuid
           AND session_id = $2
+          AND revoked_at IS NULL
           AND (expires_at IS NULL OR expires_at > NOW())
         """,
         str(tenant_id),
@@ -104,9 +105,10 @@ async def list_sessions(
         """
         SELECT id::text, tenant_id::text, session_id, user_id::text,
                identity_public_key, ephemeral_public_key, ratchet_state_hint,
-               created_at, updated_at, expires_at
+               created_at, updated_at, expires_at, revoked_at
         FROM crypto_sessions
         WHERE tenant_id = $1::uuid
+          AND revoked_at IS NULL
           AND (expires_at IS NULL OR expires_at > NOW())
         ORDER BY updated_at DESC
         LIMIT $2
@@ -117,8 +119,44 @@ async def list_sessions(
     return [_row_out(r) for r in rows]
 
 
+# --- Revoke a device session (compromised device / logout) ---
+async def revoke_session(
+    pool: asyncpg.Pool,
+    *,
+    user: AuthUser,
+    tenant_id: UUID,
+    session_id: str,
+) -> dict[str, Any]:
+    await tenant_svc.require_member(
+        pool,
+        tenant_id=tenant_id,
+        user_id=user.user_id,
+        min_roles=frozenset({"owner", "admin", "member"}),
+    )
+    row = await pool.fetchrow(
+        """
+        UPDATE crypto_sessions
+        SET revoked_at = NOW(), updated_at = NOW()
+        WHERE tenant_id = $1::uuid
+          AND session_id = $2
+          AND user_id = $3::uuid
+          AND revoked_at IS NULL
+        RETURNING id::text, tenant_id::text, session_id, user_id::text,
+                  identity_public_key, ephemeral_public_key, ratchet_state_hint,
+                  created_at, updated_at, expires_at, revoked_at
+        """,
+        str(tenant_id),
+        session_id,
+        user.user_id,
+    )
+    if row is None:
+        raise ValueError("session not found or already revoked")
+    return _row_out(row)
+
+
 # --- Serialize DB row for API responses ---
 def _row_out(row: asyncpg.Record) -> dict[str, Any]:
+    revoked = row.get("revoked_at", None)
     return {
         "id": row["id"],
         "tenant_id": row["tenant_id"],
@@ -130,4 +168,5 @@ def _row_out(row: asyncpg.Record) -> dict[str, Any]:
         "created_at": row["created_at"].isoformat(),
         "updated_at": row["updated_at"].isoformat(),
         "expires_at": row["expires_at"].isoformat() if row["expires_at"] else None,
+        "revoked_at": revoked.isoformat() if revoked else None,
     }

@@ -113,3 +113,63 @@ async def remote_version() -> dict[str, Any] | None:
     except Exception as exc:
         logger.warning("engine version probe failed: %s", exc)
         return {"ok": False, "error": str(exc)}
+
+
+# --- Sealed-metadata pipeline (sync; used from Pathway/Prefect hot path) ---
+def run_sealed_pipeline_sync(
+    events: list[dict[str, Any]],
+    *,
+    steps: list[str] | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    projection_name: str = "sealed.default",
+    workflow_id: str | None = None,
+) -> dict[str, Any] | None:
+    """Run Rust sealed pipeline via PyO3 or sync HTTP. Returns None if unavailable."""
+    steps = steps or ["rollup", "size_anomaly"]
+    params = params or {}
+    tags = tags or {}
+
+    if _pyo3 is not None and hasattr(_pyo3, "run_sealed_pipeline"):
+        try:
+            out = _pyo3.run_sealed_pipeline(
+                events,
+                steps=steps,
+                params=params,
+                tags=tags,
+                projection_name=projection_name,
+                workflow_id=workflow_id,
+            )
+            return dict(out) if not isinstance(out, dict) else out
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("rust sealed pipeline (pyo3) failed: %s", exc)
+
+    if _http_configured():
+        try:
+            with httpx.Client(
+                base_url=settings.ENGINE_URL.rstrip("/"),
+                timeout=httpx.Timeout(settings.ENGINE_TIMEOUT_SECONDS),
+                headers=_auth_headers(),
+            ) as client:
+                response = client.post(
+                    "/v1/sealed/pipeline",
+                    json={
+                        "events": events,
+                        "steps": steps,
+                        "params": params,
+                        "tags": tags,
+                        "projection_name": projection_name,
+                        "workflow_id": workflow_id,
+                    },
+                )
+                if response.status_code >= 400:
+                    logger.warning(
+                        "rust sealed pipeline HTTP %s: %s",
+                        response.status_code,
+                        response.text[:200],
+                    )
+                    return None
+                return dict(response.json())
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("rust sealed pipeline (http) failed: %s", exc)
+    return None

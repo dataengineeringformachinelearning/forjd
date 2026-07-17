@@ -378,11 +378,12 @@ async def run_projection(
     workflow_id: str | None = None,
     limit: int = 200,
 ) -> dict[str, Any]:
-    await tenant_svc.require_member(
+    await tenant_svc.require_tenant_access(
         pool,
+        principal=user,
         tenant_id=tenant_id,
-        user_id=user.user_id,
         min_roles=frozenset({"owner", "admin", "member"}),
+        required_scopes=frozenset({"projections:run"}),
     )
     return await run_projection_core(
         pool,
@@ -401,7 +402,12 @@ async def list_projections(
     projection_name: str | None = None,
     limit: int = 50,
 ) -> list[dict[str, Any]]:
-    await tenant_svc.require_member(pool, tenant_id=tenant_id, user_id=user.user_id)
+    await tenant_svc.require_tenant_access(
+        pool,
+        principal=user,
+        tenant_id=tenant_id,
+        required_scopes=frozenset({"projections:read"}),
+    )
     clauses = ["tenant_id = $1::uuid"]
     args: list[Any] = [str(tenant_id)]
     if projection_name:

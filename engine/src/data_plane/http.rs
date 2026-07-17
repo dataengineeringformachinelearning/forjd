@@ -215,11 +215,40 @@ fn validate_payload(payload: &IngestPayload) -> Result<(), ApiError> {
             "records must contain between 1 and 10000 items".to_string(),
         ));
     }
-    if payload.records.iter().any(|record| !record.is_object()) {
-        return Err(ApiError(
-            StatusCode::BAD_REQUEST,
-            "every record must be a JSON object".to_string(),
-        ));
+    for record in &payload.records {
+        let Some(obj) = record.as_object() else {
+            return Err(ApiError(
+                StatusCode::BAD_REQUEST,
+                "every record must be a JSON object".to_string(),
+            ));
+        };
+        // E2EE policy: daemon ingest accepts sealed envelopes only (no plaintext).
+        for forbidden in ["plaintext", "password", "private_key", "secret"] {
+            if obj.contains_key(forbidden) {
+                return Err(ApiError(
+                    StatusCode::BAD_REQUEST,
+                    format!("record must not contain {forbidden} (ciphertext-only ingest)"),
+                ));
+            }
+        }
+        let has_cipher = obj
+            .get("ciphertext")
+            .and_then(|v| v.as_str())
+            .is_some_and(|s| !s.is_empty());
+        let has_nonce = obj
+            .get("nonce")
+            .and_then(|v| v.as_str())
+            .is_some_and(|s| !s.is_empty());
+        let has_key = obj
+            .get("key_id")
+            .and_then(|v| v.as_str())
+            .is_some_and(|s| !s.is_empty());
+        if !(has_cipher && has_nonce && has_key) {
+            return Err(ApiError(
+                StatusCode::BAD_REQUEST,
+                "each record requires ciphertext, nonce, and key_id (E2EE envelope)".to_string(),
+            ));
+        }
     }
     Ok(())
 }

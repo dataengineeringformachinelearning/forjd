@@ -86,6 +86,14 @@
 
 - 2026-07-17: Merged `forjd-daemon` into `forjd-engine` — one crate/binary/Fly app (`src/data_plane/`, `--features server,data-plane`, `FORJD_ROLE`). Bumped Fly VM to shared-cpu-2x / 2GB; Compose wires Postgres/Dragonfly into the engine. CPE stays opt-in (`FORJD_ROLE=cpe`), not part of `all`.
 
+- 2026-07-17: Started DEML Python domain extract into FORJD — `sql/011_domain_security.sql` + APIs for threat intel (abuse.ch/TAXII), SOC cases, playbooks, Polars exports, and tenant-scoped ThreatModel train/score. Kept Django auth/billing in DEML; reused `tenant_id` + opaque `actor_id` (no `auth.User`). Skipped reintroducing Rust-owned relay/probe/normalizer/scheduler loops.
+
+- 2026-07-17: Completed DEML non-identity Python extract wave 2 — Lighthouse, OSINT/HIBP/Ahmia, Firecrawl tech enrichment + SSRF URL guards, assets/vulns CRUD, vulnerability ledger (httpx scanner client), analytics rollups/CES, honeypots, PDF reports (+ optional S3 storage), SOC compliance payload, SLA training, security-alert ingest. Added `sql/012_domain_scanners.sql`, optional `ml` sklearn + `storage` boto3 groups. Skipped Firestore synthetic monitor and marketing integration mocks.
+
+- 2026-07-17: Modernized FORJD as Supabase-first secure streaming — documented architecture (no ClickHouse/Firebase), Rust `pipeline` module + `/v1/sealed/pipeline` + PyO3 `run_sealed_pipeline` for ciphertext-blind rollup/detectors (Pathway fallback), E2EE hardening (`sql/013` nonce uniqueness + session revoke), daemon ingest rejects plaintext records, Supabase Edge Function `peer-sessions` stub.
+
+- 2026-07-17: Added tenant-scoped service accounts for enterprise users + subprocessors (DEML) — `sql/014`, `AuthUser.kind` user vs service, opaque `fjsvc_` tokens and Supabase M2M claim binding, `require_tenant_access` on ingest/projections, mint/revoke API, `backend/docs/AUTH.md`. DEML end-user Firebase stays in DEML; FORJD only accepts tenant-bound service credentials.
+
 ## Packages
 
 Direct dependencies only. Star these on GitHub.
@@ -102,8 +110,10 @@ Direct dependencies only. Star these on GitHub.
 - [Pathway](https://github.com/pathwaycom/pathway) — streaming / incremental processing
 - [Polars](https://github.com/pola-rs/polars) — batch DataFrames
 - [pyrollbar](https://github.com/rollbar/pyrollbar) — error reporting
-- [pytorch](https://github.com/pytorch/pytorch) — LSTM-AE unsupervised PoC (`uv sync --group ml`)
-- [numpy](https://github.com/numpy/numpy) — window tensors for ML PoC (`ml` group)
+- [pytorch](https://github.com/pytorch/pytorch) — LSTM-AE / threat / SLA models (`uv sync --group ml`)
+- [numpy](https://github.com/numpy/numpy) — window tensors for ML (`ml` group)
+- [scikit-learn](https://github.com/scikit-learn/scikit-learn) — SLA GridSearchCV (`ml` group)
+- [boto3](https://github.com/boto/boto3) — S3-compatible export/report storage (`uv sync --group storage`)
 - [pyjwt](https://github.com/jpadilla/pyjwt) — Supabase Auth JWT verification
 - [cryptography](https://github.com/pyca/cryptography) — AES-256-GCM E2EE envelopes
 - [PyYAML](https://github.com/yaml/pyyaml) — workflow definition loading

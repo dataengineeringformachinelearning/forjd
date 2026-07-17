@@ -1,8 +1,9 @@
 """Universal E2EE event ingestion — store ciphertext only, run configured workflows.
 
 Ingest path guarantees:
-  • Caller presents a verified Supabase JWT (`get_current_user`).
-  • Tenant membership is checked before any write.
+  • Caller presents a verified principal (`get_current_user`): enterprise user JWT
+    or tenant-scoped service token (subprocessor / M2M, e.g. DEML).
+  • Tenant isolation checked before any write (`require_tenant_access`).
   • Envelope fields are validated but **never decrypted**.
   • Workflow YAML/JSON selects processor + thresholds (not product forks).
   • Prefect + Pathway receive metadata only; results land in `stream_results`.
@@ -69,11 +70,12 @@ async def ingest_events(
 
     tenant_ids = {e.tenant_id for e in batch.events}
     for tid in tenant_ids:
-        await tenant_svc.require_member(
+        await tenant_svc.require_tenant_access(
             pool,
+            principal=user,
             tenant_id=tid,
-            user_id=user.user_id,
             min_roles=frozenset({"owner", "admin", "member"}),
+            required_scopes=frozenset({"ingest:write"}),
         )
 
     results: list[IngestEventResult] = []
@@ -130,7 +132,7 @@ async def ingest_events(
         for wf_id, meta_rows in by_workflow.items():
             ct, et = workflow_meta[wf_id]
             run = run_ingest_flow(
-                user_id=user.user_id,
+                user_id=user.actor_id,
                 tenant_ids=[str(t) for t in tenant_ids],
                 accepted=len(meta_rows),
                 event_ids=[str(r["event_id"]) for r in meta_rows],
@@ -177,13 +179,15 @@ async def ingest_events(
         await audit.record(
             pool,
             action=audit.ACTION_INGEST_BATCH,
-            actor_user_id=user.user_id,
+            actor_user_id=user.actor_id,
             tenant_id=tid,
             resource_type="ingest_batch",
             details={
                 "accepted": len(results),
                 "workflows": list(by_workflow.keys()),
                 "anomaly_count": pathway_summary.get("anomaly_count", 0),
+                "principal_kind": user.kind.value,
+                "subprocessor": user.subprocessor or "",
             },
         )
 
@@ -210,37 +214,42 @@ async def _insert_event(
     except CryptoError as exc:
         raise ValueError(str(exc)) from exc
 
-    row = await pool.fetchrow(
-        """
-        INSERT INTO telemetry_events (
-            tenant_id, submitted_by, client_event_id, occurred_at,
-            algo, key_id, ratchet_header, nonce, ciphertext, ciphertext_sha256,
-            content_type, event_type, schema_version, workflow_id, metadata
+    try:
+        row = await pool.fetchrow(
+            """
+            INSERT INTO telemetry_events (
+                tenant_id, submitted_by, client_event_id, occurred_at,
+                algo, key_id, ratchet_header, nonce, ciphertext, ciphertext_sha256,
+                content_type, event_type, schema_version, workflow_id, metadata
+            )
+            VALUES (
+                $1::uuid, $2::uuid, $3, $4,
+                $5, $6, $7, $8, $9, $10,
+                $11, $12, $13, $14, $15::jsonb
+            )
+            ON CONFLICT (tenant_id, client_event_id) DO NOTHING
+            RETURNING id, tenant_id, client_event_id, created_at
+            """,
+            str(event.tenant_id),
+            # Human auth.users id only — services use audit actor_id (svc:…); avoid FK break.
+            user.user_id if user.is_user else None,
+            event.client_event_id,
+            event.occurred_at,
+            sealed.algo,
+            sealed.key_id,
+            sealed.ratchet_header,
+            sealed.nonce,
+            sealed.ciphertext,
+            sealed.ciphertext_sha256,
+            event.content_type,
+            event.event_type,
+            event.schema_version,
+            workflow.id,
+            json.dumps(event.metadata),
         )
-        VALUES (
-            $1::uuid, $2::uuid, $3, $4,
-            $5, $6, $7, $8, $9, $10,
-            $11, $12, $13, $14, $15::jsonb
-        )
-        ON CONFLICT (tenant_id, client_event_id) DO NOTHING
-        RETURNING id, tenant_id, client_event_id, created_at
-        """,
-        str(event.tenant_id),
-        user.user_id,
-        event.client_event_id,
-        event.occurred_at,
-        sealed.algo,
-        sealed.key_id,
-        sealed.ratchet_header,
-        sealed.nonce,
-        sealed.ciphertext,
-        sealed.ciphertext_sha256,
-        event.content_type,
-        event.event_type,
-        event.schema_version,
-        workflow.id,
-        json.dumps(event.metadata),
-    )
+    except asyncpg.UniqueViolationError as exc:
+        # sql/013: (tenant_id, key_id, nonce) — AES-GCM nonce must never repeat.
+        raise ValueError("nonce reuse rejected for this key_id") from exc
     if row is not None:
         return IngestEventResult(
             id=row["id"],
@@ -282,11 +291,12 @@ async def ingest_embedding(
     body: EmbeddingIngestRequest,
 ) -> dict[str, Any]:
     await tenant_svc.ensure_secure_schema(pool)
-    await tenant_svc.require_member(
+    await tenant_svc.require_tenant_access(
         pool,
+        principal=user,
         tenant_id=body.tenant_id,
-        user_id=user.user_id,
         min_roles=frozenset({"owner", "admin", "member"}),
+        required_scopes=frozenset({"ingest:write"}),
     )
 
     emb_lit = _vector_literal(body.embedding) if body.embedding is not None else None
@@ -332,7 +342,12 @@ async def list_recent_events(
     tenant_id: UUID,
     limit: int = 20,
 ) -> list[dict[str, Any]]:
-    await tenant_svc.require_member(pool, tenant_id=tenant_id, user_id=user.user_id)
+    await tenant_svc.require_tenant_access(
+        pool,
+        principal=user,
+        tenant_id=tenant_id,
+        required_scopes=frozenset({"ingest:read", "ingest:write"}),
+    )
     rows = await pool.fetch(
         """
         SELECT id::text, tenant_id::text, client_event_id, created_at, occurred_at,
@@ -381,7 +396,12 @@ async def list_stream_results(
     anomalies_only: bool = False,
     workflow_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    await tenant_svc.require_member(pool, tenant_id=tenant_id, user_id=user.user_id)
+    await tenant_svc.require_tenant_access(
+        pool,
+        principal=user,
+        tenant_id=tenant_id,
+        required_scopes=frozenset({"ingest:read", "projections:read"}),
+    )
     clauses = ["tenant_id = $1::uuid"]
     args: list[Any] = [str(tenant_id)]
     if anomalies_only:

@@ -14,11 +14,15 @@ Apply in order in the Supabase SQL editor (or `psql`).
 | `008_status_pages.sql` | Status pages / services / incidents (public when published) |
 | `009_daemon_data_plane.sql` | Rust daemon outbox, scheduler, API keys, normalizer, probes |
 | `010_audit_and_rate_limits.sql` | Metadata-only `audit_events` + `daemon_api_keys.rate_limit_rpm` |
+| `011_domain_security.sql` | DEML domain extract — threat intel, SOC cases, playbooks, exports, ML runs |
+| `012_domain_scanners.sql` | Lighthouse, OSINT endpoints, validated sites, honeypots, report archives |
+| `013_e2ee_hardening.sql` | Nonce uniqueness `(tenant_id,key_id,nonce)` + `crypto_sessions.revoked_at` |
+| `014_service_accounts.sql` | Tenant-scoped M2M / subprocessor principals (`fjsvc_` + Auth binding) |
 
-## Secure path (`003`–`010`)
+## Secure path (`003`–`014`)
 
 1. Enable extensions **vector** and **pgcrypto** (Dashboard → Database → Extensions).
-2. Run `003` → `010` in order.
+2. Run `003` → `014` in order.
 3. Optional Realtime: Dashboard → Replication → add `telemetry_events` and/or `stream_results`.
 4. Set backend env: `SUPABASE_URL`, `SUPABASE_JWT_SECRET` (or rely on JWKS), `POSTGRES_DSN`.
 5. Add SaaS use cases as YAML under `backend/workflows/` (see that folder’s README).
@@ -28,7 +32,9 @@ Apply in order in the Supabase SQL editor (or `psql`).
 | Client | How |
 |--------|-----|
 | Browser / Realtime | Supabase anon key + user JWT → RLS via `auth.uid()` |
-| FastAPI ingest | Verify JWT → write with service-role DSN → membership checked in app |
+| FastAPI (enterprise user) | Verify Supabase JWT → service-role DSN → `tenant_members` |
+| FastAPI (subprocessor) | Opaque `fjsvc_…` or service-shaped JWT → `service_accounts` tenant + scopes |
+| Auth details | [`backend/docs/AUTH.md`](../docs/AUTH.md) |
 
 ### E2EE (Signal-inspired)
 

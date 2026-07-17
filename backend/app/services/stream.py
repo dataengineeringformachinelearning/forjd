@@ -1,7 +1,7 @@
-"""Pathway consumer for sealed-event metadata (server-blind, use-case agnostic).
+"""Sealed-event metadata consumer (server-blind, use-case agnostic).
 
 Operates only on non-sensitive fields. Never decrypts ciphertext.
-Rollup uses Pathway; anomaly steps use the pluggable detector registry.
+Prefers Rust ``forjd-engine`` sealed pipeline; falls back to Pathway + Python.
 """
 
 from __future__ import annotations
@@ -9,23 +9,24 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.services import engine as engine_svc
 from app.workflows.detectors import run_detectors
 from app.workflows.models import WorkflowDefinition
 
 logger = logging.getLogger("forjd.stream")
 
 
-# --- Pathway transform + pluggable detectors (ciphertext never enters) ---
+# --- Prefer Rust engine; Pathway/Python fallback ---
 def pathway_sealed_process(
     events: list[dict[str, Any]],
     *,
     workflow: WorkflowDefinition | None = None,
+    prefer_rust: bool = True,
 ) -> dict[str, Any]:
-    """Pathway reduce + configured anomaly detectors on each ingest/project batch.
+    """Rollup + configured anomaly detectors on each ingest/project batch.
 
-    Live path: called from Prefect on ingest (and projection ticks). Soft-fails
-    when Pathway is unavailable (same pattern as pulse). Continuous jobs can
-    be layered later; watermarks stay correct via projection checkpoints.
+    Live path: called from Prefect on ingest (and projection ticks). Prefers the
+    Rust sealed pipeline (PyO3 or ENGINE_URL). Soft-falls back to Pathway/Python.
     """
     empty = {
         "ok": True,
@@ -54,6 +55,18 @@ def pathway_sealed_process(
         tags.setdefault("projection_name", projection_name)
 
     sanitized = _sanitize(events)
+
+    if prefer_rust:
+        rust_out = engine_svc.run_sealed_pipeline_sync(
+            sanitized,
+            steps=steps,
+            params=workflow.pipeline.params_for_detectors() if workflow else {},
+            tags=tags,
+            projection_name=projection_name,
+            workflow_id=workflow.id if workflow else None,
+        )
+        if rust_out is not None:
+            return rust_out
     rollup = (
         _pathway_rollup(sanitized)
         if "rollup" in step_set

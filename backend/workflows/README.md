@@ -39,6 +39,24 @@ Resolution: `workflow_id` → `content_type`+`event_type` match → `default: tr
 4. Optional: add a detector in `app/workflows/detectors/` and list it in
    `pipeline.steps`, or a processor in `app/workflows/processors/`.
 
+## Domain security APIs (DEML extract)
+
+Beyond YAML workflows, tenant-scoped domain routes live under `/api/v1`:
+
+| Route prefix | Role |
+|--------------|------|
+| `/threat-intel` | Feed refresh, TAXII ingest, IP lookup, correlate → case/playbooks |
+| `/soc` | Incident cases (`assigned_actor_id` opaque) |
+| `/playbooks` | Trigger conditions + webhook actions (identity actions deferred) |
+| `/exports` | Polars CSV/JSON/Parquet from `stream_results` |
+| `/threat-ml` | ThreatModel train/score (`uv sync --group ml`) |
+| `/lighthouse`, `/osint`, `/sites` | PageSpeed, crt.sh/HIBP, Firecrawl tech enrich |
+| `/assets`, `/vulnerabilities` | Inventory + vuln ledger |
+| `/analytics`, `/honeypots`, `/reports`, `/compliance` | Rollups, decoys, PDF, SOC criteria |
+| `/sla/train`, `/integrations/security-alert` | SLA model + EDR-style alert ingest |
+
+Apply `sql/011`–`012` (or soft-migrate in development).
+
 Apply SQL `006`–`010` for routing, projections/DLQ, status, daemon plane, audit.
 
 ## Security (secure by default)

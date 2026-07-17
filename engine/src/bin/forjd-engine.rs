@@ -16,6 +16,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::BoxError;
 use axum::Router;
+use forjd_engine::pipeline::{run_sealed_pipeline, SealedPipelineRequest};
 use forjd_engine::{
     engine_version, process_event, summarize_values, token_matches, Event, SummarizeResult,
 };
@@ -30,8 +31,6 @@ use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
 
-/// Default JSON body budget for process/summarize (DoS bound).
-const BODY_LIMIT_BYTES: usize = 64 * 1024;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Clone)]
@@ -117,12 +116,16 @@ async fn main() {
         .route("/ready", get(ready))
         .route("/v1/version", get(version));
 
+    // Sealed pipeline accepts metadata batches (larger than single-event process).
+    const SEALED_BODY_LIMIT: usize = 1024 * 1024;
+
     let protected = Router::new()
         .route("/v1/process", post(process))
         .route("/v1/summarize", post(summarize))
+        .route("/v1/sealed/pipeline", post(sealed_pipeline))
         .route_layer(from_fn_with_state(state.clone(), require_token))
-        .layer(DefaultBodyLimit::max(BODY_LIMIT_BYTES))
-        .layer(RequestBodyLimitLayer::new(BODY_LIMIT_BYTES));
+        .layer(DefaultBodyLimit::max(SEALED_BODY_LIMIT))
+        .layer(RequestBodyLimitLayer::new(SEALED_BODY_LIMIT));
 
     #[cfg_attr(not(feature = "data-plane"), allow(unused_mut))]
     let mut app = public.merge(protected).with_state(state);
@@ -329,6 +332,15 @@ async fn summarize(Json(body): Json<SummarizeRequest>) -> Result<Json<SummarizeR
     summarize_values(&body.values)
         .map(Json)
         .map_err(ApiError::from_engine)
+}
+
+/// Ciphertext-blind sealed-metadata rollup + detectors (universal SaaS pipeline).
+async fn sealed_pipeline(
+    Json(body): Json<SealedPipelineRequest>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    run_sealed_pipeline(body)
+        .map(Json)
+        .map_err(ApiError::bad_request)
 }
 
 struct ApiError {
