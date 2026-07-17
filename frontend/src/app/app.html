@@ -3,8 +3,8 @@
     <p class="fj-brand">{{ title() }}</p>
     <h1 class="fj-headline">Connected stack pulse</h1>
     <p class="fj-lede shell__lede">
-      Angular → FastAPI → Rust engine, Polars, Pathway, Prefect, Supabase Postgres / pgvector, and
-      Dragonfly — plus an optional LSTM-autoencoder anomaly PoC.
+      Angular → FastAPI → Rust engine, Polars, Pathway, Prefect, Supabase Auth / Postgres /
+      pgvector / Realtime — sealed E2EE ingest + optional LSTM-AE PoC.
     </p>
   </header>
 
@@ -32,6 +32,113 @@
       <forjd-status-list [items]="checks" />
     } @else {
       <p class="fj-muted">No stack status yet.</p>
+    }
+  </forjd-panel>
+
+  <forjd-panel title="Secure stream (E2EE)" aria-label="Secure streaming">
+    @if (!supabaseReady) {
+      <p class="fj-muted">
+        Set <code>supabaseAnonKey</code> in
+        <code>src/environments/environment*.ts</code> (Supabase → Settings → API → anon public)
+        to enable Auth + Realtime.
+      </p>
+    } @else if (!sessionEmail()) {
+      <div class="shell__form">
+        <label class="shell__field">
+          <span>Email</span>
+          <input type="email" name="email" [(ngModel)]="email" autocomplete="username" />
+        </label>
+        <label class="shell__field">
+          <span>Password</span>
+          <input
+            type="password"
+            name="password"
+            [(ngModel)]="password"
+            autocomplete="current-password"
+          />
+        </label>
+        <div class="shell__actions">
+          <forjd-button type="button" (click)="signIn()">Sign in</forjd-button>
+          <forjd-button type="button" variant="ghost" (click)="signUp()">Sign up</forjd-button>
+        </div>
+      </div>
+    } @else {
+      <p class="fj-meta shell__meta">Signed in as {{ sessionEmail() }}</p>
+      <div class="shell__actions">
+        <forjd-button type="button" variant="ghost" (click)="signOut()">Sign out</forjd-button>
+        <forjd-button type="button" variant="ghost" (click)="refreshTenants()">
+          Refresh tenants
+        </forjd-button>
+      </div>
+
+      <div class="shell__form">
+        <label class="shell__field">
+          <span>Tenant slug</span>
+          <input type="text" name="slug" [(ngModel)]="tenantSlug" />
+        </label>
+        <label class="shell__field">
+          <span>Tenant name</span>
+          <input type="text" name="name" [(ngModel)]="tenantName" />
+        </label>
+        <div class="shell__actions">
+          <forjd-button
+            type="button"
+            (click)="createTenant()"
+            [attr.aria-busy]="secureBusy()"
+          >
+            Create tenant
+          </forjd-button>
+          <forjd-button
+            type="button"
+            variant="ghost"
+            (click)="sealAndIngest()"
+            [attr.aria-busy]="secureBusy()"
+          >
+            {{ secureBusy() ? 'Sealing…' : 'Seal + ingest event' }}
+          </forjd-button>
+        </div>
+      </div>
+
+      @if (tenants().length) {
+        <ul class="shell__list">
+          @for (t of tenants(); track t.id) {
+            <li>
+              <button
+                type="button"
+                class="shell__link"
+                [class.shell__link--active]="t.id === activeTenantId()"
+                (click)="selectTenant(t.id)"
+              >
+                {{ t.slug }} · {{ t.role }}
+              </button>
+            </li>
+          }
+        </ul>
+      }
+
+      @if (ingestResult(); as ing) {
+        <p class="fj-meta shell__meta">
+          Ingest accepted {{ ing.accepted }}
+          @if (ing.prefect; as pf) {
+            · prefect {{ pf['ok'] ? 'ok' : 'fail' }}
+          }
+        </p>
+        <details class="shell__details">
+          <summary>Ingest JSON</summary>
+          <pre>{{ ing | json }}</pre>
+        </details>
+      }
+
+      @if (realtimeEvents().length) {
+        <p class="fj-meta shell__meta">Realtime inserts (ciphertext hashes only)</p>
+        <ul class="shell__list">
+          @for (ev of realtimeEvents(); track ev.id) {
+            <li class="fj-muted">
+              {{ ev.client_event_id }} · {{ ev.ciphertext_sha256?.slice(0, 12) }}…
+            </li>
+          }
+        </ul>
+      }
     }
   </forjd-panel>
 

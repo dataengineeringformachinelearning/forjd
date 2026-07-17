@@ -18,7 +18,7 @@ from app.models.ingest import (
     IngestEventResult,
 )
 from app.pipelines.ingest import run_ingest_flow
-from app.services import tenants as tenant_svc
+from app.services import stream, tenants as tenant_svc
 
 logger = logging.getLogger("forjd.ingest")
 
@@ -46,8 +46,24 @@ async def ingest_events(
         )
 
     results: list[IngestEventResult] = []
+    meta_rows: list[dict[str, Any]] = []
     for event in batch.events:
         results.append(await _insert_event(pool, user=user, event=event))
+        # Metadata only — never pass ciphertext into Pathway.
+        try:
+            sealed = event.envelope.to_sealed()
+            cipher_len = len(sealed.ciphertext)
+        except CryptoError:
+            cipher_len = 0
+        meta_rows.append(
+            {
+                "tenant_id": str(event.tenant_id),
+                "key_id": event.envelope.key_id,
+                "cipher_len": cipher_len,
+            }
+        )
+
+    pathway = stream.pathway_sealed_rollup(meta_rows)
 
     prefect: dict[str, Any] | None = None
     try:
@@ -56,6 +72,8 @@ async def ingest_events(
             tenant_ids=[str(t) for t in tenant_ids],
             accepted=len(results),
             event_ids=[str(r.id) for r in results],
+            pathway_ok=bool(pathway.get("ok")),
+            pathway_count=int(pathway.get("count") or 0),
         )
     except Exception as exc:  # noqa: BLE001
         logger.exception("ingest prefect failed")
@@ -65,6 +83,7 @@ async def ingest_events(
         "ok": True,
         "accepted": len(results),
         "results": results,
+        "pathway": pathway,
         "prefect": prefect,
     }
 

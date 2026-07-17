@@ -66,6 +66,8 @@
 
 - 2026-07-16: Started Signal-inspired secure streaming path — `sql/003_secure_tenancy.sql` (tenants, RLS, E2EE `telemetry_events`, tenant `embedding_vectors`), Supabase JWT verify (JWKS/HS256), AES-256-GCM envelope helpers, `POST /api/v1/ingest/*` + tenants API, Prefect `forjd-ingest`. Server stores ciphertext only; ApiKey middleware no longer hijacks Bearer JWTs.
 
+- 2026-07-16: Next secure-stream step — applied `003` + Realtime publication on Supabase; Angular WebCrypto seal helper + Supabase Auth/Realtime client; Pathway sealed-metadata rollup on ingest; Fly `SUPABASE_URL` secrets + backend redeploy. UI “Secure stream” panel needs public `supabaseAnonKey` in environments.
+
 ## Packages
 
 Direct dependencies only. Star these on GitHub.
@@ -92,6 +94,7 @@ Direct dependencies only. Star these on GitHub.
 
 ### Frontend (Angular / npm)
 - [angular](https://github.com/angular/angular) — UI framework (+ CLI / build tooling; includes `@angular/animations` for Storybook Vite)
+- [supabase-js](https://github.com/supabase/supabase-js) — Auth + Realtime client for sealed stream UI
 - [rxjs](https://github.com/ReactiveX/rxjs) — reactive streams
 - [tslib](https://github.com/microsoft/tslib) — TypeScript helpers
 - [vercel/analytics](https://github.com/vercel/analytics) — web analytics

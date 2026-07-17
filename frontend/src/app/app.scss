@@ -41,3 +41,51 @@
   border-radius: var(--fj-radius);
   color: var(--fj-text);
 }
+
+.shell__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fj-space-3);
+  margin-top: var(--fj-space-3);
+}
+
+.shell__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fj-space-1);
+  font-size: var(--fj-text-sm);
+  color: var(--fj-text-muted);
+}
+
+.shell__field input {
+  font: inherit;
+  color: var(--fj-text);
+  background: var(--fj-surface);
+  border: 1px solid var(--fj-border, color-mix(in oklab, var(--fj-text) 18%, transparent));
+  border-radius: var(--fj-radius);
+  padding: var(--fj-space-2) var(--fj-space-3);
+}
+
+.shell__list {
+  list-style: none;
+  margin: var(--fj-space-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--fj-space-2);
+}
+
+.shell__link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--fj-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+
+.shell__link--active {
+  color: var(--fj-primary, var(--fj-accent));
+}
