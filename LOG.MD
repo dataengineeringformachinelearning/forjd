@@ -64,6 +64,8 @@
 
 - 2026-07-16: Deployed `forjd-backend` with torch CPU + volume; fixed Prefect `HOME`/`PREFECT_HOME` after setpriv, renamed SQL column `window` → `series_window` (reserved keyword). Prod fit/score + pgvector persist verified on backend.forjd.co.
 
+- 2026-07-16: Started Signal-inspired secure streaming path — `sql/003_secure_tenancy.sql` (tenants, RLS, E2EE `telemetry_events`, tenant `embedding_vectors`), Supabase JWT verify (JWKS/HS256), AES-256-GCM envelope helpers, `POST /api/v1/ingest/*` + tenants API, Prefect `forjd-ingest`. Server stores ciphertext only; ApiKey middleware no longer hijacks Bearer JWTs.
+
 ## Packages
 
 Direct dependencies only. Star these on GitHub.
@@ -82,6 +84,8 @@ Direct dependencies only. Star these on GitHub.
 - [pyrollbar](https://github.com/rollbar/pyrollbar) — error reporting
 - [pytorch](https://github.com/pytorch/pytorch) — LSTM-AE unsupervised PoC (`uv sync --group ml`)
 - [numpy](https://github.com/numpy/numpy) — window tensors for ML PoC (`ml` group)
+- [pyjwt](https://github.com/jpadilla/pyjwt) — Supabase Auth JWT verification
+- [cryptography](https://github.com/pyca/cryptography) — AES-256-GCM E2EE envelopes
 - [uv](https://github.com/astral-sh/uv) — Python package manager
 - [ruff](https://github.com/astral-sh/ruff) — linter / formatter (dev)
 - [maturin](https://github.com/PyO3/maturin) — build Rust→Python extensions (dev / engine)

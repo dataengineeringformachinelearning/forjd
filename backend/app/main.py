@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
+from app.core.auth import warm_jwks
 from app.core.clients import create_db_pool, create_redis_client
 from app.core.config import settings
 from app.core.logging import configure_logging
@@ -22,6 +23,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # /ready reports whether Postgres + Redis are actually reachable.
     app.state.db_pool = await create_db_pool()
     app.state.redis = await create_redis_client()
+    await warm_jwks()
 
     yield
 

@@ -37,6 +37,21 @@ uv run forjd
 | POST | `/api/v1/anomaly/fit` | Train LSTM-AE (synthetic normals by default) |
 | POST | `/api/v1/anomaly/score` | Score a window + store latent in pgvector |
 | GET | `/api/v1/anomaly` | ML status + recent embeddings |
+| GET/POST | `/api/v1/tenants` | List / create tenants (Supabase JWT) |
+| POST | `/api/v1/ingest/events` | E2EE telemetry ingest (ciphertext only) |
+| POST | `/api/v1/ingest/events:batch` | Batch ingest (≤100) |
+| GET | `/api/v1/ingest/events?tenant_id=` | List event metadata (no ciphertext bodies) |
+| POST | `/api/v1/ingest/embeddings` | Tenant-scoped anomaly vectors |
+
+### Secure streaming (Supabase Auth + E2EE)
+
+1. Run [`sql/003_secure_tenancy.sql`](sql/003_secure_tenancy.sql) in Supabase (see [`sql/README.md`](sql/README.md)).
+2. Set `SUPABASE_URL` and/or `SUPABASE_JWT_SECRET` in `.env`.
+3. Clients: sign in with Supabase Auth → `Authorization: Bearer <access_token>`.
+4. Seal payloads with AES-256-GCM (`app.core.crypto.seal`); send envelope fields only.
+5. Prefect flow `forjd-ingest` acks the batch (Pathway continuous jobs next).
+
+Server-minimal knowledge: Double Ratchet headers stay opaque; FastAPI never decrypts E2EE ciphertext.
 
 ### Unsupervised ML PoC (LSTM-Autoencoder)
 

@@ -115,6 +115,16 @@ cargo run --no-default-features --features server   # HTTP on :8080
 | Postgres | Insert into `pulses` |
 | Dragonfly | Cache last pulse (`forjd:pulse:last`) |
 
+## Secure streaming (Supabase Auth + E2EE)
+
+Production path for replacing Redpanda-style ingress with FORJD as the sealed pipe:
+
+1. Apply [`backend/sql/003_secure_tenancy.sql`](backend/sql/003_secure_tenancy.sql) in Supabase (tenants, RLS, encrypted `telemetry_events`, `embedding_vectors`).
+2. Configure `SUPABASE_URL` / `SUPABASE_JWT_SECRET` on the API (see `backend/.env.example`).
+3. Clients authenticate with Supabase Auth and `POST /api/v1/ingest/events` with AES-256-GCM envelopes (`app.core.crypto`). The server stores ciphertext only.
+
+Details: [`backend/sql/README.md`](backend/sql/README.md) and [`backend/README.md`](backend/README.md).
+
 ## Unsupervised anomaly PoC (optional)
 
 | Piece | Role |

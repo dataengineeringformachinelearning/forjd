@@ -63,10 +63,15 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
         if not request.url.path.startswith(settings.API_V1_STR):
             return await call_next(request)
 
-        provided = request.headers.get("x-api-key") or ""
+        # Prefer X-API-Key. A Bearer token that looks like a JWT (a.b.c) is left
+        # for Supabase Auth route dependencies — do not treat it as the API key.
+        provided = (request.headers.get("x-api-key") or "").strip()
         auth = request.headers.get("authorization") or ""
-        if auth.lower().startswith("bearer "):
-            provided = provided or auth[7:].strip()
+        if not provided and auth.lower().startswith("bearer "):
+            token = auth[7:].strip()
+            if token.count(".") == 2:
+                return await call_next(request)
+            provided = token
 
         if not provided or not hmac.compare_digest(provided, expected):
             return JSONResponse(

@@ -37,7 +37,16 @@ class Settings(BaseSettings):
     PREFECT_API_URL: str = "http://127.0.0.1:4200/api"
 
     # Optional shared secret for mutating API routes (empty = disabled, local PoC).
+    # Prefer X-API-Key. Bearer JWTs are not treated as the API key (see security.py).
     API_KEY: str = ""
+
+    # Supabase Auth — set SUPABASE_URL (JWKS) and/or SUPABASE_JWT_SECRET (HS256).
+    SUPABASE_URL: str = ""
+    SUPABASE_JWT_SECRET: str = ""
+    # Usually "authenticated" for user access tokens; empty skips aud check.
+    SUPABASE_JWT_AUDIENCE: str = "authenticated"
+    # When true, missing auth config fails closed on protected routes.
+    SUPABASE_AUTH_REQUIRED: bool = False
 
     # Out-of-process Rust engine (Fly / Compose). Empty = in-process PyO3.
     ENGINE_URL: str = ""
