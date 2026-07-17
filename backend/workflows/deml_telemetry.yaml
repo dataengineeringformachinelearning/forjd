@@ -1,0 +1,39 @@
+# DEML is one registered use case — not the platform.
+id: deml_telemetry
+name: DEML telemetry
+description: >
+  Sealed telemetry for DEML (detection / response). Same blind processor as
+  default, with tighter size thresholds and DEML output tags.
+version: 1
+enabled: true
+default: false
+
+match:
+  content_types:
+    - application/forjd-telemetry+v1
+  # Empty = any event_type; clients may still set deml.metric / deml.alert / etc.
+  event_types: []
+
+encryption:
+  modes: [e2ee]
+  algos: [aes-256-gcm]
+
+pipeline:
+  processor: sealed_metadata
+  projection_name: deml.sealed_rollup
+  steps:
+    - rollup
+    - size_anomaly
+    - rate_anomaly
+  size_anomaly:
+    zscore: 2.0
+    max_cipher_len: 131072
+  rate_anomaly:
+    max_events: 200
+    window_sec: 60
+
+outputs:
+  table: stream_results
+  tags:
+    use_case: deml
+    consumer: deml

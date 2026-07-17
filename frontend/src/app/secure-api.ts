@@ -93,7 +93,7 @@ export class SecureApi {
     };
     return this.withAuth().pipe(
       switchMap((headers) =>
-        this.http.post<IngestResult>(`${this.base}/api/v1/ingest/events`, body, { headers }),
+        this.http.post<IngestResult>(`${this.base}/api/v1/ingest`, body, { headers }),
       ),
     );
   }

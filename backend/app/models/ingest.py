@@ -1,14 +1,22 @@
-"""Pydantic contracts for E2EE telemetry ingestion."""
+"""Pydantic contracts for universal E2EE event ingestion (any SaaS use case)."""
 
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.crypto import ALGO_AES_256_GCM, SealedEnvelope
+
+
+# --- Encryption options (server validates policy; never opens ciphertext) ---
+class EncryptionOptions(BaseModel):
+    """Client-declared encryption mode. Only E2EE is accepted on this path today."""
+
+    mode: Literal["e2ee"] = "e2ee"
+    algo: Literal["aes-256-gcm"] = "aes-256-gcm"
 
 
 # --- Wire envelope (server validates shape; never opens ciphertext) ---
@@ -39,16 +47,32 @@ class EncryptedEnvelope(BaseModel):
         return env
 
 
-# --- Ingest request / response ---
+# --- Ingest request / response (use-case agnostic) ---
 class IngestEventRequest(BaseModel):
+    """Generic sealed event for any tenant / product use case."""
+
     tenant_id: UUID
     client_event_id: str = Field(..., min_length=1, max_length=128)
     occurred_at: datetime | None = None
-    content_type: str = Field(default="application/forjd-telemetry+v1", max_length=128)
+    # Primary routing key → workflow registry (see backend/workflows/).
+    content_type: str = Field(default="application/forjd-event+v1", max_length=128)
+    # Optional finer routing inside a content_type (e.g. deml.metric, iot.sample).
+    event_type: str | None = Field(default=None, max_length=128)
     schema_version: int = Field(default=1, ge=1, le=1000)
+    # Optional explicit workflow override; else resolved from content_type/event_type.
+    workflow_id: str | None = Field(default=None, max_length=128)
+    encryption: EncryptionOptions = Field(default_factory=EncryptionOptions)
     envelope: EncryptedEnvelope
-    # Non-sensitive routing tags only (never put plaintext telemetry here).
+    # Non-sensitive routing tags only (never put plaintext payloads here).
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("content_type", "event_type", "workflow_id")
+    @classmethod
+    def _strip_optional(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        return cleaned or None
 
     @field_validator("metadata")
     @classmethod
@@ -68,6 +92,7 @@ class IngestEventResult(BaseModel):
     client_event_id: str
     created_at: datetime
     duplicate: bool = False
+    workflow_id: str | None = None
 
 
 class IngestResponse(BaseModel):
@@ -79,10 +104,13 @@ class IngestResponse(BaseModel):
 
 # --- Optional anomaly embedding alongside a sealed event ---
 class EmbeddingIngestRequest(BaseModel):
-    """Optional tenant-scoped anomaly vector (often paired with a sealed event)."""
+    """Tenant-scoped vector (ML features / threat scores); optional sealed context."""
 
     tenant_id: UUID
-    telemetry_event_id: UUID | None = None
+    telemetry_event_id: UUID | None = Field(
+        default=None,
+        description="FK to sealed event id (column name historical; any use case)",
+    )
     series_id: str = Field(default="default", max_length=128)
     model_version: str = Field(..., min_length=1, max_length=64)
     embedding: list[float] | None = Field(default=None, max_length=64)

@@ -1,0 +1,32 @@
+# Example: real-time analytics / product events (copy + customize for new SaaS).
+id: analytics_events
+name: Analytics events
+description: >
+  Product analytics and real-time counters. Rollup only by default —
+  enable size_anomaly when envelope sizes are a useful signal.
+version: 1
+enabled: true
+default: false
+
+match:
+  content_types:
+    - application/forjd-analytics+v1
+  event_types: []
+
+encryption:
+  modes: [e2ee]
+  algos: [aes-256-gcm]
+
+pipeline:
+  processor: sealed_metadata
+  projection_name: analytics.rollup
+  steps:
+    - rollup
+  size_anomaly:
+    zscore: 3.0
+    max_cipher_len: 524288
+
+outputs:
+  table: stream_results
+  tags:
+    use_case: analytics

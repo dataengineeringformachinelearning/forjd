@@ -61,6 +61,13 @@ class Settings(BaseSettings):
     # --- Observability ---
     ROLLBAR_ACCESS_TOKEN: str = ""
 
+    # --- Configurable workflows (YAML/JSON under WORKFLOWS_DIR) ---
+    WORKFLOWS_DIR: str = "workflows"
+
+    # --- Sealed-stream metadata anomaly defaults (overridden by workflow YAML) ---
+    STREAM_ANOMALY_ZSCORE: float = 2.5
+    STREAM_ANOMALY_MAX_CIPHER_LEN: int = 262_144
+
     # --- Unsupervised ML PoC (optional: uv sync --group ml) ---
     ML_SEQ_LEN: int = 16
     ML_LATENT_DIM: int = 16

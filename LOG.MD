@@ -72,6 +72,12 @@
 
 - 2026-07-16: Added Cursor rule `.cursor/rules/section-comments.mdc` (alwaysApply) for minimal scannable section comments; annotated the secure-path modules (auth, crypto, ingest, sessions, tenants, Pathway/Prefect, Angular crypto) so sections are readable from comments alone.
 
+- 2026-07-16: Closed DEML→FORJD secure-stream gaps — canonical `POST /api/v1/ingest`, Prefect `forjd-ingest` now runs Pathway transform + metadata anomaly (z-score / max cipher_len), persists `stream_results` (`sql/005`) under RLS for DEML, plus `GET /api/v1/ingest/results`. Server still never opens E2EE ciphertext.
+
+- 2026-07-16: Universalized the streaming core for multi-SaaS use cases — YAML/JSON workflows under `backend/workflows/` with a processor registry (`app/workflows/`), generic ingest fields (`event_type`, `workflow_id`, `encryption`), `sql/006` (`use_cases`, `sealed_events` view), and `GET /api/v1/workflows`. DEML is one config file (`deml_telemetry.yaml`), not a core fork. Added `pyyaml`.
+
+- 2026-07-16: Mirrored DEML platform surfaces universally — durable projections + checkpoints + DLQ (`sql/007`, `POST /api/v1/projections/run`, `POST /api/v1/replay`), status pages (`sql/008`, public slug read), and pluggable detectors (`size_anomaly` / `rate_anomaly` under `app/workflows/detectors/`). Prefect `forjd-project` soft-fails like ingest; E2EE path unchanged (metadata-only projectors).
+
 ## Packages
 
 Direct dependencies only. Star these on GitHub.
@@ -92,6 +98,7 @@ Direct dependencies only. Star these on GitHub.
 - [numpy](https://github.com/numpy/numpy) — window tensors for ML PoC (`ml` group)
 - [pyjwt](https://github.com/jpadilla/pyjwt) — Supabase Auth JWT verification
 - [cryptography](https://github.com/pyca/cryptography) — AES-256-GCM E2EE envelopes
+- [PyYAML](https://github.com/yaml/pyyaml) — workflow definition loading
 - [uv](https://github.com/astral-sh/uv) — Python package manager
 - [ruff](https://github.com/astral-sh/ruff) — linter / formatter (dev)
 - [maturin](https://github.com/PyO3/maturin) — build Rust→Python extensions (dev / engine)

@@ -119,10 +119,10 @@ cargo run --no-default-features --features server   # HTTP on :8080
 
 Production path for replacing Redpanda-style ingress with FORJD as the sealed pipe:
 
-1. Apply [`backend/sql/003_secure_tenancy.sql`](backend/sql/003_secure_tenancy.sql) then [`004_crypto_sessions.sql`](backend/sql/004_crypto_sessions.sql) (tenants, RLS, E2EE `telemetry_events`, `embedding_vectors`, X25519 public sessions).
+1. Apply SQL `003`→`008` under [`backend/sql/`](backend/sql/) (tenants, RLS, sealed events, projections/DLQ, status pages).
 2. Configure `SUPABASE_URL` / `SUPABASE_JWT_SECRET` on the API (see `backend/.env.example`).
-3. Clients authenticate with Supabase Auth, publish X25519 public keys (`POST /api/v1/sessions`), derive AES-256 via ECDH+HKDF, and `POST /api/v1/ingest/events` with AES-256-GCM envelopes (`app.core.crypto` / Angular `src/app/crypto/`). The server stores ciphertext only.
-4. Pathway rolls up **metadata** (tenant counts / sizes) on ingest — never ciphertext. Supabase Realtime can push inserts to the UI when `supabaseAnonKey` is set.
+3. Clients authenticate with Supabase Auth, publish X25519 public keys (`POST /api/v1/sessions`), derive AES-256 via ECDH+HKDF, and `POST /api/v1/ingest` with envelopes + `content_type` (YAML workflow in [`backend/workflows/`](backend/workflows/)).
+4. Prefect + Pathway process **metadata only**; durable projections, replay/DLQ, and status pages mirror DEML capabilities without Kafka/Railway. DEML is one use case (`deml_telemetry.yaml`).
 
 Details: [`backend/sql/README.md`](backend/sql/README.md) and [`backend/README.md`](backend/README.md).
 

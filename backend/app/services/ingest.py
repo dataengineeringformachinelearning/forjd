@@ -1,17 +1,18 @@
-"""Secure E2EE telemetry ingestion — store ciphertext only, enqueue Prefect.
+"""Universal E2EE event ingestion — store ciphertext only, run configured workflows.
 
 Ingest path guarantees:
   • Caller presents a verified Supabase JWT (`get_current_user`).
   • Tenant membership is checked before any write.
-  • Envelope fields are validated (algo, nonce size, ciphertext hash) but
-    **never decrypted** — AES keys stay on the client (X25519 + Double Ratchet).
-  • Pathway receives metadata rollups only (tenant_id, key_id, cipher_len).
+  • Envelope fields are validated but **never decrypted**.
+  • Workflow YAML/JSON selects processor + thresholds (not product forks).
+  • Prefect + Pathway receive metadata only; results land in `stream_results`.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+from collections import defaultdict
 from typing import Any
 from uuid import UUID
 
@@ -26,7 +27,10 @@ from app.models.ingest import (
     IngestEventResult,
 )
 from app.pipelines.ingest import run_ingest_flow
-from app.services import stream, tenants as tenant_svc
+from app.services import projections as proj_svc
+from app.services import tenants as tenant_svc
+from app.workflows.models import WorkflowDefinition
+from app.workflows.registry import resolve_workflow
 
 logger = logging.getLogger("forjd.ingest")
 
@@ -36,7 +40,23 @@ def _vector_literal(embedding: list[float]) -> str:
     return "[" + ",".join(f"{x:.8g}" for x in embedding) + "]"
 
 
-# --- Batch ingest (membership → persist ciphertext → Pathway → Prefect) ---
+def _validate_encryption(event: IngestEventRequest, workflow: WorkflowDefinition) -> None:
+    """Fail closed if client encryption is outside the workflow policy."""
+    mode = event.encryption.mode
+    algo = event.encryption.algo
+    if mode not in workflow.encryption.modes:
+        raise ValueError(
+            f"encryption.mode={mode!r} not allowed for workflow {workflow.id!r}"
+        )
+    if algo not in workflow.encryption.algos:
+        raise ValueError(
+            f"encryption.algo={algo!r} not allowed for workflow {workflow.id!r}"
+        )
+    if event.envelope.algo != algo:
+        raise ValueError("envelope.algo must match encryption.algo")
+
+
+# --- Batch ingest (membership → resolve workflow → persist → Prefect) ---
 async def ingest_events(
     *,
     pool: asyncpg.Pool,
@@ -45,7 +65,6 @@ async def ingest_events(
 ) -> dict[str, Any]:
     await tenant_svc.ensure_secure_schema(pool)
 
-    # All events in a batch must target tenants the user belongs to.
     tenant_ids = {e.tenant_id for e in batch.events}
     for tid in tenant_ids:
         await tenant_svc.require_member(
@@ -56,45 +75,100 @@ async def ingest_events(
         )
 
     results: list[IngestEventResult] = []
-    meta_rows: list[dict[str, Any]] = []
+    # Group metadata by workflow so mixed batches still get correct processors.
+    by_workflow: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    workflow_meta: dict[str, tuple[str, str | None]] = {}
+
     for event in batch.events:
-        results.append(await _insert_event(pool, user=user, event=event))
-        # Metadata only — never pass ciphertext into Pathway.
+        workflow = resolve_workflow(
+            content_type=event.content_type,
+            event_type=event.event_type,
+            workflow_id=event.workflow_id,
+        )
+        _validate_encryption(event, workflow)
+        result = await _insert_event(pool, user=user, event=event, workflow=workflow)
+        results.append(result)
+
         try:
             sealed = event.envelope.to_sealed()
             cipher_len = len(sealed.ciphertext)
         except CryptoError:
             cipher_len = 0
-        meta_rows.append(
+
+        # Metadata only — never pass ciphertext into Prefect / Pathway.
+        by_workflow[workflow.id].append(
             {
+                "event_id": str(result.id),
                 "tenant_id": str(event.tenant_id),
                 "key_id": event.envelope.key_id,
                 "cipher_len": cipher_len,
+                "content_type": event.content_type,
+                "event_type": event.event_type or "",
+                "workflow_id": workflow.id,
             }
         )
+        workflow_meta[workflow.id] = (event.content_type, event.event_type)
 
-    pathway = stream.pathway_sealed_rollup(meta_rows)
+    prefect_runs: list[dict[str, Any]] = []
+    pathway_summary: dict[str, Any] = {
+        "ok": True,
+        "count": 0,
+        "tenants": 0,
+        "by_tenant": {},
+        "anomaly_count": 0,
+        "workflows": [],
+    }
+    persisted = 0
 
-    prefect: dict[str, Any] | None = None
     try:
-        prefect = run_ingest_flow(
-            user_id=user.user_id,
-            tenant_ids=[str(t) for t in tenant_ids],
-            accepted=len(results),
-            event_ids=[str(r.id) for r in results],
-            pathway_ok=bool(pathway.get("ok")),
-            pathway_count=int(pathway.get("count") or 0),
-        )
+        for wf_id, meta_rows in by_workflow.items():
+            ct, et = workflow_meta[wf_id]
+            run = run_ingest_flow(
+                user_id=user.user_id,
+                tenant_ids=[str(t) for t in tenant_ids],
+                accepted=len(meta_rows),
+                event_ids=[str(r["event_id"]) for r in meta_rows],
+                events=meta_rows,
+                content_type=ct,
+                event_type=et,
+                workflow_id=wf_id,
+            )
+            prefect_runs.append(
+                {k: v for k, v in run.items() if k not in {"pathway", "stream_results"}}
+            )
+            pathway = run.get("pathway") or {}
+            pathway_summary["count"] += int(pathway.get("count") or 0)
+            pathway_summary["anomaly_count"] += int(pathway.get("anomaly_count") or 0)
+            pathway_summary["ok"] = pathway_summary["ok"] and bool(pathway.get("ok"))
+            if pathway.get("engine"):
+                pathway_summary["engine"] = pathway.get("engine")
+            for tid, stats in (pathway.get("by_tenant") or {}).items():
+                slot = pathway_summary["by_tenant"].setdefault(
+                    tid, {"count": 0, "bytes": 0, "max_cipher_len": 0}
+                )
+                slot["count"] += int(stats.get("count") or 0)
+                slot["bytes"] += int(stats.get("bytes") or 0)
+                slot["max_cipher_len"] = max(
+                    slot["max_cipher_len"], int(stats.get("max_cipher_len") or 0)
+                )
+            pathway_summary["workflows"].append(wf_id)
+            persisted += await proj_svc.upsert_stream_results(
+                pool, run.get("stream_results") or []
+            )
+        pathway_summary["tenants"] = len(pathway_summary["by_tenant"])
     except Exception as exc:  # noqa: BLE001
-        logger.exception("ingest prefect failed")
-        prefect = {"ok": False, "error": str(exc)}
+        logger.exception("ingest prefect/pathway failed")
+        prefect_runs.append({"ok": False, "error": str(exc)})
+        pathway_summary["ok"] = False
+        pathway_summary["error"] = str(exc)
 
     return {
         "ok": True,
         "accepted": len(results),
         "results": results,
-        "pathway": pathway,
-        "prefect": prefect,
+        "pathway": pathway_summary,
+        "stream_results_written": persisted,
+        "prefect": prefect_runs[0] if len(prefect_runs) == 1 else {"runs": prefect_runs},
     }
 
 
@@ -104,24 +178,24 @@ async def _insert_event(
     *,
     user: AuthUser,
     event: IngestEventRequest,
+    workflow: WorkflowDefinition,
 ) -> IngestEventResult:
     try:
         sealed = event.envelope.to_sealed()
     except CryptoError as exc:
         raise ValueError(str(exc)) from exc
 
-    # Idempotent insert — same client_event_id + hash is a no-op duplicate.
     row = await pool.fetchrow(
         """
         INSERT INTO telemetry_events (
             tenant_id, submitted_by, client_event_id, occurred_at,
             algo, key_id, ratchet_header, nonce, ciphertext, ciphertext_sha256,
-            content_type, schema_version, metadata
+            content_type, event_type, schema_version, workflow_id, metadata
         )
         VALUES (
             $1::uuid, $2::uuid, $3, $4,
             $5, $6, $7, $8, $9, $10,
-            $11, $12, $13::jsonb
+            $11, $12, $13, $14, $15::jsonb
         )
         ON CONFLICT (tenant_id, client_event_id) DO NOTHING
         RETURNING id, tenant_id, client_event_id, created_at
@@ -137,7 +211,9 @@ async def _insert_event(
         sealed.ciphertext,
         sealed.ciphertext_sha256,
         event.content_type,
+        event.event_type,
         event.schema_version,
+        workflow.id,
         json.dumps(event.metadata),
     )
     if row is not None:
@@ -147,11 +223,12 @@ async def _insert_event(
             client_event_id=row["client_event_id"],
             created_at=row["created_at"],
             duplicate=False,
+            workflow_id=workflow.id,
         )
 
     existing = await pool.fetchrow(
         """
-        SELECT id, tenant_id, client_event_id, created_at, ciphertext_sha256
+        SELECT id, tenant_id, client_event_id, created_at, ciphertext_sha256, workflow_id
         FROM telemetry_events
         WHERE tenant_id = $1::uuid AND client_event_id = $2
         """,
@@ -168,6 +245,7 @@ async def _insert_event(
         client_event_id=existing["client_event_id"],
         created_at=existing["created_at"],
         duplicate=True,
+        workflow_id=existing.get("workflow_id") or workflow.id,
     )
 
 
@@ -233,7 +311,7 @@ async def list_recent_events(
     rows = await pool.fetch(
         """
         SELECT id::text, tenant_id::text, client_event_id, created_at, occurred_at,
-               algo, key_id, content_type, schema_version,
+               algo, key_id, content_type, event_type, schema_version, workflow_id,
                ciphertext_sha256, metadata
         FROM telemetry_events
         WHERE tenant_id = $1::uuid
@@ -258,11 +336,70 @@ async def list_recent_events(
                 "algo": r["algo"],
                 "key_id": r["key_id"],
                 "content_type": r["content_type"],
+                "event_type": r["event_type"],
                 "schema_version": r["schema_version"],
+                "workflow_id": r["workflow_id"],
                 "ciphertext_sha256": r["ciphertext_sha256"],
                 "metadata": meta,
-                # Intentionally omit ciphertext / nonce / ratchet_header from list API
-                # to reduce accidental leakage in logs/UI; fetch-by-id can add later.
+            }
+        )
+    return out
+
+
+# --- List stream results for any SaaS consumer (scores only; no ciphertext) ---
+async def list_stream_results(
+    pool: asyncpg.Pool,
+    *,
+    user: AuthUser,
+    tenant_id: UUID,
+    limit: int = 20,
+    anomalies_only: bool = False,
+    workflow_id: str | None = None,
+) -> list[dict[str, Any]]:
+    await tenant_svc.require_member(pool, tenant_id=tenant_id, user_id=user.user_id)
+    clauses = ["tenant_id = $1::uuid"]
+    args: list[Any] = [str(tenant_id)]
+    if anomalies_only:
+        clauses.append("is_anomaly = TRUE")
+    if workflow_id:
+        args.append(workflow_id)
+        clauses.append(f"workflow_id = ${len(args)}")
+    args.append(limit)
+    limit_ph = f"${len(args)}"
+    where = " AND ".join(clauses)
+    rows = await pool.fetch(
+        f"""
+        SELECT id::text, tenant_id::text, telemetry_event_id::text,
+               created_at, kind, engine, score, is_anomaly, features, metadata,
+               workflow_id
+        FROM stream_results
+        WHERE {where}
+        ORDER BY created_at DESC
+        LIMIT {limit_ph}
+        """,
+        *args,
+    )
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        features = r["features"]
+        meta = r["metadata"]
+        if isinstance(features, str):
+            features = json.loads(features)
+        if isinstance(meta, str):
+            meta = json.loads(meta)
+        out.append(
+            {
+                "id": r["id"],
+                "tenant_id": r["tenant_id"],
+                "telemetry_event_id": r["telemetry_event_id"],
+                "created_at": r["created_at"].isoformat(),
+                "kind": r["kind"],
+                "engine": r["engine"],
+                "score": r["score"],
+                "is_anomaly": r["is_anomaly"],
+                "features": features,
+                "metadata": meta,
+                "workflow_id": r["workflow_id"],
             }
         )
     return out

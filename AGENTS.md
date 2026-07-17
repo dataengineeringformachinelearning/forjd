@@ -22,7 +22,10 @@ Agents: read this briefing first, then enforce constraints in `.cursorrules`.
 | UI | Angular + forjd-ui (Storybook / Chromatic) |
 | Observability | Rollbar (API); Vercel Analytics + Speed Insights (frontend) |
 | ML (optional PoC) | PyTorch LSTM-AE (`uv sync --group ml`) + Supabase pgvector latents |
-| Auth / E2EE | Supabase Auth JWT + X25519/HKDF session keys + AES-256-GCM sealed ingest (`sql/003` + `004`) |
+| Auth / E2EE | Supabase Auth JWT + X25519/HKDF session keys + AES-256-GCM sealed ingest (`sql/003`–`008`) |
+| Workflows | YAML/JSON under `backend/workflows/` → Prefect + Pathway + pluggable detectors |
+| Projections | Checkpointed durable `stream_results` + replay/DLQ (`/api/v1/projections`, `/api/v1/replay`) |
+| Status | Tenant status pages (`/api/v1/status`) — public when published |
 
 Pathway owns live/incremental work; Polars owns finite batch DataFrames. Details: `.cursorrules`.
 Backend Python is pinned to **3.12** with Pathway ≥0.31 (`beartype<0.16` via uv override). Pathway still does not support 3.14.

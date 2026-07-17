@@ -16,7 +16,7 @@ logger = logging.getLogger("forjd.tenants")
 async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
     """Soft-create core tables if SQL migration was not applied yet.
 
-    Full RLS policies still require running `sql/003_secure_tenancy.sql` in Supabase
+    Full RLS policies still require running `sql/003`–`008` in Supabase
     (needs `auth.users` FKs + policy grants). This only creates the shapes for local.
     """
     try:
@@ -66,12 +66,21 @@ async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
             nonce TEXT NOT NULL,
             ciphertext TEXT NOT NULL,
             ciphertext_sha256 TEXT,
-            content_type TEXT NOT NULL DEFAULT 'application/forjd-telemetry+v1',
+            content_type TEXT NOT NULL DEFAULT 'application/forjd-event+v1',
+            event_type TEXT,
             schema_version INT NOT NULL DEFAULT 1,
+            workflow_id TEXT,
             metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
             UNIQUE (tenant_id, client_event_id)
         )
         """
+    )
+    # Additive columns when an older soft-migrate shape already exists.
+    await pool.execute(
+        "ALTER TABLE telemetry_events ADD COLUMN IF NOT EXISTS event_type TEXT"
+    )
+    await pool.execute(
+        "ALTER TABLE telemetry_events ADD COLUMN IF NOT EXISTS workflow_id TEXT"
     )
     await pool.execute(
         """
@@ -92,6 +101,54 @@ async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
         )
         """
     )
+    # Pathway/Prefect outputs for DEML (metadata scores only — see sql/005).
+    await pool.execute(
+        """
+        CREATE TABLE IF NOT EXISTS stream_results (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
+            telemetry_event_id UUID REFERENCES telemetry_events (id) ON DELETE SET NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            kind TEXT NOT NULL DEFAULT 'rollup',
+            engine TEXT NOT NULL DEFAULT 'pathway',
+            score DOUBLE PRECISION,
+            is_anomaly BOOLEAN NOT NULL DEFAULT FALSE,
+            features JSONB NOT NULL DEFAULT '{}'::jsonb,
+            metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+            workflow_id TEXT
+        )
+        """
+    )
+    await pool.execute(
+        "ALTER TABLE stream_results ADD COLUMN IF NOT EXISTS workflow_id TEXT"
+    )
+    await pool.execute(
+        "ALTER TABLE stream_results ADD COLUMN IF NOT EXISTS projection_name TEXT"
+    )
+    await pool.execute(
+        "ALTER TABLE stream_results ADD COLUMN IF NOT EXISTS source_event_id UUID"
+    )
+    await pool.execute(
+        """
+        ALTER TABLE stream_results
+        ADD COLUMN IF NOT EXISTS projection_version INT NOT NULL DEFAULT 1
+        """
+    )
+    await pool.execute(
+        """
+        CREATE TABLE IF NOT EXISTS use_cases (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            content_types TEXT[] NOT NULL DEFAULT '{}',
+            event_types TEXT[] NOT NULL DEFAULT '{}',
+            config JSONB NOT NULL DEFAULT '{}'::jsonb,
+            enabled BOOLEAN NOT NULL DEFAULT TRUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """
+    )
     # Public X25519 keys only — private keys never stored (see sql/004).
     await pool.execute(
         """
@@ -107,6 +164,81 @@ async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             expires_at TIMESTAMPTZ,
             UNIQUE (tenant_id, session_id)
+        )
+        """
+    )
+    # Durable projections + DLQ + status pages (shapes; RLS via sql/007–008).
+    await pool.execute(
+        """
+        CREATE TABLE IF NOT EXISTS projection_checkpoints (
+            tenant_id UUID NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
+            projection_name TEXT NOT NULL,
+            workflow_id TEXT NOT NULL DEFAULT '',
+            last_event_id UUID,
+            last_created_at TIMESTAMPTZ,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (tenant_id, projection_name, workflow_id)
+        )
+        """
+    )
+    await pool.execute(
+        """
+        CREATE TABLE IF NOT EXISTS projection_dlq (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
+            source_event_id UUID,
+            workflow_id TEXT,
+            projection_name TEXT NOT NULL,
+            error TEXT NOT NULL,
+            payload_meta JSONB NOT NULL DEFAULT '{}'::jsonb,
+            attempts INT NOT NULL DEFAULT 0,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            resolved_at TIMESTAMPTZ
+        )
+        """
+    )
+    await pool.execute(
+        """
+        CREATE TABLE IF NOT EXISTS status_pages (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
+            slug TEXT NOT NULL UNIQUE,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            is_published BOOLEAN NOT NULL DEFAULT FALSE,
+            metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """
+    )
+    await pool.execute(
+        """
+        CREATE TABLE IF NOT EXISTS status_services (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            page_id UUID NOT NULL REFERENCES status_pages (id) ON DELETE CASCADE,
+            tenant_id UUID NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'operational',
+            description TEXT NOT NULL DEFAULT '',
+            sort_order INT NOT NULL DEFAULT 0,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """
+    )
+    await pool.execute(
+        """
+        CREATE TABLE IF NOT EXISTS status_incidents (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            page_id UUID NOT NULL REFERENCES status_pages (id) ON DELETE CASCADE,
+            tenant_id UUID NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'investigating',
+            severity TEXT NOT NULL DEFAULT 'minor',
+            body TEXT NOT NULL DEFAULT '',
+            started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            resolved_at TIMESTAMPTZ,
+            metadata JSONB NOT NULL DEFAULT '{}'::jsonb
         )
         """
     )

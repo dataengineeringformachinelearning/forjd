@@ -38,22 +38,34 @@ uv run forjd
 | POST | `/api/v1/anomaly/score` | Score a window + store latent in pgvector |
 | GET | `/api/v1/anomaly` | ML status + recent embeddings |
 | GET/POST | `/api/v1/tenants` | List / create tenants (Supabase JWT) |
-| POST | `/api/v1/ingest/events` | E2EE telemetry ingest (ciphertext only) |
+| POST | `/api/v1/ingest` | Sealed event ingest (any use case; ciphertext only) |
+| POST | `/api/v1/ingest/events` | Alias of `/ingest` |
 | POST | `/api/v1/ingest/events:batch` | Batch ingest (≤100) |
 | GET | `/api/v1/ingest/events?tenant_id=` | List event metadata (no ciphertext bodies) |
-| POST | `/api/v1/ingest/embeddings` | Tenant-scoped anomaly vectors |
+| GET | `/api/v1/ingest/results?tenant_id=` | Pathway/Prefect `stream_results` (+ optional `workflow_id`) |
+| POST | `/api/v1/ingest/embeddings` | Tenant-scoped vectors (ML / threat features) |
+| GET | `/api/v1/workflows` | List YAML/JSON workflow definitions |
 | GET/POST | `/api/v1/sessions` | X25519 public session directory (JWT) |
+| GET | `/api/v1/projections` | Durable projection rows |
+| POST | `/api/v1/projections/run` | Advance checkpointed projections |
+| POST | `/api/v1/replay` | Replay sealed metadata through a workflow |
+| GET | `/api/v1/replay/dlq` | Projection DLQ |
+| GET/POST | `/api/v1/status/pages` | Status pages (JWT manage) |
+| GET | `/api/v1/status/pages/slug/{slug}` | Public published status page |
 
 ### Secure streaming (Supabase Auth + E2EE)
 
-1. Run [`sql/003_secure_tenancy.sql`](sql/003_secure_tenancy.sql) then [`sql/004_crypto_sessions.sql`](sql/004_crypto_sessions.sql) (see [`sql/README.md`](sql/README.md)).
+1. Run SQL `003`→`008` (see [`sql/README.md`](sql/README.md)).
 2. Set `SUPABASE_URL` and/or `SUPABASE_JWT_SECRET` in `.env`.
 3. Clients: sign in with Supabase Auth → `Authorization: Bearer <access_token>`.
 4. Publish X25519 *public* keys via `POST /api/v1/sessions` (private keys stay on device).
-5. Derive AES-256 via X25519 ECDH + HKDF; seal with AES-256-GCM (`app.core.crypto`); send envelope fields only.
-6. Prefect `forjd-ingest` + Pathway metadata rollup (never ciphertext).
+5. Derive AES-256 via X25519 ECDH + HKDF; seal with AES-256-GCM; `POST /api/v1/ingest` with `content_type` / optional `event_type` / `workflow_id`.
+6. Prefect `forjd-ingest` / `forjd-project` load workflows from [`workflows/`](workflows/), run Pathway + pluggable detectors, write durable `stream_results`.
+7. Use `POST /api/v1/projections/run` for live catch-up, `POST /api/v1/replay` for reprocess, `/api/v1/status/*` for ops pages.
 
-Server-minimal knowledge: Double Ratchet headers stay opaque; FastAPI never decrypts E2EE ciphertext. Crypto self-check: `uv run python -m unittest tests.test_crypto`.
+**New use case:** add `workflows/my_saas.yaml` (or a detector under `app/workflows/detectors/`) — no ingest/API fork required.
+
+Server-minimal knowledge: Double Ratchet headers stay opaque; FastAPI never decrypts E2EE ciphertext. Self-check: `uv run python -m unittest discover -s tests -v`.
 
 ### Unsupervised ML PoC (LSTM-Autoencoder)
 
