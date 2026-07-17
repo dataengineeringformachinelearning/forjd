@@ -1,13 +1,10 @@
 {
-    "buildCommand": "npm run build",
-    "outputDirectory": "dist/frontend/browser",
-    "framework": "angular",
-    "headers": [
-      {
-        "source": "/ngsw-worker.js",
-        "headers": [
-          { "key": "Cache-Control", "value": "no-cache" }
-        ]
-      }
-    ]
-  }
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "headers": [
+    {
+      "source": "/ngsw-worker.js",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    }
+  ]
+}

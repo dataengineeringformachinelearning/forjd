@@ -1,6 +1,5 @@
 {
   "$schema": "https://www.chromatic.com/config-file.schema.json",
-  "projectName": "forjd-ui",
   "buildScriptName": "build-storybook",
   "exitZeroOnChanges": true,
   "onlyChanged": true,

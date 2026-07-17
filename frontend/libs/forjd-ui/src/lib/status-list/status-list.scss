@@ -1,0 +1,33 @@
+.fj-status-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--fj-space-2);
+}
+
+.fj-status-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--fj-space-4);
+  font-family: var(--fj-font-mono);
+  font-size: var(--fj-text-sm);
+  padding: var(--fj-space-2) 0;
+}
+
+.fj-status-list__name {
+  color: var(--fj-text);
+}
+
+.fj-status-list__state {
+  color: var(--fj-text-muted);
+}
+
+.fj-status-list li[data-ok='true'] .fj-status-list__state {
+  color: var(--fj-success);
+}
+
+.fj-status-list li[data-ok='false'] .fj-status-list__state {
+  color: var(--fj-danger);
+}

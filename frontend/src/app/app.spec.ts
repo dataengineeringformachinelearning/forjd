@@ -20,6 +20,6 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.shell__brand')?.textContent).toContain('FORJD');
+    expect(compiled.querySelector('.fj-brand')?.textContent).toContain('FORJD');
   });
 });

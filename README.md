@@ -155,6 +155,10 @@ docker compose up --build
 
 Domain: [https://forjd.co](https://forjd.co). `frontend/vercel.json` is set up. Production `apiBaseUrl` is `https://backend.forjd.co` — point that hostname at Fly (`forjd-backend`) and keep `https://forjd.co` in backend `CORS_ORIGINS`.
 
+### Storybook → Vercel (ui.forjd.co)
+
+Public forjd-ui Storybook: [https://ui.forjd.co](https://ui.forjd.co). Separate Vercel project (`ui`) using `frontend/vercel.ui.json` — see `frontend/ui/README.md`. Attach the `ui.forjd.co` domain after the first production deploy.
+
 ### API custom domain
 
 ```bash

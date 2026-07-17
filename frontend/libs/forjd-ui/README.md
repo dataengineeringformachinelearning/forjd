@@ -5,7 +5,10 @@ Custom Angular UI primitives for FORJD. Built from scratch — no Material.
 ## What's here now
 
 - Dark-first FJORD design tokens (`src/lib/styles/_tokens.scss`)
-- `FjButton` (`<forjd-button>`) — first primitive + Storybook stories
+- Semantic typography roles (`src/lib/styles/_typography.scss`) — `.fj-brand`, `.fj-headline`, `.fj-lede`, …
+- `FjButton` (`<forjd-button>`)
+- `FjPanel` (`<forjd-panel>`)
+- `FjStatusList` (`<forjd-status-list>`)
 
 ## Local consumption
 
@@ -13,8 +16,10 @@ The app imports via path mapping to source (`tsconfig.json` → `forjd-ui`).
 No library rebuild needed while iterating.
 
 ```ts
-import { FjButton } from 'forjd-ui';
+import { FjButton, FjPanel, FjStatusList } from 'forjd-ui';
 ```
+
+Global styles (tokens + typography) are pulled in from the app `styles.scss`.
 
 ## Storybook + Chromatic
 
@@ -29,6 +34,15 @@ npm run build-storybook
 
 # publish to Chromatic (needs CHROMATIC_PROJECT_TOKEN)
 npm run chromatic
+```
+
+### Public site (ui.forjd.co)
+
+Vercel project **`ui`** builds Storybook; **`forjd`** builds the app. See [`ui/README.md`](../../ui/README.md).
+
+```bash
+# from repo root
+npx vercel deploy --prod --yes --project ui
 ```
 
 ### First-time Chromatic link

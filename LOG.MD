@@ -52,6 +52,12 @@
 
 - 2026-07-16: Moved backend from CPython **3.14 → 3.12**, bumped Pathway **0.2.0 → 0.31.1**, and uv-override `beartype<0.16` (Pathway needs it; Prefect/pydocket wants ≥0.20 — override prefers Pathway). Pulse Pathway helper uses `table_from_pandas` / `table_to_pandas`.
 
+- 2026-07-16: Enforced forjd-ui-first UI via a frontend Cursor rule, then moved existing app shell typography + panel/status-list patterns into the library (`FjPanel`, `FjStatusList`, `_typography.scss` + type tokens). Pulse page now consumes those primitives; page layout stays in the app.
+
+- 2026-07-16: Added `frontend/ui` Vercel project root to host static forjd-ui Storybook at `ui.forjd.co` (build copies `dist/storybook/forjd-ui`). Chromatic remains for visual review; this is the public docs site.
+
+- 2026-07-16: Split Vercel project builds — `forjd` → `npm run build` at forjd.co; `ui` → `npm run build-storybook` at ui.forjd.co (same `frontend/` root; build/output set per project so shared `vercel.json` only has rewrites/headers). Linked `ui` to the GitHub repo; added `@angular/animations` so Storybook’s Vite build succeeds on clean `npm ci`.
+
 ## Packages
 
 Direct dependencies only. Star these on GitHub.
@@ -73,7 +79,7 @@ Direct dependencies only. Star these on GitHub.
 - [maturin](https://github.com/PyO3/maturin) — build Rust→Python extensions (dev / engine)
 
 ### Frontend (Angular / npm)
-- [angular](https://github.com/angular/angular) — UI framework (+ CLI / build tooling)
+- [angular](https://github.com/angular/angular) — UI framework (+ CLI / build tooling; includes `@angular/animations` for Storybook Vite)
 - [rxjs](https://github.com/ReactiveX/rxjs) — reactive streams
 - [tslib](https://github.com/microsoft/tslib) — TypeScript helpers
 - [vercel/analytics](https://github.com/vercel/analytics) — web analytics

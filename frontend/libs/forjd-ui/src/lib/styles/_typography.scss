@@ -1,0 +1,54 @@
+// Semantic typography roles — apply on semantic HTML (h1, p, etc.).
+
+.fj-brand {
+  margin: 0;
+  font-family: var(--fj-font-mono);
+  font-size: var(--fj-text-sm);
+  letter-spacing: var(--fj-tracking-brand);
+  text-transform: uppercase;
+  color: var(--fj-accent);
+}
+
+.fj-headline {
+  margin: 0;
+  font-size: var(--fj-text-xl);
+  font-weight: 600;
+  letter-spacing: var(--fj-tracking-tight);
+  line-height: var(--fj-leading-tight);
+  color: var(--fj-text);
+}
+
+.fj-lede {
+  margin: 0;
+  color: var(--fj-text-muted);
+  font-size: var(--fj-text-base);
+  line-height: var(--fj-leading-normal);
+  max-width: 36rem;
+}
+
+.fj-panel-title {
+  margin: 0;
+  font-size: var(--fj-text-xs);
+  letter-spacing: var(--fj-tracking-wide);
+  text-transform: uppercase;
+  color: var(--fj-text-muted);
+  font-weight: 600;
+}
+
+.fj-meta {
+  margin: 0;
+  color: var(--fj-text-muted);
+  font-size: var(--fj-text-md);
+}
+
+.fj-muted {
+  margin: 0;
+  color: var(--fj-text-muted);
+  font-size: var(--fj-text-md);
+}
+
+.fj-error {
+  margin: 0;
+  color: var(--fj-danger);
+  font-size: var(--fj-text-md);
+}

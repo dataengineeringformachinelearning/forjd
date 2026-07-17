@@ -1,12 +1,12 @@
-import { JsonPipe, KeyValuePipe } from '@angular/common';
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { FjButton } from 'forjd-ui';
+import { JsonPipe } from '@angular/common';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { FjButton, FjPanel, FjStatusItem, FjStatusList } from 'forjd-ui';
 
 import { PulseApi, PulseResult, StackStatus } from './pulse-api';
 
 @Component({
   selector: 'app-root',
-  imports: [FjButton, JsonPipe, KeyValuePipe],
+  imports: [FjButton, FjPanel, FjStatusList, JsonPipe],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -18,6 +18,16 @@ export class App implements OnInit {
   protected readonly pulse = signal<PulseResult | null>(null);
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
+
+  protected readonly stackChecks = computed<FjStatusItem[] | null>(() => {
+    const s = this.stack();
+    if (!s) return null;
+    return Object.entries(s.checks).map(([name, value]) => ({
+      name,
+      ok: value.ok,
+      stateLabel: value.ok ? 'ok' : 'down',
+    }));
+  });
 
   ngOnInit(): void {
     this.refreshStack();
@@ -52,12 +62,13 @@ export class App implements OnInit {
     });
   }
 
-  protected layerEntries(): Array<{ name: string; ok: boolean }> {
+  protected layerEntries(): FjStatusItem[] {
     const layers = this.pulse()?.layers;
     if (!layers) return [];
     return Object.entries(layers).map(([name, value]) => ({
       name,
       ok: Boolean(value?.ok),
+      stateLabel: value?.ok ? 'ok' : 'fail',
     }));
   }
 

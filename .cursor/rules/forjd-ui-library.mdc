@@ -1,0 +1,48 @@
+---
+description: New UI components and typography must be added to forjd-ui, not only the app
+globs: frontend/**/*
+alwaysApply: false
+---
+
+# forjd-ui is the source of UI primitives
+
+When adding a **component** or **typography** style to the frontend app, add it to `frontend/libs/forjd-ui/` in the same change (or immediately before the app consumes it). Do not leave reusable UI only in `frontend/src/`.
+
+## What belongs in forjd-ui
+- Standalone Angular components used (or likely reused) across routes/pages
+- Buttons, inputs, badges, layout shells, and other primitives
+- Typography scales, text styles, and shared type tokens (prefer `--fj-*` / library SCSS)
+- Shared visual patterns that are not page-specific composition
+
+## What may stay in the app
+- Route/page shells and feature composition that wire library primitives together
+- One-off layout that is clearly single-page and not a reusable control
+- App-only data wiring, stores, and API clients
+
+If unsure whether something is reusable, put it in forjd-ui.
+
+## Required checklist (same change set)
+1. Create the primitive under `frontend/libs/forjd-ui/src/lib/<name>/` (e.g. `ng generate component` in the library).
+2. Export it from `frontend/libs/forjd-ui/src/public-api.ts`.
+3. Add a colocated `*.stories.ts` Storybook story.
+4. Consume it from the app via the library public API — do not duplicate markup/styles in the app.
+5. Prefer FJORD tokens (`--fj-*`) over ad-hoc colors/type in new styles.
+
+## Examples
+
+```typescript
+// ❌ BAD — new button only in the app
+// frontend/src/app/shared/my-button.ts
+
+// ✅ GOOD — primitive in library, app imports it
+// frontend/libs/forjd-ui/src/lib/button/button.ts
+// frontend/libs/forjd-ui/src/public-api.ts → export { FjButton } ...
+// app template: <forjd-button>...</forjd-button>
+```
+
+```scss
+// ❌ BAD — app-only heading scale for reusable type
+// frontend/src/styles/_headings.scss (used across pages)
+
+// ✅ GOOD — typography tokens/styles in forjd-ui, app imports library styles
+```

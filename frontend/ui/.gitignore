@@ -1,0 +1,3 @@
+# Built on Vercel (or locally) from parent Storybook output
+/dist
+.vercel

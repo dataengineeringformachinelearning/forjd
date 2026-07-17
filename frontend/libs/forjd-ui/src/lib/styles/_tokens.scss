@@ -30,10 +30,23 @@
   --fj-accent: var(--fj-primary);
   --fj-accent-hover: var(--fj-primary-hover);
 
-  // Typography + spacing (unchanged structure)
+  // Typography
   --fj-font-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
   --fj-font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 
+  --fj-text-xs: 0.75rem;
+  --fj-text-sm: 0.8125rem;
+  --fj-text-md: 0.875rem;
+  --fj-text-base: 1rem;
+  --fj-text-xl: clamp(1.75rem, 4vw, 2.25rem);
+
+  --fj-leading-tight: 1.15;
+  --fj-leading-normal: 1.5;
+  --fj-tracking-tight: -0.02em;
+  --fj-tracking-wide: 0.08em;
+  --fj-tracking-brand: 0.12em;
+
+  // Spacing + shape
   --fj-radius: 4px;
   --fj-space-1: 0.25rem;
   --fj-space-2: 0.5rem;

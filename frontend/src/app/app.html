@@ -1,8 +1,8 @@
 <main class="shell">
   <header class="shell__header">
-    <p class="shell__brand">{{ title() }}</p>
-    <h1 class="shell__headline">Connected stack pulse</h1>
-    <p class="shell__lede">
+    <p class="fj-brand">{{ title() }}</p>
+    <h1 class="fj-headline">Connected stack pulse</h1>
+    <p class="fj-lede shell__lede">
       Angular → FastAPI → Rust engine, Polars, Pathway, Prefect, Supabase Postgres, and Dragonfly.
       Mockup wiring you can grow into real pipelines.
     </p>
@@ -16,43 +16,27 @@
   </div>
 
   @if (error()) {
-    <p class="shell__error" role="alert">{{ error() }}</p>
+    <p class="fj-error" role="alert">{{ error() }}</p>
   }
 
-  <section class="shell__panel" aria-label="Stack status">
-    <h2 class="shell__panel-title">Stack</h2>
-    @if (stack(); as s) {
-      <ul class="shell__checks">
-        @for (entry of s.checks | keyvalue; track entry.key) {
-          <li [attr.data-ok]="entry.value.ok">
-            <span class="shell__check-name">{{ entry.key }}</span>
-            <span class="shell__check-state">{{ entry.value.ok ? 'ok' : 'down' }}</span>
-          </li>
-        }
-      </ul>
+  <forjd-panel title="Stack" aria-label="Stack status">
+    @if (stackChecks(); as checks) {
+      <forjd-status-list [items]="checks" />
     } @else {
-      <p class="shell__muted">No stack status yet.</p>
+      <p class="fj-muted">No stack status yet.</p>
     }
-  </section>
+  </forjd-panel>
 
   @if (pulse(); as p) {
-    <section class="shell__panel" aria-label="Last pulse">
-      <h2 class="shell__panel-title">Last pulse</h2>
-      <p class="shell__meta">
+    <forjd-panel title="Last pulse" aria-label="Last pulse">
+      <p class="fj-meta shell__meta">
         {{ p.layers_ok }}/{{ p.layers_total }} layers · id {{ p.id }}
       </p>
-      <ul class="shell__checks">
-        @for (layer of layerEntries(); track layer.name) {
-          <li [attr.data-ok]="layer.ok">
-            <span class="shell__check-name">{{ layer.name }}</span>
-            <span class="shell__check-state">{{ layer.ok ? 'ok' : 'fail' }}</span>
-          </li>
-        }
-      </ul>
+      <forjd-status-list [items]="layerEntries()" />
       <details class="shell__details">
         <summary>Raw JSON</summary>
         <pre>{{ p | json }}</pre>
       </details>
-    </section>
+    </forjd-panel>
   }
 </main>

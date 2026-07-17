@@ -1,6 +1,8 @@
 import type { Preview } from '@storybook/angular-vite';
 
 import '../libs/forjd-ui/src/lib/styles/_tokens.scss';
+import '../libs/forjd-ui/src/lib/styles/_typography.scss';
+
 
 /**
  * Global Storybook chrome: FJORD dark canvas so components look like production.
