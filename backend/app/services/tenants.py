@@ -91,6 +91,24 @@ async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
         )
         """
     )
+    # Public X25519 keys only — private keys never stored (see sql/004).
+    await pool.execute(
+        """
+        CREATE TABLE IF NOT EXISTS crypto_sessions (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
+            session_id TEXT NOT NULL,
+            user_id UUID NOT NULL,
+            identity_public_key TEXT NOT NULL,
+            ephemeral_public_key TEXT,
+            ratchet_state_hint TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            expires_at TIMESTAMPTZ,
+            UNIQUE (tenant_id, session_id)
+        )
+        """
+    )
 
 
 async def user_role_in_tenant(

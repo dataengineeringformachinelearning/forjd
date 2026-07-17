@@ -119,9 +119,9 @@ cargo run --no-default-features --features server   # HTTP on :8080
 
 Production path for replacing Redpanda-style ingress with FORJD as the sealed pipe:
 
-1. Apply [`backend/sql/003_secure_tenancy.sql`](backend/sql/003_secure_tenancy.sql) in Supabase (tenants, RLS, encrypted `telemetry_events`, `embedding_vectors`).
+1. Apply [`backend/sql/003_secure_tenancy.sql`](backend/sql/003_secure_tenancy.sql) then [`004_crypto_sessions.sql`](backend/sql/004_crypto_sessions.sql) (tenants, RLS, E2EE `telemetry_events`, `embedding_vectors`, X25519 public sessions).
 2. Configure `SUPABASE_URL` / `SUPABASE_JWT_SECRET` on the API (see `backend/.env.example`).
-3. Clients authenticate with Supabase Auth and `POST /api/v1/ingest/events` with AES-256-GCM envelopes (`app.core.crypto` / Angular `src/app/crypto/seal.ts`). The server stores ciphertext only.
+3. Clients authenticate with Supabase Auth, publish X25519 public keys (`POST /api/v1/sessions`), derive AES-256 via ECDH+HKDF, and `POST /api/v1/ingest/events` with AES-256-GCM envelopes (`app.core.crypto` / Angular `src/app/crypto/`). The server stores ciphertext only.
 4. Pathway rolls up **metadata** (tenant counts / sizes) on ingest — never ciphertext. Supabase Realtime can push inserts to the UI when `supabaseAnonKey` is set.
 
 Details: [`backend/sql/README.md`](backend/sql/README.md) and [`backend/README.md`](backend/README.md).

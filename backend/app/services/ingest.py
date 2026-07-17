@@ -1,4 +1,12 @@
-"""Secure E2EE telemetry ingestion — store ciphertext only, enqueue Prefect."""
+"""Secure E2EE telemetry ingestion — store ciphertext only, enqueue Prefect.
+
+Ingest path guarantees:
+  • Caller presents a verified Supabase JWT (`get_current_user`).
+  • Tenant membership is checked before any write.
+  • Envelope fields are validated (algo, nonce size, ciphertext hash) but
+    **never decrypted** — AES keys stay on the client (X25519 + Double Ratchet).
+  • Pathway receives metadata rollups only (tenant_id, key_id, cipher_len).
+"""
 
 from __future__ import annotations
 

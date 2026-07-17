@@ -74,8 +74,10 @@ GRANT EXECUTE ON FUNCTION public.is_tenant_member(UUID) TO authenticated, servic
 
 -- ---------------------------------------------------------------------------
 -- Encrypted telemetry events (E2EE ingress)
--- Server-visible: tenant, timestamps, crypto metadata, ciphertext bytes.
--- Server-blind: plaintext payload (AES-256-GCM).
+-- Server-visible: tenant, timestamps, crypto metadata, encrypted payload bytes.
+-- Server-blind: plaintext (AES-256-GCM; keys from client X25519 / Double Ratchet).
+-- `ciphertext` IS the encrypted_payload (base64 text for JSON/Realtime; equivalent
+--   to BYTEA of ciphertext||tag). Never store plaintext in this table.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.telemetry_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -91,13 +93,14 @@ CREATE TABLE IF NOT EXISTS public.telemetry_events (
   -- Crypto envelope (Signal-style headers are opaque to the server)
   algo TEXT NOT NULL DEFAULT 'aes-256-gcm'
     CHECK (algo IN ('aes-256-gcm')),
-  -- Which client key / ratchet chain produced this ciphertext.
+  -- Which client session / ratchet chain produced this ciphertext (see 004_crypto_sessions).
   key_id TEXT NOT NULL,
   -- Double Ratchet header blob (base64) — server must not parse.
   ratchet_header TEXT,
   -- 96-bit GCM nonce (12 bytes) as base64.
   nonce TEXT NOT NULL,
-  -- Ciphertext + GCM auth tag (base64). Associated data = tenant_id|client_event_id.
+  -- encrypted_payload: ciphertext + GCM auth tag (base64).
+  -- AAD = tenant_id|client_event_id (UTF-8). FORJD never decrypts this column.
   ciphertext TEXT NOT NULL,
   -- Optional SHA-256 of ciphertext for integrity audits without decryption.
   ciphertext_sha256 TEXT,

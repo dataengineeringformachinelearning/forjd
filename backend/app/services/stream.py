@@ -1,7 +1,11 @@
 """Pathway consumer for sealed telemetry metadata (server-blind).
 
-Operates only on non-sensitive fields: tenant_id, key_id, content_type, sizes.
-Never decrypts ciphertext — that stays on the E2EE client path.
+Operates only on non-sensitive fields: tenant_id, key_id, cipher_len.
+Never decrypts ciphertext — plaintext and message keys stay on the E2EE
+client path (X25519 ECDH + AES-256-GCM / Double Ratchet).
+
+This is the production-shaped stream pattern for FORJD: Pathway aggregates
+what the server is allowed to see, without becoming a decryption oracle.
 """
 
 from __future__ import annotations

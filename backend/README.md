@@ -42,16 +42,18 @@ uv run forjd
 | POST | `/api/v1/ingest/events:batch` | Batch ingest (≤100) |
 | GET | `/api/v1/ingest/events?tenant_id=` | List event metadata (no ciphertext bodies) |
 | POST | `/api/v1/ingest/embeddings` | Tenant-scoped anomaly vectors |
+| GET/POST | `/api/v1/sessions` | X25519 public session directory (JWT) |
 
 ### Secure streaming (Supabase Auth + E2EE)
 
-1. Run [`sql/003_secure_tenancy.sql`](sql/003_secure_tenancy.sql) in Supabase (see [`sql/README.md`](sql/README.md)).
+1. Run [`sql/003_secure_tenancy.sql`](sql/003_secure_tenancy.sql) then [`sql/004_crypto_sessions.sql`](sql/004_crypto_sessions.sql) (see [`sql/README.md`](sql/README.md)).
 2. Set `SUPABASE_URL` and/or `SUPABASE_JWT_SECRET` in `.env`.
 3. Clients: sign in with Supabase Auth → `Authorization: Bearer <access_token>`.
-4. Seal payloads with AES-256-GCM (`app.core.crypto.seal`); send envelope fields only.
-5. Prefect flow `forjd-ingest` acks the batch (Pathway continuous jobs next).
+4. Publish X25519 *public* keys via `POST /api/v1/sessions` (private keys stay on device).
+5. Derive AES-256 via X25519 ECDH + HKDF; seal with AES-256-GCM (`app.core.crypto`); send envelope fields only.
+6. Prefect `forjd-ingest` + Pathway metadata rollup (never ciphertext).
 
-Server-minimal knowledge: Double Ratchet headers stay opaque; FastAPI never decrypts E2EE ciphertext.
+Server-minimal knowledge: Double Ratchet headers stay opaque; FastAPI never decrypts E2EE ciphertext. Crypto self-check: `uv run python -m unittest tests.test_crypto`.
 
 ### Unsupervised ML PoC (LSTM-Autoencoder)
 

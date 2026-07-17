@@ -2,8 +2,9 @@
  * Client-side AES-256-GCM seal matching backend `app.core.crypto`.
  *
  * AAD = `${tenantId}|${clientEventId}` (UTF-8).
- * Double Ratchet headers are opaque base64 placeholders until a full Signal
- * stack lands — clients own key material; the API never decrypts.
+ * Derive message keys via X25519 ECDH + HKDF (`x25519.ts`), then seal here.
+ * Double Ratchet headers are opaque base64 — clients own key material;
+ * the API never decrypts (server-minimal / zero-knowledge of plaintext).
  */
 
 export const ALGO_AES_256_GCM = 'aes-256-gcm';

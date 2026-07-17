@@ -68,6 +68,8 @@
 
 - 2026-07-16: Next secure-stream step — applied `003` + Realtime publication on Supabase; Angular WebCrypto seal helper + Supabase Auth/Realtime client; Pathway sealed-metadata rollup on ingest; Fly `SUPABASE_URL` secrets + backend redeploy. UI “Secure stream” panel needs public `supabaseAnonKey` in environments.
 
+- 2026-07-16: Hardened E2EE foundation — X25519 ECDH + HKDF session keys in `app.core.crypto`, `sql/004_crypto_sessions.sql` (public-key directory + RLS), `POST/GET /api/v1/sessions`, Angular `crypto/x25519.ts`, and unittest coverage. Documented Double Ratchet / forward secrecy: server stores ciphertext + opaque headers only.
+
 ## Packages
 
 Direct dependencies only. Star these on GitHub.
