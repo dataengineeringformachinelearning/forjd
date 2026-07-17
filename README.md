@@ -2,7 +2,8 @@
 
 Data streaming pipeline platform. This repo’s **pulse PoC** wires the full stack end to end:
 
-**Angular → FastAPI → Rust engine (HTTP or PyO3) + Polars + Pathway + Prefect + Supabase Postgres + Dragonfly**
+**Angular → FastAPI → Rust engine (HTTP or PyO3) + Polars + Pathway + Prefect + Supabase Postgres/pgvector + Dragonfly**  
+(+ optional PyTorch LSTM-autoencoder anomaly PoC)
 
 ## Prerequisites
 
@@ -68,11 +69,21 @@ curl -s http://127.0.0.1:8000/api/v1/stack
 curl -s -X POST http://127.0.0.1:8000/api/v1/pulse \
   -H 'Content-Type: application/json' \
   -d '{"values":[1,2,3,5,8]}'
+
+# Optional unsupervised ML PoC (LSTM-AE + pgvector)
+uv sync --group ml
+# then run backend/sql/002_anomaly_embeddings.sql in Supabase
+curl -s -X POST http://127.0.0.1:8000/api/v1/anomaly/fit \
+  -H 'Content-Type: application/json' -d '{"use_synthetic":true,"epochs":20}'
+curl -s -X POST http://127.0.0.1:8000/api/v1/anomaly/score \
+  -H 'Content-Type: application/json' \
+  -d '{"values":[0.1,0.2,8,9,0.1,0.2,0.1,0.2,0.1,0.2,0.1,0.2,0.1,0.2,0.1,0.2]}'
 ```
 
 - `/health` — process up  
 - `/ready` — Postgres + Dragonfly both reachable  
-- `/api/v1/stack` — per-layer status for the UI  
+- `/api/v1/stack` — per-layer status for the UI (includes optional `ml`)  
+- `/api/v1/anomaly/*` — LSTM-AE fit/score + pgvector embeddings  
 
 ### 4. Frontend
 
@@ -103,6 +114,17 @@ cargo run --no-default-features --features server   # HTTP on :8080
 | Prefect | `forjd-pulse` flow (local fallback if server down) |
 | Postgres | Insert into `pulses` |
 | Dragonfly | Cache last pulse (`forjd:pulse:last`) |
+
+## Unsupervised anomaly PoC (optional)
+
+| Piece | Role |
+|-------|------|
+| PyTorch LSTM-AE | Train on normal windows; reconstruction MSE = anomaly score |
+| Latent vector (16-d) | Stored in Supabase **pgvector** (`anomaly_embeddings`) |
+| Prefect `forjd-anomaly` | Ack fit/score (same soft-fail pattern as pulse) |
+| UI | **Fit + score anomaly** on the pulse page |
+
+Install with `uv sync --group ml`, enable `vector` in Supabase, run `backend/sql/002_anomaly_embeddings.sql`. TFT is intentionally deferred (supervised forecasting, not unsupervised detection).
 
 ## Deploy sketches
 

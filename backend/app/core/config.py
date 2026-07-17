@@ -47,6 +47,15 @@ class Settings(BaseSettings):
     # Rollbar — leave empty to disable locally
     ROLLBAR_ACCESS_TOKEN: str = ""
 
+    # Unsupervised ML PoC (LSTM-Autoencoder + pgvector). Requires: uv sync --group ml
+    ML_SEQ_LEN: int = 16
+    ML_LATENT_DIM: int = 16
+    ML_HIDDEN_DIM: int = 32
+    ML_EPOCHS: int = 40
+    ML_ANOMALY_THRESHOLD: float = 0.15
+    ML_MODEL_DIR: str = "data/models"
+    ML_MODEL_VERSION: str = "lstm-ae-v1"
+
     @model_validator(mode="after")
     def _secure_production_defaults(self) -> Settings:
         if self.ENVIRONMENT.lower() in {"production", "prod"} and self.DEBUG:

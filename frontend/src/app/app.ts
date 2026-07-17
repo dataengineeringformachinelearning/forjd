@@ -1,12 +1,12 @@
-import { JsonPipe } from '@angular/common';
+import { DecimalPipe, JsonPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FjButton, FjPanel, FjStatusItem, FjStatusList } from 'forjd-ui';
 
-import { PulseApi, PulseResult, StackStatus } from './pulse-api';
+import { AnomalyScoreResult, PulseApi, PulseResult, StackStatus } from './pulse-api';
 
 @Component({
   selector: 'app-root',
-  imports: [FjButton, FjPanel, FjStatusList, JsonPipe],
+  imports: [FjButton, FjPanel, FjStatusList, JsonPipe, DecimalPipe],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -16,7 +16,9 @@ export class App implements OnInit {
   protected readonly title = signal('FORJD');
   protected readonly stack = signal<StackStatus | null>(null);
   protected readonly pulse = signal<PulseResult | null>(null);
+  protected readonly anomaly = signal<AnomalyScoreResult | null>(null);
   protected readonly busy = signal(false);
+  protected readonly anomalyBusy = signal(false);
   protected readonly error = signal<string | null>(null);
 
   protected readonly stackChecks = computed<FjStatusItem[] | null>(() => {
@@ -58,6 +60,38 @@ export class App implements OnInit {
       error: (err: unknown) => {
         this.busy.set(false);
         this.error.set(this.errMsg(err, 'Pulse failed'));
+      },
+    });
+  }
+
+  protected runAnomaly(): void {
+    this.anomalyBusy.set(true);
+    this.error.set(null);
+    this.api.fitAnomaly().subscribe({
+      next: (fit) => {
+        if (!fit.ok) {
+          this.anomalyBusy.set(false);
+          this.error.set(fit.error ?? 'Anomaly fit failed — is torch installed? (uv sync --group ml)');
+          return;
+        }
+        this.api.scoreAnomaly().subscribe({
+          next: (score) => {
+            this.anomaly.set(score);
+            this.anomalyBusy.set(false);
+            this.refreshStack();
+            if (!score.ok) {
+              this.error.set(score.error ?? 'Anomaly score failed');
+            }
+          },
+          error: (err: unknown) => {
+            this.anomalyBusy.set(false);
+            this.error.set(this.errMsg(err, 'Anomaly score failed'));
+          },
+        });
+      },
+      error: (err: unknown) => {
+        this.anomalyBusy.set(false);
+        this.error.set(this.errMsg(err, 'Anomaly fit failed'));
       },
     });
   }

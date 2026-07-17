@@ -8,6 +8,7 @@ from fastapi import APIRouter, Request
 
 from app.core.config import settings
 from app.services import engine
+from app.services.anomaly import ml_status
 
 router = APIRouter(prefix="/stack", tags=["stack"])
 
@@ -29,6 +30,7 @@ async def stack_status(request: Request) -> dict[str, Any]:
         "engine": engine_check,
         "postgres": {"ok": False},
         "dragonfly": {"ok": False},
+        "ml": ml_status(),
     }
 
     pool = getattr(request.app.state, "db_pool", None)
@@ -36,7 +38,14 @@ async def stack_status(request: Request) -> dict[str, Any]:
         try:
             async with pool.acquire() as conn:
                 await conn.fetchval("SELECT 1")
-            checks["postgres"] = {"ok": True, "backend": "supabase-or-postgres"}
+                ext = await conn.fetchval(
+                    "SELECT extname FROM pg_extension WHERE extname = 'vector'"
+                )
+            checks["postgres"] = {
+                "ok": True,
+                "backend": "supabase-or-postgres",
+                "pgvector": ext == "vector",
+            }
         except Exception as exc:
             checks["postgres"] = {"ok": False, "error": str(exc)}
 
@@ -47,8 +56,12 @@ async def stack_status(request: Request) -> dict[str, Any]:
         except Exception as exc:
             checks["dragonfly"] = {"ok": False, "error": str(exc)}
 
+    # Core stack readiness ignores optional ML (torch may be absent in slim images).
+    core_ok = all(
+        v.get("ok") for k, v in checks.items() if k != "ml"
+    )
     return {
-        "ok": all(v.get("ok") for v in checks.values()),
+        "ok": core_ok,
         "environment": settings.ENVIRONMENT,
         "checks": checks,
     }

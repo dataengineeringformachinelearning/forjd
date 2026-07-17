@@ -21,6 +21,7 @@ Agents: read this briefing first, then enforce constraints in `.cursorrules`.
 | Cache / DB | Dragonfly (Fly.io) + Postgres (Supabase) |
 | UI | Angular + forjd-ui (Storybook / Chromatic) |
 | Observability | Rollbar (API); Vercel Analytics + Speed Insights (frontend) |
+| ML (optional PoC) | PyTorch LSTM-AE (`uv sync --group ml`) + Supabase pgvector latents |
 
 Pathway owns live/incremental work; Polars owns finite batch DataFrames. Details: `.cursorrules`.
 Backend Python is pinned to **3.12** with Pathway ≥0.31 (`beartype<0.16` via uv override). Pathway still does not support 3.14.

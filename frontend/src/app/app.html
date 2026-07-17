@@ -3,14 +3,22 @@
     <p class="fj-brand">{{ title() }}</p>
     <h1 class="fj-headline">Connected stack pulse</h1>
     <p class="fj-lede shell__lede">
-      Angular → FastAPI → Rust engine, Polars, Pathway, Prefect, Supabase Postgres, and Dragonfly.
-      Mockup wiring you can grow into real pipelines.
+      Angular → FastAPI → Rust engine, Polars, Pathway, Prefect, Supabase Postgres / pgvector, and
+      Dragonfly — plus an optional LSTM-autoencoder anomaly PoC.
     </p>
   </header>
 
   <div class="shell__actions">
     <forjd-button type="button" (click)="runPulse()" [attr.aria-busy]="busy()">
       {{ busy() ? 'Running…' : 'Run pulse' }}
+    </forjd-button>
+    <forjd-button
+      type="button"
+      variant="ghost"
+      (click)="runAnomaly()"
+      [attr.aria-busy]="anomalyBusy()"
+    >
+      {{ anomalyBusy() ? 'Scoring…' : 'Fit + score anomaly' }}
     </forjd-button>
     <forjd-button variant="ghost" type="button" (click)="refreshStack()">Refresh stack</forjd-button>
   </div>
@@ -36,6 +44,23 @@
       <details class="shell__details">
         <summary>Raw JSON</summary>
         <pre>{{ p | json }}</pre>
+      </details>
+    </forjd-panel>
+  }
+
+  @if (anomaly(); as a) {
+    <forjd-panel title="Anomaly (LSTM-AE)" aria-label="Anomaly score">
+      <p class="fj-meta shell__meta">
+        error {{ a.reconstruction_error | number: '1.4-4' }} · threshold
+        {{ a.threshold | number: '1.4-4' }} ·
+        {{ a.is_anomaly ? 'anomaly' : 'normal' }}
+        @if (a.embedding_id) {
+          · id {{ a.embedding_id }}
+        }
+      </p>
+      <details class="shell__details">
+        <summary>Raw JSON</summary>
+        <pre>{{ a | json }}</pre>
       </details>
     </forjd-panel>
   }

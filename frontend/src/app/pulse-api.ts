@@ -26,6 +26,34 @@ export interface PulseSnapshot {
   recent: Array<Record<string, unknown>>;
 }
 
+export interface AnomalyFitResult {
+  ok: boolean;
+  model_version: string;
+  series_id: string;
+  layers?: Record<string, { ok?: boolean; [key: string]: unknown }>;
+  error?: string;
+}
+
+export interface AnomalyScoreResult {
+  ok: boolean;
+  model_version: string;
+  series_id: string;
+  reconstruction_error: number;
+  threshold: number;
+  is_anomaly: boolean;
+  embedding: number[];
+  embedding_id: string | null;
+  neighbors: Array<{
+    id: string;
+    series_id: string;
+    reconstruction_error: number;
+    is_anomaly: boolean;
+    distance: number;
+  }>;
+  layers?: Record<string, { ok?: boolean; [key: string]: unknown }>;
+  error?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class PulseApi {
   private readonly http = inject(HttpClient);
@@ -44,5 +72,22 @@ export class PulseApi {
 
   last(): Observable<PulseSnapshot> {
     return this.http.get<PulseSnapshot>(`${this.base}/api/v1/pulse`);
+  }
+
+  fitAnomaly(): Observable<AnomalyFitResult> {
+    return this.http.post<AnomalyFitResult>(`${this.base}/api/v1/anomaly/fit`, {
+      series_id: 'angular',
+      use_synthetic: true,
+      epochs: 20,
+    });
+  }
+
+  scoreAnomaly(values?: number[]): Observable<AnomalyScoreResult> {
+    return this.http.post<AnomalyScoreResult>(`${this.base}/api/v1/anomaly/score`, {
+      values: values ?? [0.1, 0.2, 8.0, 9.0, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2],
+      series_id: 'angular',
+      persist: true,
+      neighbors: 3,
+    });
   }
 }

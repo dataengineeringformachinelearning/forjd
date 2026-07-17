@@ -58,6 +58,12 @@
 
 - 2026-07-16: Split Vercel project builds — `forjd` → `npm run build` at forjd.co; `ui` → `npm run build-storybook` at ui.forjd.co (same `frontend/` root; build/output set per project so shared `vercel.json` only has rewrites/headers). Linked `ui` to the GitHub repo; added `@angular/animations` so Storybook’s Vite build succeeds on clean `npm ci`.
 
+- 2026-07-16: Added unsupervised ML PoC — PyTorch LSTM-Autoencoder (optional `uv sync --group ml`) with reconstruction-error scoring, Prefect `forjd-anomaly`, and Supabase pgvector table `anomaly_embeddings` (`sql/002_anomaly_embeddings.sql`). Chose LSTM-AE over TFT because TFT is supervised forecasting; wired `POST /api/v1/anomaly/fit|score` + UI “Fit + score anomaly”.
+
+- 2026-07-16: Wired Fly for the ML PoC — Dockerfile `uv sync --group ml` with pytorch-cpu index (dropped CUDA lock deps), entrypoint volume chown for `/data/models`, `ml_models` mount + 2GB VM in `fly.api.toml`. Removed unused Prefect `hello.py` stub and empty `app/utils`.
+
+- 2026-07-16: Deployed `forjd-backend` with torch CPU + volume; fixed Prefect `HOME`/`PREFECT_HOME` after setpriv, renamed SQL column `window` → `series_window` (reserved keyword). Prod fit/score + pgvector persist verified on backend.forjd.co.
+
 ## Packages
 
 Direct dependencies only. Star these on GitHub.
@@ -74,6 +80,8 @@ Direct dependencies only. Star these on GitHub.
 - [Pathway](https://github.com/pathwaycom/pathway) — streaming / incremental processing
 - [Polars](https://github.com/pola-rs/polars) — batch DataFrames
 - [pyrollbar](https://github.com/rollbar/pyrollbar) — error reporting
+- [pytorch](https://github.com/pytorch/pytorch) — LSTM-AE unsupervised PoC (`uv sync --group ml`)
+- [numpy](https://github.com/numpy/numpy) — window tensors for ML PoC (`ml` group)
 - [uv](https://github.com/astral-sh/uv) — Python package manager
 - [ruff](https://github.com/astral-sh/ruff) — linter / formatter (dev)
 - [maturin](https://github.com/PyO3/maturin) — build Rust→Python extensions (dev / engine)
@@ -111,4 +119,5 @@ Direct dependencies only. Star these on GitHub.
 - [Dragonfly](https://github.com/dragonflydb/dragonfly) — Redis-compatible cache (Fly.io: `infra/dragonfly/`)
 - [PostgreSQL](https://github.com/postgres/postgres) — primary database (hosted on Supabase)
 - [Supabase](https://github.com/supabase/supabase) — hosted Postgres for FORJD
+- [pgvector](https://github.com/pgvector/pgvector) — vector extension for LSTM-AE latents (Supabase)
 - [Fly.io](https://github.com/superfly/fly) — Dragonfly + engine deployment target

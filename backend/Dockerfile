@@ -1,4 +1,4 @@
-# --- build Rust engine wheel + Python deps ---
+# --- build Rust engine wheel + Python deps (incl. optional ML group) ---
 # Keep the project at /app so uv venv shebangs match the runtime image.
 # 3.12 — Pathway (beartype pin) does not import on CPython 3.14 yet.
 FROM python:3.12-slim-bookworm AS builder
@@ -24,31 +24,42 @@ COPY backend/pyproject.toml backend/uv.lock backend/README.md /app/
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/root/.cargo/git \
-    uv sync --locked --no-install-project
+    uv sync --locked --group ml --no-install-project
 
 COPY backend/ /app/
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/root/.cargo/git \
-    uv sync --locked --no-editable
+    uv sync --locked --group ml --no-editable
 
-# --- runtime: slim image, non-root, no uv/rust ---
+# --- runtime: slim image, non-root via entrypoint, torch CPU + engine ---
 FROM python:3.12-slim-bookworm AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH" \
-    VIRTUAL_ENV=/app/.venv
+    VIRTUAL_ENV=/app/.venv \
+    ML_MODEL_DIR=/data/models
 
 WORKDIR /app
 
-RUN groupadd --gid 1001 forjd \
-    && useradd --uid 1001 --gid 1001 --shell /usr/sbin/nologin --create-home forjd
+# libgomp: PyTorch CPU runtime. setpriv: drop to uid 1001 after volume chown.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 util-linux \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 1001 forjd \
+    && useradd --uid 1001 --gid 1001 --shell /usr/sbin/nologin --create-home forjd \
+    && mkdir -p /data/models \
+    && chown -R 1001:1001 /data/models
 
 COPY --from=builder --chown=1001:1001 /app /app
+COPY backend/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod 755 /docker-entrypoint.sh
 
-USER 1001
+# Entrypoint starts as root to fix volume perms, then setpriv → 1001.
+USER root
 
 EXPOSE 8000
 
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

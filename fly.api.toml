@@ -2,6 +2,7 @@
 #
 # Build context is the **repo root** (Dockerfile copies engine/ for the PyO3 wheel):
 #   fly apps create forjd-backend
+#   fly volumes create ml_models --size 1 --region iad -a forjd-backend
 #   fly secrets set POSTGRES_DSN=… REDIS_URL=… ENGINE_API_TOKEN=… -a forjd-backend
 #   fly deploy --config fly.api.toml
 #
@@ -25,6 +26,16 @@ primary_region = 'iad'
   ENGINE_TIMEOUT_SECONDS = '10'
   # Prefect optional — soft-fail when unreachable
   PREFECT_API_URL = ''
+  PREFECT_HOME = '/home/forjd/.prefect'
+  HOME = '/home/forjd'
+  # LSTM-AE checkpoints (Fly volume mount)
+  ML_MODEL_DIR = '/data/models'
+  ML_MODEL_VERSION = 'lstm-ae-v1'
+  ML_SEQ_LEN = '16'
+  ML_LATENT_DIM = '16'
+  ML_HIDDEN_DIM = '32'
+  ML_EPOCHS = '20'
+  ML_ANOMALY_THRESHOLD = '0.15'
 
 [http_service]
   internal_port = 8000
@@ -42,10 +53,14 @@ primary_region = 'iad'
   [[http_service.checks]]
     interval = '15s'
     timeout = '5s'
-    grace_period = '45s'
+    grace_period = '90s'
     method = 'GET'
     path = '/health'
 
+[mounts]
+  source = 'ml_models'
+  destination = '/data/models'
+
 [[vm]]
-  size = 'shared-cpu-1x'
-  memory = '1024mb'
+  size = 'shared-cpu-2x'
+  memory = '2048mb'

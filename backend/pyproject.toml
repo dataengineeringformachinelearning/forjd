@@ -35,9 +35,21 @@ dev = [
     "maturin>=1.8.0",
     "ruff>=0.12.0",
 ]
+# Optional unsupervised ML PoC (LSTM-AE). Install with: uv sync --group ml
+ml = [
+    "numpy>=2.0.0",
+    "torch>=2.6.0",
+]
+
+# CPU wheels for Fly/Linux (avoids multi‑GB CUDA deps). macOS uses the same index.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [tool.uv.sources]
 forjd-engine = { path = "../engine", editable = true }
+torch = { index = "pytorch-cpu" }
 
 [tool.ruff]
 target-version = "py312"

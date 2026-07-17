@@ -40,3 +40,8 @@ htmlcov/
 
 # Rust
 **/target/
+
+# ML checkpoints (LSTM-AE PoC)
+backend/data/models/*.pt
+.vercel
+.env*
