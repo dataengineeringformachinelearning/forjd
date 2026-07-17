@@ -25,12 +25,14 @@ dropping a file here** — do not fork ingest routes or crypto.
    `pipeline.steps`, or a processor in `app/workflows/processors/`.
 
 Apply SQL `006`–`008` for routing columns, durable projections/DLQ, and status pages.
+On API startup, enabled YAML workflows are upserted into `use_cases`.
 
-## DEML cutover note
+## Example use cases
 
-DEML’s Kafka projectors / Railway ops map here to:
-- sealed ingest → `POST /api/v1/ingest`
-- projectors → `POST /api/v1/projections/run` + durable `stream_results`
-- DLQ/replay → `POST /api/v1/replay` + `projection_dlq`
-- status pages → `/api/v1/status/*`
-Keep DEML as `deml_telemetry.yaml` until Railway is torn down.
+| File | Role |
+|------|------|
+| `default_sealed.yaml` | Generic fallback (`application/forjd-event+v1`) |
+| `analytics_events.yaml` | Analytics / product events |
+| `deml_telemetry.yaml` | One tenant product config (not platform core) |
+
+Platform surfaces (ingest, projections, replay/DLQ, status) stay use-case agnostic.

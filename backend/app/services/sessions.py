@@ -8,8 +8,39 @@ from uuid import UUID
 import asyncpg
 
 from app.core.auth import AuthUser
+from app.core.config import settings
 from app.models.session import CryptoSessionUpsert
 from app.services import tenants as tenant_svc
+
+
+# --- Bind envelope.key_id → active crypto_sessions.session_id ---
+async def require_active_session(
+    pool: asyncpg.Pool,
+    *,
+    tenant_id: UUID,
+    key_id: str,
+) -> None:
+    """Fail closed when ingest key_id is not a registered, non-expired session.
+
+    Controlled by REQUIRE_CRYPTO_SESSION (forced true in production).
+    """
+    if not settings.REQUIRE_CRYPTO_SESSION:
+        return
+    row = await pool.fetchrow(
+        """
+        SELECT 1
+        FROM crypto_sessions
+        WHERE tenant_id = $1::uuid
+          AND session_id = $2
+          AND (expires_at IS NULL OR expires_at > NOW())
+        """,
+        str(tenant_id),
+        key_id,
+    )
+    if row is None:
+        raise ValueError(
+            "envelope.key_id must match an active crypto_sessions.session_id"
+        )
 
 
 # --- Upsert public keys for a device session ---

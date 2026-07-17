@@ -78,6 +78,8 @@
 
 - 2026-07-16: Mirrored DEML platform surfaces universally — durable projections + checkpoints + DLQ (`sql/007`, `POST /api/v1/projections/run`, `POST /api/v1/replay`), status pages (`sql/008`, public slug read), and pluggable detectors (`size_anomaly` / `rate_anomaly` under `app/workflows/detectors/`). Prefect `forjd-project` soft-fails like ingest; E2EE path unchanged (metadata-only projectors).
 
+- 2026-07-16: Second-pass hardening for universal secure streaming — neutralized DEML residue in platform comments/SQL defaults (`application/forjd-event+v1`), bound `envelope.key_id` → `crypto_sessions` when `REQUIRE_CRYPTO_SESSION` (forced in production), metadata allowlist, fail-closed schema/RLS (`SOFT_MIGRATE_SCHEMA` / `REQUIRE_RLS`), YAML→`use_cases` sync on boot, live ingest advances projection watermarks + optional `PROJECTION_TICK_SECONDS` worker. Angular PoC registers X25519 session before seal/ingest.
+
 ## Packages
 
 Direct dependencies only. Star these on GitHub.

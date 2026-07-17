@@ -2,7 +2,7 @@
 -- FORJD durable projections + checkpoints + DLQ (universal SaaS)
 -- =============================================================================
 -- Apply after 006. Metadata-only projections — never store plaintext/ciphertext.
--- Mirrors DEML projector/DLQ concepts without Kafka; Pathway + Postgres instead.
+-- Checkpointed projectors + DLQ without Kafka; Pathway + Postgres instead.
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------

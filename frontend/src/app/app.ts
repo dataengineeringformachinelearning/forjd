@@ -4,9 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { FjButton, FjPanel, FjStatusItem, FjStatusList } from 'forjd-ui';
 
 import { generateAesKey, seal } from './crypto/seal';
+import { generateX25519KeyPair } from './crypto/x25519';
 import { AnomalyScoreResult, PulseApi, PulseResult, StackStatus } from './pulse-api';
 import { IngestResult, SecureApi, Tenant } from './secure-api';
 import { SupabaseService, TelemetryRealtimeRow } from './supabase';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-root',
@@ -203,44 +205,48 @@ export class App implements OnInit, OnDestroy {
     this.secureBusy.set(true);
     this.error.set(null);
     try {
+      // Register public key so envelope.key_id binds to crypto_sessions (prod).
+      const identity = await generateX25519KeyPair();
+      const sessionId = 'poc-device-key-1';
+      await firstValueFrom(
+        this.secure.upsertSession({
+          tenantId,
+          sessionId,
+          identityPublicKey: identity.publicKeyB64,
+        }),
+      );
+
       const key = await generateAesKey();
       const clientEventId = crypto.randomUUID();
       // Opaque ratchet placeholder — full Double Ratchet lands in a later SDK.
       const ratchetHeader = btoa(`poc-ratchet:${clientEventId}`);
       const envelope = await seal(
         JSON.stringify({
-          kind: 'telemetry.poc',
+          kind: 'event.poc',
           values: [1, 2, 3, 5, 8],
           ts: Date.now(),
         }),
         {
           key,
-          keyId: 'poc-device-key-1',
+          keyId: sessionId,
           tenantId,
           clientEventId,
           ratchetHeader,
         },
       );
-      this.secure
-        .ingestSealed({
+      const res = await firstValueFrom(
+        this.secure.ingestSealed({
           tenantId,
           clientEventId,
           envelope,
-          metadata: { source: 'angular', e2ee: true },
-        })
-        .subscribe({
-          next: (res) => {
-            this.ingestResult.set(res);
-            this.secureBusy.set(false);
-          },
-          error: (err: unknown) => {
-            this.secureBusy.set(false);
-            this.error.set(this.errMsg(err, 'Secure ingest failed'));
-          },
-        });
+          metadata: { source: 'angular' },
+        }),
+      );
+      this.ingestResult.set(res);
+      this.secureBusy.set(false);
     } catch (err: unknown) {
       this.secureBusy.set(false);
-      this.error.set(this.errMsg(err, 'Seal failed'));
+      this.error.set(this.errMsg(err, 'Secure ingest failed'));
     }
   }
 

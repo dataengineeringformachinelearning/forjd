@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS public.telemetry_events (
   ciphertext_sha256 TEXT,
 
   -- Minimal non-sensitive routing metadata (never put secrets here).
-  content_type TEXT NOT NULL DEFAULT 'application/forjd-telemetry+v1',
+  content_type TEXT NOT NULL DEFAULT 'application/forjd-event+v1',
   schema_version INT NOT NULL DEFAULT 1,
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
 

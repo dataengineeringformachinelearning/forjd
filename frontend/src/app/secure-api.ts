@@ -72,6 +72,29 @@ export class SecureApi {
     );
   }
 
+  /** Publish X25519 public key; session_id must match envelope.key_id on ingest. */
+  upsertSession(opts: {
+    tenantId: string;
+    sessionId: string;
+    identityPublicKey: string;
+    ephemeralPublicKey?: string;
+  }): Observable<Record<string, unknown>> {
+    return this.withAuth().pipe(
+      switchMap((headers) =>
+        this.http.post<Record<string, unknown>>(
+          `${this.base}/api/v1/sessions`,
+          {
+            tenant_id: opts.tenantId,
+            session_id: opts.sessionId,
+            identity_public_key: opts.identityPublicKey,
+            ephemeral_public_key: opts.ephemeralPublicKey ?? null,
+          },
+          { headers },
+        ),
+      ),
+    );
+  }
+
   ingestSealed(opts: {
     tenantId: string;
     clientEventId: string;
@@ -89,6 +112,7 @@ export class SecureApi {
         ratchet_header: opts.envelope.ratchetHeader,
         ciphertext_sha256: opts.envelope.ciphertextSha256,
       },
+      // Routing tags only (server allowlists metadata keys).
       metadata: opts.metadata ?? { source: 'angular' },
     };
     return this.withAuth().pipe(

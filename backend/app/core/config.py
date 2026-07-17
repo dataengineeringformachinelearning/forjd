@@ -64,6 +64,17 @@ class Settings(BaseSettings):
     # --- Configurable workflows (YAML/JSON under WORKFLOWS_DIR) ---
     WORKFLOWS_DIR: str = "workflows"
 
+    # --- Schema / zero-trust (production fail-closed) ---
+    # Soft-create table shapes when SQL migrations were not applied (local only).
+    # Production should apply backend/sql/003–008 and leave this false.
+    SOFT_MIGRATE_SCHEMA: bool = True
+    # When true, startup/ready fail if RLS is missing on sensitive tables.
+    REQUIRE_RLS: bool = False
+    # When true, envelope.key_id must match an active crypto_sessions.session_id.
+    REQUIRE_CRYPTO_SESSION: bool = False
+    # Optional background projection tick (0 = disabled; seconds between ticks).
+    PROJECTION_TICK_SECONDS: float = 0.0
+
     # --- Sealed-stream metadata anomaly defaults (overridden by workflow YAML) ---
     STREAM_ANOMALY_ZSCORE: float = 2.5
     STREAM_ANOMALY_MAX_CIPHER_LEN: int = 262_144
@@ -79,9 +90,15 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _secure_production_defaults(self) -> Settings:
-        if self.ENVIRONMENT.lower() in {"production", "prod"} and self.DEBUG:
+        is_prod = self.ENVIRONMENT.lower() in {"production", "prod"}
+        if is_prod and self.DEBUG:
             # Prefer explicit DEBUG=false in prod; coerce if someone left the example default.
             object.__setattr__(self, "DEBUG", False)
+        if is_prod:
+            # Fail closed: no soft-migrate; require RLS + crypto session binding.
+            object.__setattr__(self, "SOFT_MIGRATE_SCHEMA", False)
+            object.__setattr__(self, "REQUIRE_RLS", True)
+            object.__setattr__(self, "REQUIRE_CRYPTO_SESSION", True)
         return self
 
 

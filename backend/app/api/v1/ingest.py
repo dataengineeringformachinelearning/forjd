@@ -71,7 +71,7 @@ async def list_events(
     return {"ok": True, "tenant_id": str(tenant_id), "events": rows}
 
 
-# --- Stream results for DEML (Pathway scores/rollups; no ciphertext) ---
+# --- Stream results (Pathway scores/rollups; no ciphertext) ---
 @router.get("/results")
 async def list_results(
     request: Request,

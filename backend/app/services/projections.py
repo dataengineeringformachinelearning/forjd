@@ -1,7 +1,7 @@
 """Durable live projections — checkpointed reprocess of sealed metadata.
 
-Mirrors DEML projector concepts: idempotent upserts, watermarks, no plaintext.
-Ciphertext stays in telemetry_events; processors see sizes/routing only.
+Idempotent upserts + watermarks; no plaintext. Ciphertext stays in
+telemetry_events; processors see sizes/routing only.
 """
 
 from __future__ import annotations
@@ -222,6 +222,65 @@ async def advance_checkpoint(
         last_event_id,
         last_created_at,
     )
+
+
+# --- Advance watermarks after live ingest (per tenant in meta batch) ---
+async def advance_checkpoint_from_meta(
+    pool: asyncpg.Pool,
+    *,
+    meta_rows: list[dict[str, Any]],
+    workflow_id: str,
+) -> None:
+    """Stamp projection checkpoints from ingest metadata (no ciphertext)."""
+    if not meta_rows:
+        return
+    wf = resolve_workflow(
+        content_type=str(meta_rows[0].get("content_type") or "application/forjd-event+v1"),
+        event_type=meta_rows[0].get("event_type") or None,
+        workflow_id=workflow_id,
+    )
+    proj_name = wf.pipeline.projection_name
+    # Latest event per tenant (meta is append-order within this ingest batch).
+    latest: dict[str, dict[str, Any]] = {}
+    for row in meta_rows:
+        tid = str(row.get("tenant_id") or "")
+        if not tid or not row.get("event_id"):
+            continue
+        latest[tid] = row
+    for tid, row in latest.items():
+        created = row.get("created_at")
+        if created is None:
+            # Ingest meta may omit created_at — use NOW() watermark via SQL default path.
+            await pool.execute(
+                """
+                INSERT INTO projection_checkpoints (
+                    tenant_id, projection_name, workflow_id,
+                    last_event_id, last_created_at, updated_at
+                )
+                VALUES (
+                    $1::uuid, $2, $3, $4::uuid,
+                    (SELECT created_at FROM telemetry_events WHERE id = $4::uuid),
+                    NOW()
+                )
+                ON CONFLICT (tenant_id, projection_name, workflow_id) DO UPDATE SET
+                    last_event_id = EXCLUDED.last_event_id,
+                    last_created_at = EXCLUDED.last_created_at,
+                    updated_at = NOW()
+                """,
+                tid,
+                proj_name,
+                workflow_id or "",
+                str(row["event_id"]),
+            )
+        else:
+            await advance_checkpoint(
+                pool,
+                tenant_id=UUID(tid),
+                projection_name=proj_name,
+                workflow_id=workflow_id,
+                last_event_id=str(row["event_id"]),
+                last_created_at=created,
+            )
 
 
 # --- Run projection for a tenant (Prefect soft-fail) ---

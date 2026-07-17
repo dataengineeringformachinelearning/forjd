@@ -28,7 +28,7 @@ api_router.include_router(ingest.router)
 api_router.include_router(sessions.router)
 api_router.include_router(workflows.router)
 
-# --- DEML-parity platform surfaces (universal) ---
+# --- Projections, replay/DLQ, tenant status pages ---
 api_router.include_router(projections.router)
 api_router.include_router(replay.router)
 api_router.include_router(status.router)

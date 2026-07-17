@@ -9,16 +9,77 @@ from uuid import UUID
 import asyncpg
 from fastapi import HTTPException, status
 
+from app.core.config import settings
+
 logger = logging.getLogger("forjd.tenants")
 
+# Tables that must exist with RLS when REQUIRE_RLS is set.
+_RLS_TABLES = (
+    "tenants",
+    "tenant_members",
+    "telemetry_events",
+    "crypto_sessions",
+    "stream_results",
+    "projection_checkpoints",
+    "projection_dlq",
+    "status_pages",
+)
 
-# --- Local soft-migrate (shapes only; full RLS needs sql/003 + sql/004) ---
+
+# --- Schema readiness (fail closed in production) ---
+async def assert_secure_schema(pool: asyncpg.Pool) -> None:
+    """Ensure required tables exist; optionally require RLS enabled."""
+    missing: list[str] = []
+    for table in _RLS_TABLES:
+        exists = await pool.fetchval(
+            """
+            SELECT EXISTS (
+              SELECT 1 FROM information_schema.tables
+              WHERE table_schema = 'public' AND table_name = $1
+            )
+            """,
+            table,
+        )
+        if not exists:
+            missing.append(table)
+    if missing:
+        raise RuntimeError(
+            "secure schema incomplete — apply backend/sql/003–008; missing: "
+            + ", ".join(missing)
+        )
+
+    if not settings.REQUIRE_RLS:
+        return
+
+    no_rls: list[str] = []
+    for table in _RLS_TABLES:
+        enabled = await pool.fetchval(
+            """
+            SELECT relrowsecurity FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'public' AND c.relname = $1
+            """,
+            table,
+        )
+        if not enabled:
+            no_rls.append(table)
+    if no_rls:
+        raise RuntimeError(
+            "RLS required but disabled on: " + ", ".join(no_rls)
+        )
+
+
+# --- Local soft-migrate (shapes only; full RLS needs sql/003–008) ---
 async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
-    """Soft-create core tables if SQL migration was not applied yet.
+    """Ensure schema for local/dev; production asserts migrations + RLS.
 
-    Full RLS policies still require running `sql/003`–`008` in Supabase
-    (needs `auth.users` FKs + policy grants). This only creates the shapes for local.
+    Soft-migrate creates table shapes without policies — never used when
+    ENVIRONMENT=production (SOFT_MIGRATE_SCHEMA forced false).
     """
+    if not settings.SOFT_MIGRATE_SCHEMA:
+        await assert_secure_schema(pool)
+        return
+
     try:
         await pool.execute('CREATE EXTENSION IF NOT EXISTS "pgcrypto"')
     except asyncpg.PostgresError as exc:
@@ -101,7 +162,7 @@ async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
         )
         """
     )
-    # Pathway/Prefect outputs for DEML (metadata scores only — see sql/005).
+    # Pathway/Prefect outputs (metadata scores only — see sql/005).
     await pool.execute(
         """
         CREATE TABLE IF NOT EXISTS stream_results (

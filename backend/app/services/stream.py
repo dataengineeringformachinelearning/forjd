@@ -21,9 +21,11 @@ def pathway_sealed_process(
     *,
     workflow: WorkflowDefinition | None = None,
 ) -> dict[str, Any]:
-    """Finite Pathway reduce + configured anomaly detectors.
+    """Pathway reduce + configured anomaly detectors on each ingest/project batch.
 
-    Soft-fails when Pathway is unavailable (same pattern as pulse).
+    Live path: called from Prefect on ingest (and projection ticks). Soft-fails
+    when Pathway is unavailable (same pattern as pulse). Continuous jobs can
+    be layered later; watermarks stay correct via projection checkpoints.
     """
     empty = {
         "ok": True,

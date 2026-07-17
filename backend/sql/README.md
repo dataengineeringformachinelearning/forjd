@@ -42,5 +42,6 @@ Apply in order in the Supabase SQL editor (or `psql`).
 | `use_cases` | Optional DB catalog of workflows |
 | `sealed_events` | View alias over `telemetry_events` |
 
-Plaintext never crosses the API on the E2EE path. Downstream SaaS (DEML, analytics,
-threat, …) read `stream_results` (and optionally sealed events for client decrypt) under RLS.
+Plaintext never crosses the API on the E2EE path. Downstream SaaS consumers
+(analytics, threat, telemetry, …) read `stream_results` (and optionally sealed
+events for client decrypt) under RLS.

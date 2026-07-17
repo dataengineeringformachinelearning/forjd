@@ -1,16 +1,16 @@
 -- =============================================================================
--- FORJD stream processing results (Pathway → Supabase; DEML-readable)
+-- FORJD stream processing results (Pathway → Supabase; consumer-readable)
 -- =============================================================================
 -- Apply after 003_secure_tenancy.sql.
 --
 -- Threat model:
 --   • Results are derived from server-visible metadata only (sizes, counts, key_id).
---   • Never store plaintext or ciphertext here — DEML consumes scores/rollups.
+--   • Never store plaintext or ciphertext here — consumers read scores/rollups.
 --   • RLS mirrors telemetry_events: tenant members read; service_role writes.
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
--- Pathway / Prefect outputs for downstream consumers (DEML, dashboards)
+-- Pathway / Prefect outputs for downstream consumers (dashboards, SaaS apps)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.stream_results (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -63,5 +63,5 @@ CREATE POLICY stream_results_service_all ON public.stream_results
 GRANT SELECT ON public.stream_results TO authenticated;
 GRANT ALL ON public.stream_results TO service_role;
 
--- Optional Realtime for DEML / UI:
+-- Optional Realtime for UI / consumers:
 -- ALTER PUBLICATION supabase_realtime ADD TABLE public.stream_results;

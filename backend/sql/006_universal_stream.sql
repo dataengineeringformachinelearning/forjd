@@ -5,7 +5,7 @@
 --
 -- Goals:
 --   • event_type / workflow_id for configurable routing
---   • use_cases catalog (mirror of YAML workflows for UI / DEML / other SaaS)
+--   • use_cases catalog (mirror of YAML workflows for UI / SaaS discovery)
 --   • sealed_events view alias (universal naming without breaking FKs)
 --   • stream_results.workflow_id for consumer filtering
 -- =============================================================================
@@ -18,6 +18,10 @@ ALTER TABLE public.telemetry_events
 
 ALTER TABLE public.telemetry_events
   ADD COLUMN IF NOT EXISTS workflow_id TEXT;
+
+-- Universal default content_type (overrides older telemetry-flavored default).
+ALTER TABLE public.telemetry_events
+  ALTER COLUMN content_type SET DEFAULT 'application/forjd-event+v1';
 
 CREATE INDEX IF NOT EXISTS telemetry_events_tenant_type_idx
   ON public.telemetry_events (tenant_id, content_type, event_type, created_at DESC);

@@ -10,6 +10,36 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.core.crypto import ALGO_AES_256_GCM, SealedEnvelope
 
+# --- Metadata allowlist (routing tags only — never plaintext payloads) ---
+_ALLOWED_METADATA_KEYS = frozenset(
+    {
+        "source",
+        "channel",
+        "region",
+        "env",
+        "environment",
+        "product",
+        "component",
+        "namespace",
+        "device_id",
+        "series_id",
+        "label",
+        "labels",
+        "tags",
+    }
+)
+_FORBIDDEN_METADATA_SUBSTR = (
+    "password",
+    "secret",
+    "token",
+    "plaintext",
+    "private",
+    "cipher",
+    "payload",
+    "ssn",
+    "credit",
+)
+
 
 # --- Encryption options (server validates policy; never opens ciphertext) ---
 class EncryptionOptions(BaseModel):
@@ -56,7 +86,7 @@ class IngestEventRequest(BaseModel):
     occurred_at: datetime | None = None
     # Primary routing key → workflow registry (see backend/workflows/).
     content_type: str = Field(default="application/forjd-event+v1", max_length=128)
-    # Optional finer routing inside a content_type (e.g. deml.metric, iot.sample).
+    # Optional finer routing inside a content_type (e.g. iot.sample, log.line).
     event_type: str | None = Field(default=None, max_length=128)
     schema_version: int = Field(default=1, ge=1, le=1000)
     # Optional explicit workflow override; else resolved from content_type/event_type.
@@ -76,9 +106,22 @@ class IngestEventRequest(BaseModel):
 
     @field_validator("metadata")
     @classmethod
-    def _metadata_size(cls, value: dict[str, Any]) -> dict[str, Any]:
+    def _metadata_routing_only(cls, value: dict[str, Any]) -> dict[str, Any]:
         if len(str(value)) > 4096:
             raise ValueError("metadata too large")
+        if len(value) > 32:
+            raise ValueError("metadata has too many keys")
+        for key in value:
+            if not isinstance(key, str) or not key:
+                raise ValueError("metadata keys must be non-empty strings")
+            lowered = key.lower()
+            if lowered not in _ALLOWED_METADATA_KEYS:
+                raise ValueError(
+                    f"metadata key {key!r} not allowed "
+                    f"(routing tags only: {sorted(_ALLOWED_METADATA_KEYS)})"
+                )
+            if any(bad in lowered for bad in _FORBIDDEN_METADATA_SUBSTR):
+                raise ValueError(f"metadata key {key!r} looks sensitive")
         return value
 
 

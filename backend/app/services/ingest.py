@@ -28,6 +28,7 @@ from app.models.ingest import (
 )
 from app.pipelines.ingest import run_ingest_flow
 from app.services import projections as proj_svc
+from app.services import sessions as session_svc
 from app.services import tenants as tenant_svc
 from app.workflows.models import WorkflowDefinition
 from app.workflows.registry import resolve_workflow
@@ -86,6 +87,10 @@ async def ingest_events(
             workflow_id=event.workflow_id,
         )
         _validate_encryption(event, workflow)
+        # Zero-trust: key_id must be a registered crypto session (prod).
+        await session_svc.require_active_session(
+            pool, tenant_id=event.tenant_id, key_id=event.envelope.key_id
+        )
         result = await _insert_event(pool, user=user, event=event, workflow=workflow)
         results.append(result)
 
@@ -154,6 +159,10 @@ async def ingest_events(
             pathway_summary["workflows"].append(wf_id)
             persisted += await proj_svc.upsert_stream_results(
                 pool, run.get("stream_results") or []
+            )
+            # Keep durable projection watermarks aligned with live ingest path.
+            await proj_svc.advance_checkpoint_from_meta(
+                pool, meta_rows=meta_rows, workflow_id=wf_id
             )
         pathway_summary["tenants"] = len(pathway_summary["by_tenant"])
     except Exception as exc:  # noqa: BLE001

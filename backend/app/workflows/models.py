@@ -39,7 +39,7 @@ class PipelineConfig(BaseModel):
     )
     size_anomaly: SizeAnomalyParams = Field(default_factory=SizeAnomalyParams)
     rate_anomaly: RateAnomalyParams = Field(default_factory=RateAnomalyParams)
-    # Durable projection name stamped onto stream_results (DEML-style projector).
+    # Durable projection name stamped onto stream_results.
     projection_name: str = Field(default="sealed.default", max_length=128)
 
 

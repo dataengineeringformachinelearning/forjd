@@ -1,5 +1,7 @@
 """FORJD FastAPI entrypoint — lifespan, middleware, health probes, v1 router."""
 
+import asyncio
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -16,8 +18,10 @@ from app.core.logging import configure_logging
 from app.core.rollbar import configure_rollbar
 from app.core.security import ApiKeyMiddleware, SecurityHeadersMiddleware
 
+logger = logging.getLogger("forjd.main")
 
-# --- Lifespan: soft-connect deps, warm JWKS, clean shutdown ---
+
+# --- Lifespan: soft-connect deps, warm JWKS, sync use_cases, clean shutdown ---
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging(debug=settings.DEBUG)
@@ -28,7 +32,34 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.redis = await create_redis_client()
     await warm_jwks()
 
+    stop_worker = asyncio.Event()
+    worker_task: asyncio.Task[None] | None = None
+    pool = getattr(app.state, "db_pool", None)
+    if pool is not None:
+        try:
+            from app.services import tenants as tenant_svc
+            from app.services.use_cases import sync_use_cases_from_workflows
+
+            await tenant_svc.ensure_secure_schema(pool)
+            await sync_use_cases_from_workflows(pool)
+        except Exception as exc:  # noqa: BLE001
+            # Local boot without Postgres / migrations still allowed; /ready gates traffic.
+            logger.warning("startup schema/use_cases sync skipped: %s", exc)
+
+        if settings.PROJECTION_TICK_SECONDS > 0:
+            from app.services.projection_worker import run_projection_worker
+
+            worker_task = asyncio.create_task(run_projection_worker(pool, stop_worker))
+
     yield
+
+    stop_worker.set()
+    if worker_task is not None:
+        worker_task.cancel()
+        try:
+            await worker_task
+        except asyncio.CancelledError:
+            pass
 
     redis = getattr(app.state, "redis", None)
     if redis is not None:
@@ -87,6 +118,15 @@ async def readiness(request: Request) -> JSONResponse:
             checks["postgres"] = True
         except Exception:
             checks["postgres"] = False
+
+        if checks["postgres"] and settings.REQUIRE_RLS:
+            try:
+                from app.services import tenants as tenant_svc
+
+                await tenant_svc.assert_secure_schema(pool)
+                checks["schema_rls"] = True
+            except Exception:
+                checks["schema_rls"] = False
 
     redis = getattr(request.app.state, "redis", None)
     if redis is not None:
