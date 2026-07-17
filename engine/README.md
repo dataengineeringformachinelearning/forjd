@@ -1,4 +1,15 @@
-# FORJD engine on Fly.io
+# FORJD engine (Rust)
+
+Rust tree for FORJD. Layout:
+
+| Path | Crate | Role |
+|------|-------|------|
+| `engine/` (this package) | `forjd-engine` | Arrow/Parquet process + summarize; PyO3 + Fly HTTP |
+| [`daemon/`](daemon/) | `forjd-daemon` | Role-selected data plane (relay, scheduler, probe, normalizer, ingest, CPE) — Dragonfly Streams bus |
+
+---
+
+# forjd-engine on Fly.io
 
 Standalone Rust HTTP service for `forjd-engine` (Arrow/Parquet process + summarize).
 The Python extension path (maturin / in-process) is unchanged — Compose/Fly prefer this binary.

@@ -57,6 +57,7 @@ Follow these unless the user explicitly overrides them.
 - Backend: `backend/.env` (from `backend/.env.example`) — `ROLLBAR_ACCESS_TOKEN`, `POSTGRES_DSN` (Supabase), `REDIS_URL` (Dragonfly local or Fly `.internal`), `PREFECT_API_URL`, optional `API_KEY`, CORS, etc.
 - Dragonfly on Fly: `DFLY_requirepass` via `fly secrets` (`infra/dragonfly/`).
 - Engine on Fly: deploy from `engine/` (`fly.toml` + `Dockerfile`); `ENGINE_URL=http://forjd-engine.internal:8080` + matching `ENGINE_API_TOKEN`.
+- Daemon (`engine/daemon/`): `FORJD_ROLE`, `DATABASE_URL`/`POSTGRES_DSN`, `REDIS_URL` (Dragonfly Streams bus), optional `FORJD_INTERNODE_*`; apply `sql/009_daemon_data_plane.sql`.
 - Chromatic / frontend CI: `CHROMATIC_PROJECT_TOKEN` (root `.env` or CI secrets).
 - Never commit real tokens. Empty optional tokens disable those integrations.
 

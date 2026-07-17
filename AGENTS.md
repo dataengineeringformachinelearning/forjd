@@ -18,6 +18,7 @@ Agents: read this briefing first, then enforce constraints in `.cursorrules`.
 | Streams | Pathway |
 | Batch tables | Polars |
 | Engine | Rust (`engine/`) — tokio, Arrow/Parquet **59**, PyO3 → Python; axum HTTP on Fly/Compose (`ENGINE_URL`) |
+| Data plane | Rust `forjd-daemon` (`engine/daemon/`) — role-selected relay/scheduler/probe/normalizer/ingest; Postgres outbox + Dragonfly Streams (no Kafka) |
 | Cache / DB | Dragonfly (Fly.io) + Postgres (Supabase) |
 | UI | Angular + forjd-ui (Storybook / Chromatic) |
 | Observability | Rollbar (API); Vercel Analytics + Speed Insights (frontend) |

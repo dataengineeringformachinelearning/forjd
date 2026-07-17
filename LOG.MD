@@ -80,6 +80,8 @@
 
 - 2026-07-16: Second-pass hardening for universal secure streaming — neutralized DEML residue in platform comments/SQL defaults (`application/forjd-event+v1`), bound `envelope.key_id` → `crypto_sessions` when `REQUIRE_CRYPTO_SESSION` (forced in production), metadata allowlist, fail-closed schema/RLS (`SOFT_MIGRATE_SCHEMA` / `REQUIRE_RLS`), YAML→`use_cases` sync on boot, live ingest advances projection watermarks + optional `PROJECTION_TICK_SECONDS` worker. Angular PoC registers X25519 session before seal/ingest.
 
+- 2026-07-17: Began DEML→FORJD Rust data-plane migration — ported `deml-daemon` into `engine/daemon` as `forjd-daemon`, skipped the macOS app, replaced Redpanda/Kafka with Dragonfly Streams + Postgres `outbox_events` (`sql/009_daemon_data_plane.sql`), and dropped ClickHouse-specific maintenance in favor of FORJD table retention.
+
 ## Packages
 
 Direct dependencies only. Star these on GitHub.
@@ -134,6 +136,19 @@ Direct dependencies only. Star these on GitHub.
 - [axum](https://github.com/tokio-rs/axum) — HTTP service for Fly.io (`server` feature)
 - [tower](https://github.com/tower-rs/tower) — timeout / service stack (`server` feature)
 - [tower-http](https://github.com/tower-rs/tower-http) — tracing, body limit, headers, request IDs
+
+### Daemon (Rust — `engine/daemon`)
+- [sqlx](https://github.com/launchbadge/sqlx) — async Postgres (outbox / scheduler / probes)
+- [redis-rs](https://github.com/redis-rs/redis-rs) — Dragonfly Streams bus + rate limits
+- [reqwest](https://github.com/seanmonstar/reqwest) — health probes / OTLP HTTP
+- [aes-gcm](https://github.com/RustCrypto/AEADs) — internode stream envelope encryption
+- [anyhow](https://github.com/dtolnay/anyhow) — daemon error context
+- [uuid](https://github.com/uuid-rs/uuid) — lease / event ids
+- [chrono](https://github.com/chronotope/chrono) — scheduler UTC buckets
+- [futures](https://github.com/rust-lang/futures-rs) — bounded concurrency
+- [sha2](https://github.com/RustCrypto/hashes) — ingest API key + custody hashes
+- [opentelemetry-rust](https://github.com/open-telemetry/opentelemetry-rust) — optional OTLP tracing
+- [rustls](https://github.com/rustls/rustls) — TLS for probes and Dragonfly
 
 ### Infra (runtime, not language crates)
 - [Dragonfly](https://github.com/dragonflydb/dragonfly) — Redis-compatible cache (Fly.io: `infra/dragonfly/`)
