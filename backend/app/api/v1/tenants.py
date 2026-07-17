@@ -14,6 +14,7 @@ from app.services import tenants as tenant_svc
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 
 
+# --- List memberships for the authenticated user ---
 @router.get("")
 async def list_tenants(
     request: Request,
@@ -33,6 +34,7 @@ async def list_tenants(
     return {"ok": True, "tenants": items}
 
 
+# --- Create tenant + owner membership ---
 @router.post("")
 async def create_tenant(
     request: Request,

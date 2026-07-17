@@ -9,6 +9,7 @@
 
 export const ALGO_AES_256_GCM = 'aes-256-gcm';
 
+// --- Wire types ---
 export interface SealedEnvelope {
   algo: string;
   keyId: string;
@@ -18,6 +19,7 @@ export interface SealedEnvelope {
   ciphertextSha256: string;
 }
 
+// --- Encoding / hashing helpers ---
 function b64Encode(bytes: ArrayBuffer | Uint8Array): string {
   const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
   let s = '';
@@ -43,6 +45,7 @@ function asBufferSource(data: Uint8Array): BufferSource {
   return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
 }
 
+// --- AAD + AES key helpers ---
 export function associatedData(tenantId: string, clientEventId: string): Uint8Array {
   return new TextEncoder().encode(`${tenantId}|${clientEventId}`);
 }
@@ -66,6 +69,7 @@ export async function exportAesKeyRaw(key: CryptoKey): Promise<Uint8Array> {
   return new Uint8Array(await crypto.subtle.exportKey('raw', key));
 }
 
+// --- Seal / open (AES-256-GCM) ---
 /**
  * Seal plaintext for FORJD ingest. `ratchetHeader` is opaque (base64); pass a
  * client-generated ratchet blob or a PoC placeholder.

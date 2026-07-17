@@ -8,6 +8,7 @@
  * reuse a derived AES key across ratchet generations in production clients.
  */
 
+// --- Constants (must match Python HKDF salt / info) ---
 const HKDF_SALT = new TextEncoder().encode('forjd-e2ee-v1');
 
 export interface X25519KeyPair {
@@ -17,6 +18,7 @@ export interface X25519KeyPair {
   publicKeyB64: string;
 }
 
+// --- Encoding helpers ---
 function b64Encode(bytes: Uint8Array): string {
   let s = '';
   for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]!);
@@ -34,6 +36,7 @@ function asBufferSource(data: Uint8Array): BufferSource {
   return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
 }
 
+// --- Key generation / import ---
 export async function generateX25519KeyPair(): Promise<X25519KeyPair> {
   const pair = await crypto.subtle.generateKey({ name: 'X25519' }, true, [
     'deriveBits',
@@ -53,6 +56,7 @@ export async function importX25519PublicB64(b64: string): Promise<CryptoKey> {
   return crypto.subtle.importKey('raw', asBufferSource(raw), { name: 'X25519' }, true, []);
 }
 
+// --- ECDH + HKDF → 32-byte AES key ---
 /**
  * ECDH + HKDF-SHA256 → raw 32-byte AES key (same info/salt as Python).
  */

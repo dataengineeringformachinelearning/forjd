@@ -31,10 +31,12 @@ from app.services import stream, tenants as tenant_svc
 logger = logging.getLogger("forjd.ingest")
 
 
+# --- Helpers ---
 def _vector_literal(embedding: list[float]) -> str:
     return "[" + ",".join(f"{x:.8g}" for x in embedding) + "]"
 
 
+# --- Batch ingest (membership → persist ciphertext → Pathway → Prefect) ---
 async def ingest_events(
     *,
     pool: asyncpg.Pool,
@@ -96,6 +98,7 @@ async def ingest_events(
     }
 
 
+# --- Single-event persist (idempotent; never decrypts) ---
 async def _insert_event(
     pool: asyncpg.Pool,
     *,
@@ -168,6 +171,7 @@ async def _insert_event(
     )
 
 
+# --- Embedding vectors (optional sealed context columns) ---
 async def ingest_embedding(
     *,
     pool: asyncpg.Pool,
@@ -217,6 +221,7 @@ async def ingest_embedding(
     }
 
 
+# --- List metadata only (omit ciphertext / nonce / ratchet_header) ---
 async def list_recent_events(
     pool: asyncpg.Pool,
     *,

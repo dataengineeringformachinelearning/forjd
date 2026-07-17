@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, field_validator
 from app.core.crypto import ALGO_AES_256_GCM, SealedEnvelope
 
 
+# --- Wire envelope (server validates shape; never opens ciphertext) ---
 class EncryptedEnvelope(BaseModel):
     """Client-sealed AES-256-GCM envelope (server never opens this on the E2EE path)."""
 
@@ -38,6 +39,7 @@ class EncryptedEnvelope(BaseModel):
         return env
 
 
+# --- Ingest request / response ---
 class IngestEventRequest(BaseModel):
     tenant_id: UUID
     client_event_id: str = Field(..., min_length=1, max_length=128)
@@ -75,6 +77,7 @@ class IngestResponse(BaseModel):
     prefect: dict[str, Any] | None = None
 
 
+# --- Optional anomaly embedding alongside a sealed event ---
 class EmbeddingIngestRequest(BaseModel):
     """Optional tenant-scoped anomaly vector (often paired with a sealed event)."""
 

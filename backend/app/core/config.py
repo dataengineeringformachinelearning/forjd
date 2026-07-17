@@ -1,3 +1,5 @@
+"""Application settings loaded from environment / `.env`."""
+
 from __future__ import annotations
 
 from pydantic import Field, model_validator
@@ -12,6 +14,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    # --- App ---
     PROJECT_NAME: str = "forjd"
     PROJECT_VERSION: str = "0.1.0"
     API_V1_STR: str = "/api/v1"
@@ -20,6 +23,7 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
+    # --- CORS ---
     CORS_ORIGINS: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:4200",
@@ -31,16 +35,17 @@ class Settings(BaseSettings):
         ]
     )
 
+    # --- Data stores / orchestration ---
     POSTGRES_DSN: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/forjd"
     # Dragonfly (Redis protocol). Local Compose or Fly: redis://:pass@forjd-dragonfly.internal:6379/0
     REDIS_URL: str = "redis://localhost:6379/0"
     PREFECT_API_URL: str = "http://127.0.0.1:4200/api"
 
-    # Optional shared secret for mutating API routes (empty = disabled, local PoC).
+    # --- Optional shared API key (empty = disabled) ---
     # Prefer X-API-Key. Bearer JWTs are not treated as the API key (see security.py).
     API_KEY: str = ""
 
-    # Supabase Auth — set SUPABASE_URL (JWKS) and/or SUPABASE_JWT_SECRET (HS256).
+    # --- Supabase Auth (JWKS and/or HS256 secret) ---
     SUPABASE_URL: str = ""
     SUPABASE_JWT_SECRET: str = ""
     # Usually "authenticated" for user access tokens; empty skips aud check.
@@ -48,15 +53,15 @@ class Settings(BaseSettings):
     # When true, missing auth config fails closed on protected routes.
     SUPABASE_AUTH_REQUIRED: bool = False
 
-    # Out-of-process Rust engine (Fly / Compose). Empty = in-process PyO3.
+    # --- Rust engine (empty = in-process PyO3) ---
     ENGINE_URL: str = ""
     ENGINE_API_TOKEN: str = ""
     ENGINE_TIMEOUT_SECONDS: float = 10.0
 
-    # Rollbar — leave empty to disable locally
+    # --- Observability ---
     ROLLBAR_ACCESS_TOKEN: str = ""
 
-    # Unsupervised ML PoC (LSTM-Autoencoder + pgvector). Requires: uv sync --group ml
+    # --- Unsupervised ML PoC (optional: uv sync --group ml) ---
     ML_SEQ_LEN: int = 16
     ML_LATENT_DIM: int = 16
     ML_HIDDEN_DIM: int = 32

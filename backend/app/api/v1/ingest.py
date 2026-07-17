@@ -14,6 +14,7 @@ from app.services import ingest as ingest_svc
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
 
+# --- Sealed telemetry events ---
 @router.post("/events")
 async def ingest_event(
     request: Request,
@@ -68,6 +69,7 @@ async def list_events(
     return {"ok": True, "tenant_id": str(tenant_id), "events": rows}
 
 
+# --- Tenant-scoped anomaly embeddings (optional sealed context) ---
 @router.post("/embeddings")
 async def ingest_embedding(
     request: Request,

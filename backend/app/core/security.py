@@ -11,7 +11,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import settings
 
-# Paths that never require an API key (probes + docs in non-prod).
+# --- Public path helpers (no API key) ---
 _PUBLIC_PREFIXES = (
     "/health",
     "/ready",
@@ -29,6 +29,7 @@ def _is_mutating(method: str) -> bool:
     return method.upper() in {"POST", "PUT", "PATCH", "DELETE"}
 
 
+# --- Response security headers ---
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
@@ -50,6 +51,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+# --- Optional shared API key (does not consume Supabase Bearer JWTs) ---
 class ApiKeyMiddleware(BaseHTTPMiddleware):
     """When `API_KEY` is set, require it on mutating `/api/*` routes."""
 

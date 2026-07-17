@@ -15,6 +15,7 @@ from app.core.crypto import (
 )
 
 
+# --- AES-256-GCM ---
 class TestAesGcm(unittest.TestCase):
     def test_seal_roundtrip(self) -> None:
         key = b"\x11" * 32
@@ -53,6 +54,7 @@ class TestAesGcm(unittest.TestCase):
             )
 
 
+# --- X25519 ECDH + HKDF ---
 class TestX25519(unittest.TestCase):
     def test_ecdh_symmetric(self) -> None:
         a = generate_x25519_keypair()

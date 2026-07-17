@@ -1,3 +1,5 @@
+"""FORJD FastAPI entrypoint — lifespan, middleware, health probes, v1 router."""
+
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -15,6 +17,7 @@ from app.core.rollbar import configure_rollbar
 from app.core.security import ApiKeyMiddleware, SecurityHeadersMiddleware
 
 
+# --- Lifespan: soft-connect deps, warm JWKS, clean shutdown ---
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging(debug=settings.DEBUG)
@@ -36,6 +39,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await pool.close()
 
 
+# --- App + middleware stack ---
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.PROJECT_VERSION,
@@ -58,6 +62,7 @@ app.add_middleware(
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
 
+# --- Probes ---
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     """Liveness — process is up. Does not check dependencies."""

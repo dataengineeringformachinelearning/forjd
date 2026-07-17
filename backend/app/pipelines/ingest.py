@@ -11,6 +11,7 @@ from typing import Any
 from prefect import flow, task
 
 
+# --- Prefect task: ack metadata (no ciphertext) ---
 @task(name="ingest-ack")
 def ack_ingest(
     user_id: str,
@@ -35,6 +36,7 @@ def ack_ingest(
     }
 
 
+# --- Prefect flow ---
 @flow(name="forjd-ingest", log_prints=True)
 def ingest_flow(
     user_id: str,
@@ -56,6 +58,7 @@ def ingest_flow(
     return {"ok": True, **result}
 
 
+# --- Entry used by the API (local fallback if Prefect is down) ---
 def run_ingest_flow(
     *,
     user_id: str,

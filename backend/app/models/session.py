@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 from app.core.crypto import CryptoError, validate_x25519_public_b64
 
 
+# --- Upsert body (public keys only — reject invalid X25519 material) ---
 class CryptoSessionUpsert(BaseModel):
     """Register or rotate a device session's public keys for a tenant."""
 
@@ -52,6 +53,7 @@ class CryptoSessionUpsert(BaseModel):
             raise ValueError(str(exc)) from exc
 
 
+# --- Response shape ---
 class CryptoSessionOut(BaseModel):
     id: UUID
     tenant_id: UUID

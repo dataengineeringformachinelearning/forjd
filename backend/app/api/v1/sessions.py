@@ -14,6 +14,7 @@ from app.services import sessions as session_svc
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 
+# --- Publish / rotate public keys ---
 @router.post("")
 async def upsert_session(
     request: Request,
@@ -37,6 +38,7 @@ async def upsert_session(
     return {"ok": True, "session": session}
 
 
+# --- Peer discovery (public material only) ---
 @router.get("")
 async def list_sessions(
     request: Request,

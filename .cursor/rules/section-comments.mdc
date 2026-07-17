@@ -1,0 +1,40 @@
+---
+description: Minimal section comments so readers can scan what each block does
+alwaysApply: true
+---
+
+# Section comments (minimal, scannable)
+
+When writing or editing FORJD code, mark logical sections with short comments so a reader can understand the file by scanning comments alone.
+
+## Rules
+- **Section headers** before each logical block (imports ok without; group the rest).
+- **One line** preferred; two lines max. Say *what the section is for*, not how every line works.
+- **Do not** narrate obvious syntax (`// increment i`, `# return result`).
+- **Do** call out security boundaries, auth, E2EE (ciphertext-only), and non-obvious invariants.
+- Keep module/file docstrings; section comments complement them.
+- Match language style: `# --- Title ---` in Python/SQL/Rust; `// --- Title ---` in TS/JS.
+
+## Example
+
+```python
+# --- JWT verification ---
+def verify_supabase_jwt(token: str) -> AuthUser:
+    ...
+
+# --- FastAPI dependencies ---
+async def get_current_user(...):
+    ...
+```
+
+```typescript
+// --- Encoding helpers ---
+function b64Encode(bytes: Uint8Array): string { ... }
+
+// --- Seal / open (AES-256-GCM) ---
+export async function seal(...) { ... }
+```
+
+## When
+- New files: add section comments as you write.
+- Edits to existing files: add or fix section comments for the areas you touch (and nearby unmarked sections if small).

@@ -70,6 +70,8 @@
 
 - 2026-07-16: Hardened E2EE foundation — X25519 ECDH + HKDF session keys in `app.core.crypto`, `sql/004_crypto_sessions.sql` (public-key directory + RLS), `POST/GET /api/v1/sessions`, Angular `crypto/x25519.ts`, and unittest coverage. Documented Double Ratchet / forward secrecy: server stores ciphertext + opaque headers only.
 
+- 2026-07-16: Added Cursor rule `.cursor/rules/section-comments.mdc` (alwaysApply) for minimal scannable section comments; annotated the secure-path modules (auth, crypto, ingest, sessions, tenants, Pathway/Prefect, Angular crypto) so sections are readable from comments alone.
+
 ## Packages
 
 Direct dependencies only. Star these on GitHub.

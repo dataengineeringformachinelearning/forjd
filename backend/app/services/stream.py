@@ -16,6 +16,7 @@ from typing import Any
 logger = logging.getLogger("forjd.stream")
 
 
+# --- Pathway reduce over metadata only (ciphertext never enters the table) ---
 def pathway_sealed_rollup(
     events: list[dict[str, Any]],
 ) -> dict[str, Any]:
@@ -33,6 +34,7 @@ def pathway_sealed_rollup(
         logger.warning("pathway unavailable: %s", exc)
         return _python_rollup(events, error=str(exc))
 
+    # Sanitize to non-sensitive columns only.
     rows = []
     for e in events:
         rows.append(
@@ -69,6 +71,7 @@ def pathway_sealed_rollup(
         return _python_rollup(events, error=str(exc))
 
 
+# --- Fallback when Pathway import/runtime fails ---
 def _python_rollup(events: list[dict[str, Any]], *, error: str | None = None) -> dict[str, Any]:
     by_tenant: dict[str, dict[str, int]] = {}
     for e in events:

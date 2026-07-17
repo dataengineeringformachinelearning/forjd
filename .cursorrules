@@ -60,6 +60,12 @@ Follow these unless the user explicitly overrides them.
 - Chromatic / frontend CI: `CHROMATIC_PROJECT_TOKEN` (root `.env` or CI secrets).
 - Never commit real tokens. Empty optional tokens disable those integrations.
 
+## Comments
+- Use minimal **section comments** so a reader can scan what each block does.
+- Style: `# --- Title ---` (Python/SQL/Rust) or `// --- Title ---` (TS/JS). One line preferred.
+- Do not narrate obvious syntax; do mark auth, E2EE, and security boundaries.
+- Details: `.cursor/rules/section-comments.mdc`.
+
 ## LOG.MD
 - Append after meaningful progress.
 - Format: `- YYYY-MM-DD: Brief description of what and why (1–2 sentences).`

@@ -12,6 +12,7 @@ from app.models.session import CryptoSessionUpsert
 from app.services import tenants as tenant_svc
 
 
+# --- Upsert public keys for a device session ---
 async def upsert_session(
     pool: asyncpg.Pool,
     *,
@@ -26,6 +27,7 @@ async def upsert_session(
         min_roles=frozenset({"owner", "admin", "member"}),
     )
 
+    # Only the owning user may update an existing session_id (WHERE clause).
     row = await pool.fetchrow(
         """
         INSERT INTO crypto_sessions (
@@ -58,6 +60,7 @@ async def upsert_session(
     return _row_out(row)
 
 
+# --- List non-expired sessions for peer discovery ---
 async def list_sessions(
     pool: asyncpg.Pool,
     *,
@@ -83,6 +86,7 @@ async def list_sessions(
     return [_row_out(r) for r in rows]
 
 
+# --- Serialize DB row for API responses ---
 def _row_out(row: asyncpg.Record) -> dict[str, Any]:
     return {
         "id": row["id"],

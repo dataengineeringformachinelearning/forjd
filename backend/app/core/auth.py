@@ -24,6 +24,7 @@ from app.core.config import settings
 
 logger = logging.getLogger("forjd.auth")
 
+# --- Module state (JWKS cache) ---
 _bearer = HTTPBearer(auto_error=False)
 _jwks_client: PyJWKClient | None = None
 _jwks_fetched_at: float = 0.0
@@ -40,6 +41,7 @@ class AuthUser:
     raw_claims: dict[str, Any]
 
 
+# --- Config / JWKS client ---
 def auth_configured() -> bool:
     return bool(settings.SUPABASE_URL.strip() or settings.SUPABASE_JWT_SECRET.strip())
 
@@ -64,6 +66,7 @@ def _get_jwks_client() -> PyJWKClient | None:
     return _jwks_client
 
 
+# --- JWT verification ---
 def verify_supabase_jwt(token: str) -> AuthUser:
     """Validate a Supabase access token and return the subject user."""
     options = {
@@ -96,6 +99,7 @@ def verify_supabase_jwt(token: str) -> AuthUser:
             last_err = exc
             logger.debug("JWKS JWT verify failed, trying HS256 fallback: %s", exc)
 
+    # Fallback: legacy HS256 JWT secret from Supabase dashboard.
     secret = settings.SUPABASE_JWT_SECRET.strip()
     if secret:
         try:
@@ -129,6 +133,7 @@ def _user_from_claims(claims: dict[str, Any]) -> AuthUser:
     )
 
 
+# --- FastAPI dependencies ---
 async def get_current_user(
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> AuthUser:
@@ -164,9 +169,11 @@ async def get_optional_user(
 
 
 def pool_from_request(request: Request):
+    """Postgres pool attached in app lifespan (may be None if soft-connect failed)."""
     return getattr(request.app.state, "db_pool", None)
 
 
+# --- Startup ---
 async def warm_jwks() -> None:
     """Best-effort JWKS prefetch at startup."""
     url = _jwks_url()

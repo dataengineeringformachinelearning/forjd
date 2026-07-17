@@ -12,6 +12,7 @@ from fastapi import HTTPException, status
 logger = logging.getLogger("forjd.tenants")
 
 
+# --- Local soft-migrate (shapes only; full RLS needs sql/003 + sql/004) ---
 async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
     """Soft-create core tables if SQL migration was not applied yet.
 
@@ -111,6 +112,7 @@ async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
     )
 
 
+# --- Membership checks ---
 async def user_role_in_tenant(
     pool: asyncpg.Pool, *, tenant_id: UUID, user_id: str
 ) -> str | None:
@@ -140,6 +142,7 @@ async def require_member(
     return role
 
 
+# --- Tenant CRUD ---
 async def create_tenant(
     pool: asyncpg.Pool,
     *,

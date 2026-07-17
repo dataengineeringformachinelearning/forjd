@@ -56,6 +56,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
+# --- Constants / domain separation ---
 GCM_NONCE_BYTES = 12
 AES_KEY_BYTES = 32
 X25519_KEY_BYTES = 32
@@ -69,6 +70,7 @@ class CryptoError(ValueError):
     """Invalid envelope or cryptographic failure."""
 
 
+# --- Encoding / hashing helpers ---
 def b64encode(data: bytes) -> str:
     return base64.b64encode(data).decode("ascii")
 
@@ -89,9 +91,7 @@ def associated_data(*, tenant_id: str, client_event_id: str) -> bytes:
     return f"{tenant_id}|{client_event_id}".encode()
 
 
-# ---------------------------------------------------------------------------
-# X25519 key agreement → AES-256 session key (client / test path only)
-# ---------------------------------------------------------------------------
+# --- X25519 key agreement → AES-256 session key (client / test path only) ---
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,9 +160,7 @@ def validate_x25519_public_b64(value: str) -> str:
     return value
 
 
-# ---------------------------------------------------------------------------
-# AES-256-GCM sealed envelopes
-# ---------------------------------------------------------------------------
+# --- AES-256-GCM sealed envelopes (wire format + seal/open) ---
 
 
 @dataclass(frozen=True, slots=True)
@@ -235,6 +233,7 @@ def open_envelope(
         raise CryptoError("decryption failed") from exc
 
 
+# --- Convenience: ECDH derive + seal in one step (client/test) ---
 def seal_with_x25519(
     plaintext: bytes,
     *,
