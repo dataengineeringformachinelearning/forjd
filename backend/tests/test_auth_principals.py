@@ -20,7 +20,22 @@ from app.core.auth import (
     require_user_principal,
     service_token_prefix,
 )
+from app.services.service_accounts import ALLOWED_SCOPES, DEFAULT_SCOPES
 from app.services.tenants import require_tenant_access
+
+
+class TestServiceScopes(unittest.TestCase):
+    def test_default_scopes_cover_cutover_surfaces(self) -> None:
+        required = {
+            "ingest:write",
+            "sessions:write",
+            "replay:write",
+            "status:write",
+            "analytics:read",
+        }
+        self.assertTrue(required.issubset(set(DEFAULT_SCOPES)))
+        self.assertIn("analytics:write", ALLOWED_SCOPES)
+        self.assertNotIn("analytics:write", DEFAULT_SCOPES)
 
 
 class TestServiceTokenShape(unittest.TestCase):
@@ -147,6 +162,52 @@ class TestTenantAccess(unittest.TestCase):
                 required_scopes=frozenset({"ingest:write"}),
             )
             self.assertEqual(role, "service")
+
+        asyncio.run(_run())
+
+    def test_service_sessions_and_analytics_scopes(self) -> None:
+        bound = "33333333-3333-3333-3333-333333333333"
+        svc = AuthUser(
+            user_id="55555555-5555-5555-5555-555555555555",
+            email=None,
+            role="service",
+            raw_claims={},
+            kind=PrincipalKind.SERVICE,
+            tenant_id=bound,
+            scopes=frozenset(
+                {
+                    "sessions:write",
+                    "sessions:read",
+                    "replay:read",
+                    "status:write",
+                    "analytics:read",
+                }
+            ),
+        )
+
+        async def _run() -> None:
+            for scope in (
+                "sessions:write",
+                "replay:read",
+                "status:write",
+                "analytics:read",
+            ):
+                role = await require_tenant_access(
+                    None,  # type: ignore[arg-type]
+                    principal=svc,
+                    tenant_id=UUID(bound),
+                    required_scopes=frozenset({scope}),
+                )
+                self.assertEqual(role, "service")
+
+            with self.assertRaises(HTTPException) as missing:
+                await require_tenant_access(
+                    None,  # type: ignore[arg-type]
+                    principal=svc,
+                    tenant_id=UUID(bound),
+                    required_scopes=frozenset({"analytics:write"}),
+                )
+            self.assertEqual(missing.exception.status_code, 403)
 
         asyncio.run(_run())
 

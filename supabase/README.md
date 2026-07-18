@@ -4,7 +4,7 @@ FORJD uses Supabase as the sole identity + primary database plane.
 
 ## Apply SQL
 
-Run `backend/sql/003` → `016` in the SQL editor (see `backend/sql/README.md`).
+Run `backend/sql/003` → `017` in the SQL editor (see `backend/sql/README.md`).
 
 ## Realtime
 

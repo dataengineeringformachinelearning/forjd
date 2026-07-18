@@ -72,8 +72,10 @@ Authorization: Bearer fjsvc_…
 ```
 
 Workflow routing is config-only: send `content_type` /
-`application/forjd-telemetry+v1` (e.g. `threat_telemetry` / DEML `deml_telemetry`) or an
-explicit `workflow_id`. Do not fork FORJD ingest per product.
+`application/forjd-telemetry+v1` (example `threat_telemetry` YAML) or an
+explicit `workflow_id`. Partner / legacy wire ids can be declared as
+`aliases` on a workflow YAML (see `backend/workflows/README.md`) — do not
+fork FORJD ingest per product.
 
 ## Scopes
 
@@ -83,12 +85,26 @@ explicit `workflow_id`. Do not fork FORJD ingest per product.
 | `ingest:read` | List event metadata / stream results |
 | `projections:read` | List projections / checkpoints |
 | `projections:run` | Advance projection watermarks |
-| `sessions:write` / `sessions:read` | Crypto session directory |
+| `sessions:write` / `sessions:read` | Crypto session directory (register / list / revoke) |
+| `replay:write` / `replay:read` | Replay sealed metadata; list / retry DLQ |
+| `status:write` / `status:read` | Manage / list tenant status pages (public slug stays unauth) |
+| `analytics:read` | Analytics overview |
+| `analytics:write` | Trigger analytics aggregation (opt-in; not in default mint) |
 | `*` | All scopes |
 
-Default mint includes ingest, projections, and sessions scopes.
+Default mint includes ingest, projections, sessions, replay, status, and
+`analytics:read`. Existing service-account rows keep their stored scopes until
+rotated or recreated.
 
 Humans use `tenant_members` roles (`owner` / `admin` / `member` / `viewer`) instead.
+
+### Crypto sessions and service principals
+
+- `crypto_sessions.user_id` is an **opaque actor UUID** (human Auth `sub` or
+  `service_accounts.id`). Apply `sql/017` so there is no FK to `auth.users`.
+- Service principals with `sessions:write` may create, rotate, or revoke any
+  session in their bound tenant (partner backends register device `key_id`s).
+- Humans may only update/revoke sessions they own.
 
 ## Supabase M2M JWT (optional)
 
@@ -106,7 +122,12 @@ Humans use `tenant_members` roles (`owner` / `admin` / `member` / `viewer`) inst
     "projections:read",
     "projections:run",
     "sessions:write",
-    "sessions:read"
+    "sessions:read",
+    "replay:read",
+    "replay:write",
+    "status:read",
+    "status:write",
+    "analytics:read"
   ]
 }
 ```
@@ -126,4 +147,8 @@ Humans use `tenant_members` roles (`owner` / `admin` / `member` / `viewer`) inst
 ## SQL
 
 Apply `backend/sql/014_service_accounts.sql` after `013`, then
-`015_realtime_and_consumer.sql` for Realtime + `projection_feed`.
+`015_realtime_and_consumer.sql`, `016_ml_supabase.sql`, then
+`017_service_principal_cutover.sql` (sessions actor id + expanded default
+scopes). **Remint** opaque `fjsvc_` tokens after `017` — existing rows keep
+their previously stored scopes until rotated. Full deploy/cutover sequence:
+root [`CUTOVER.md`](../../CUTOVER.md).

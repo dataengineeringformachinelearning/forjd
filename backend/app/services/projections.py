@@ -26,7 +26,7 @@ import asyncpg
 from app.core.auth import AuthUser
 from app.pipelines.projections import run_project_flow
 from app.services import tenants as tenant_svc
-from app.workflows.registry import resolve_workflow
+from app.workflows.registry import canonical_workflow_id, resolve_workflow
 
 logger = logging.getLogger("forjd.projections")
 
@@ -43,8 +43,9 @@ async def fetch_meta_after_checkpoint(
 ) -> list[dict[str, Any]]:
     clauses = ["tenant_id = $1::uuid"]
     args: list[Any] = [str(tenant_id)]
-    if workflow_id:
-        args.append(workflow_id)
+    canon_wf = canonical_workflow_id(workflow_id)
+    if canon_wf:
+        args.append(canon_wf)
         clauses.append(f"workflow_id = ${len(args)}")
     if after_created_at is not None:
         args.append(after_created_at)
@@ -426,8 +427,9 @@ async def list_projections(
     if projection_name:
         args.append(projection_name)
         clauses.append(f"projection_name = ${len(args)}")
-    if workflow_id:
-        args.append(workflow_id)
+    canon_wf = canonical_workflow_id(workflow_id)
+    if canon_wf:
+        args.append(canon_wf)
         clauses.append(f"workflow_id = ${len(args)}")
     if since is not None:
         args.append(since)

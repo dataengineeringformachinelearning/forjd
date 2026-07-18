@@ -27,9 +27,10 @@ from app.services import tenants as tenant_svc
 
 logger = logging.getLogger("forjd.service_accounts")
 
-# --- Default scopes for SaaS subprocessors (ingest + projections + sessions) ---
-# sessions:* lets partners register X25519 public keys when
-# REQUIRE_CRYPTO_SESSION=true (human mint still required for the token itself).
+# --- Default scopes for SaaS subprocessors ---
+# sessions:* — register X25519 pubs when REQUIRE_CRYPTO_SESSION=true
+# replay:* / status:* / analytics:read — partner control-plane adapters
+# (human mint still required for the token itself).
 DEFAULT_SCOPES: tuple[str, ...] = (
     "ingest:write",
     "ingest:read",
@@ -37,13 +38,17 @@ DEFAULT_SCOPES: tuple[str, ...] = (
     "projections:run",
     "sessions:write",
     "sessions:read",
+    "replay:read",
+    "replay:write",
+    "status:read",
+    "status:write",
+    "analytics:read",
 )
 
 ALLOWED_SCOPES = frozenset(
     {
         *DEFAULT_SCOPES,
-        "sessions:write",
-        "sessions:read",
+        "analytics:write",
         "*",
     }
 )
@@ -64,7 +69,10 @@ async def ensure_schema(pool: asyncpg.Pool) -> None:
             scopes TEXT[] NOT NULL DEFAULT ARRAY[
                 'ingest:write', 'ingest:read',
                 'projections:read', 'projections:run',
-                'sessions:write', 'sessions:read'
+                'sessions:write', 'sessions:read',
+                'replay:read', 'replay:write',
+                'status:read', 'status:write',
+                'analytics:read'
             ]::text[],
             is_active BOOLEAN NOT NULL DEFAULT TRUE,
             revoked_at TIMESTAMPTZ,
