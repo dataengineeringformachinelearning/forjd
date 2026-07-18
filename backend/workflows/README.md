@@ -50,8 +50,11 @@ aliases:
 ```
 
 Clients may send the alias `workflow_id` / `event_type`; FORJD resolves to the
-canonical family before persistence and projection filters. See
-`threat_telemetry.yaml` for a concrete example.
+canonical family before persistence and projection filters. First-party example
+YAML (`threat_telemetry.yaml`) ships **without** product-specific aliases.
+Copy `examples/partner_legacy_aliases.example.yaml` into an enabled
+partner-local file under this directory when a subprocessor still sends legacy
+wire ids (`examples/` is not loaded by the registry).
 
 ## Add a use case
 

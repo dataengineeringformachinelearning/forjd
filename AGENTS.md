@@ -42,7 +42,7 @@ Backend Python is pinned to **3.12** with Pathway ≥0.31 (`beartype<0.16` via u
 - Keep dependencies minimal — add a package only when a concrete use case needs it.
 - After meaningful progress, append a `LOG.MD` entry (format in `.cursorrules`).
 
-Last updated: 2026-07-18 (partner workflow aliases + expanded fjsvc_ scopes)
+Last updated: 2026-07-18 (universal aliases + CUTOVER.md; no product names in core)
 
 ## Cursor Cloud specific instructions
 

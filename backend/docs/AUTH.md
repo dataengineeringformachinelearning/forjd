@@ -148,4 +148,6 @@ Humans use `tenant_members` roles (`owner` / `admin` / `member` / `viewer`) inst
 
 Apply `backend/sql/014_service_accounts.sql` after `013`, then
 `015_realtime_and_consumer.sql`, then `016_service_principal_cutover.sql`
-(sessions actor id + expanded default scopes).
+(sessions actor id + expanded default scopes). **Remint** opaque `fjsvc_`
+tokens after `016` — existing rows keep their previously stored scopes until
+rotated. Full deploy/cutover sequence: root [`CUTOVER.md`](../../CUTOVER.md).

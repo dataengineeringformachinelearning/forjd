@@ -86,9 +86,15 @@ Product names never belong in engine/API code.
 Realtime + `projection_feed` land in `015`; service-principal session actor +
 expanded default scopes in `016`.
 
+## Production cutover
+
+Operator checklist (preflight, dual-write → read switch → write switch →
+decommission, rollback): [`CUTOVER.md`](CUTOVER.md).
+
 ## Explicit non-goals
 
 - ClickHouse / Redpanda / Firebase / Firestore **as FORJD identity or OLAP**
 - Accepting partner SaaS end-user tokens at the FORJD edge
 - Server-side plaintext ML on sealed payloads
 - Python reimplementation of Rust relay / probe / normalizer / scheduler
+- Product-specific workflow or event names in `app/` / `engine/` (YAML only)

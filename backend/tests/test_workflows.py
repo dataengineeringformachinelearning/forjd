@@ -65,16 +65,46 @@ class TestWorkflowRegistry(unittest.TestCase):
 
     def test_partner_workflow_id_alias(self) -> None:
         """YAML aliases map partner wire ids → canonical family (config only)."""
+        from app.workflows import registry as wf_registry
         from app.workflows.registry import canonical_event_type, canonical_workflow_id
 
-        wf = resolve_workflow(
-            content_type="application/forjd-telemetry+v1",
-            workflow_id="deml_telemetry",
-        )
-        self.assertEqual(wf.id, "threat_telemetry")
-        self.assertEqual(canonical_workflow_id("deml_telemetry"), "threat_telemetry")
-        self.assertEqual(canonical_event_type("deml.metric"), "threat.metric")
-        self.assertEqual(canonical_event_type("deml.alert"), "threat.alert")
+        text = """
+id: universal_family
+name: Universal family
+enabled: true
+match:
+  content_types: [application/forjd-partner+v1]
+aliases:
+  workflow_ids: [partner_legacy_telemetry]
+  event_types:
+    threat.metric: [partner.metric]
+    threat.alert: [partner.alert]
+pipeline:
+  processor: sealed_metadata
+  steps: [rollup]
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "universal_family.yaml"
+            path.write_text(text, encoding="utf-8")
+            clear_cache()
+            # Point registry at the temp dir for this test only.
+            original = wf_registry.workflows_dir
+            wf_registry.workflows_dir = lambda: Path(tmp)  # type: ignore[method-assign]
+            try:
+                wf = resolve_workflow(
+                    content_type="application/forjd-partner+v1",
+                    workflow_id="partner_legacy_telemetry",
+                )
+                self.assertEqual(wf.id, "universal_family")
+                self.assertEqual(
+                    canonical_workflow_id("partner_legacy_telemetry"),
+                    "universal_family",
+                )
+                self.assertEqual(canonical_event_type("partner.metric"), "threat.metric")
+                self.assertEqual(canonical_event_type("partner.alert"), "threat.alert")
+            finally:
+                wf_registry.workflows_dir = original  # type: ignore[method-assign]
+                clear_cache()
 
     def test_yaml_aliases_roundtrip(self) -> None:
         text = """
