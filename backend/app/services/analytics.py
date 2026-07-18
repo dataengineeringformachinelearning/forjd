@@ -182,7 +182,12 @@ async def overview(
     user: AuthUser,
     tenant_id: UUID,
 ) -> dict[str, Any]:
-    await tenant_svc.require_member(pool, tenant_id=tenant_id, user_id=user.user_id)
+    await tenant_svc.require_tenant_access(
+        pool,
+        principal=user,
+        tenant_id=tenant_id,
+        required_scopes=frozenset({"analytics:read"}),
+    )
     await ensure_analytics_schema(pool)
     since = datetime.now(UTC) - timedelta(hours=24)
     rollups = await pool.fetch(

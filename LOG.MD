@@ -104,6 +104,10 @@
 
 - 2026-07-17: Optimized ML for Supabase — `sql/016` (`ml_scores` + training_runs family + Realtime), hydrate fit/score from `stream_results` metadata (never ciphertext), persist runs/latents/scores under tenant RLS (`training_runs`, `embedding_vectors`, `ml_scores`), and `GET /api/v1/ml/scores` for polling/Realtime consumers.
 
+- 2026-07-18: Unblocked partner cutover: YAML `aliases` map legacy workflow/event wire ids onto universal families (no product names in code); extended `fjsvc_` scopes to sessions, replay/DLQ, status, and analytics:read; sql/017 drops crypto_sessions→auth.users FK so service principals can register sessions.
+
+- 2026-07-18: Final universality pass — removed first-party product aliases from `threat_telemetry.yaml`; added `workflows/examples/partner_legacy_aliases.example.yaml` (not registry-loaded); PDF author → FORJD; cutover checklist in root `CUTOVER.md`.
+
 ## Packages
 
 Direct dependencies only. Star these on GitHub.

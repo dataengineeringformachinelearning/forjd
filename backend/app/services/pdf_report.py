@@ -914,7 +914,7 @@ def render_pdf_report(
       ).encode(),
       (
         f"{info_id} 0 obj<< /Title ({_escape_pdf_text(title)}) "
-        "/Author (Data Engineering for AI Engineering and Cybersecurity) "
+        "/Author (FORJD) "
         "/Subject (FORJD operational data export) /Creator (FORJD Platform) "
         f"/CreationDate (D:{generated_at.astimezone(datetime_timezone.utc).strftime('%Y%m%d%H%M%SZ')}) "
         ">>endobj\n"

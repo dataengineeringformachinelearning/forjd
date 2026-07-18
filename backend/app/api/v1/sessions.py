@@ -1,4 +1,7 @@
-"""X25519 crypto session directory API (public keys only; JWT-gated)."""
+"""X25519 crypto session directory API (public keys only).
+
+Gated by human membership or tenant-scoped service token (`sessions:*`).
+"""
 
 from __future__ import annotations
 

@@ -156,6 +156,63 @@ class EncryptionPolicy(BaseModel):
     algos: list[str] = Field(default_factory=lambda: ["aes-256-gcm"])
 
 
+# --- Partner / legacy wire aliases (config only — never product forks in code) ---
+class WorkflowAliases(BaseModel):
+    """Map partner wire ids onto this workflow's canonical id / event types.
+
+    Product-specific names belong only in YAML under ``workflows/``. The
+    registry resolves them before matching or persistence so storage stays
+    on the universal family (e.g. ``threat_telemetry`` / ``threat.metric``).
+    """
+
+    workflow_ids: list[str] = Field(
+        default_factory=list,
+        description="Alternate workflow_id values that resolve to this workflow",
+    )
+    # canonical event_type -> [wire aliases]
+    event_types: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="Map canonical event_type → partner/legacy wire aliases",
+    )
+
+    @field_validator("workflow_ids")
+    @classmethod
+    def _lower_workflow_ids(cls, value: list[str]) -> list[str]:
+        out: list[str] = []
+        seen: set[str] = set()
+        for raw in value:
+            key = str(raw).strip().lower()
+            if not key or key in seen:
+                continue
+            if not all(c.isalnum() or c in "._-" for c in key):
+                raise ValueError(f"invalid workflow alias: {raw!r}")
+            seen.add(key)
+            out.append(key)
+        return out
+
+    @field_validator("event_types")
+    @classmethod
+    def _lower_event_type_map(cls, value: dict[str, list[str]]) -> dict[str, list[str]]:
+        out: dict[str, list[str]] = {}
+        for raw_canon, aliases in value.items():
+            canon = str(raw_canon).strip().lower()
+            if not canon:
+                continue
+            cleaned: list[str] = []
+            seen: set[str] = set()
+            for raw in aliases or []:
+                alias = str(raw).strip().lower()
+                if not alias or alias in seen:
+                    continue
+                if not all(c.isalnum() or c in "._-" for c in alias):
+                    raise ValueError(f"invalid event_type alias: {raw!r}")
+                seen.add(alias)
+                cleaned.append(alias)
+            if cleaned:
+                out[canon] = cleaned
+        return out
+
+
 # --- Top-level workflow document ---
 class WorkflowDefinition(BaseModel):
     id: str = Field(..., min_length=1, max_length=128, pattern=r"^[a-z0-9][a-z0-9_.-]*$")
@@ -166,6 +223,8 @@ class WorkflowDefinition(BaseModel):
     default: bool = False
     # Optional catalog of EventTypes this workflow understands (docs / UI).
     event_types: list[EventType] = Field(default_factory=list)
+    # Partner wire aliases → this workflow (see WorkflowAliases).
+    aliases: WorkflowAliases = Field(default_factory=WorkflowAliases)
     match: WorkflowMatch = Field(default_factory=WorkflowMatch)
     encryption: EncryptionPolicy = Field(default_factory=EncryptionPolicy)
     pipeline: PipelineConfig = Field(default_factory=PipelineConfig)

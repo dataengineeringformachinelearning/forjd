@@ -1,4 +1,9 @@
-"""Resolve content_type / event_type / workflow_id → WorkflowDefinition."""
+"""Resolve content_type / event_type / workflow_id → WorkflowDefinition.
+
+Partner / legacy wire ids are config-only: each workflow YAML may declare
+``aliases.workflow_ids`` and ``aliases.event_types``. Resolution maps those
+onto the canonical workflow id and event types before matching or storage.
+"""
 
 from __future__ import annotations
 
@@ -17,6 +22,10 @@ logger = logging.getLogger("forjd.workflows")
 _BUILTIN_STEPS = frozenset({"rollup"})
 
 _CACHE: list[WorkflowDefinition] | None = None
+# workflow_id alias (lowercase) → canonical workflow id
+_WORKFLOW_ID_ALIASES: dict[str, str] = {}
+# event_type alias (lowercase) → canonical event_type (global across workflows)
+_EVENT_TYPE_ALIASES: dict[str, str] = {}
 
 
 # --- Path resolution ---
@@ -32,10 +41,104 @@ def workflows_dir() -> Path:
     return backend_root / raw
 
 
+# --- Alias index ---
+def _rebuild_alias_index(workflows: list[WorkflowDefinition]) -> None:
+    """Build workflow_id / event_type alias maps from loaded YAML (fail soft on clashes)."""
+    global _WORKFLOW_ID_ALIASES, _EVENT_TYPE_ALIASES
+    wid_map: dict[str, str] = {}
+    et_map: dict[str, str] = {}
+
+    for wf in workflows:
+        if not wf.enabled:
+            continue
+        # Canonical id always resolves to itself.
+        wid_map[wf.id] = wf.id
+        for alias in wf.aliases.workflow_ids:
+            if alias == wf.id:
+                continue
+            existing = wid_map.get(alias)
+            if existing is not None and existing != wf.id:
+                logger.warning(
+                    "workflow alias %r claimed by both %r and %r; keeping %r",
+                    alias,
+                    existing,
+                    wf.id,
+                    existing,
+                )
+                continue
+            wid_map[alias] = wf.id
+
+        for canon, aliases in wf.aliases.event_types.items():
+            et_map[canon] = canon
+            for alias in aliases:
+                if alias == canon:
+                    continue
+                existing = et_map.get(alias)
+                if existing is not None and existing != canon:
+                    logger.warning(
+                        "event_type alias %r claimed by both %r and %r; keeping %r",
+                        alias,
+                        existing,
+                        canon,
+                        existing,
+                    )
+                    continue
+                et_map[alias] = canon
+
+    _WORKFLOW_ID_ALIASES = wid_map
+    _EVENT_TYPE_ALIASES = et_map
+
+
+def canonical_workflow_id(workflow_id: str | None) -> str | None:
+    """Return the stored/canonical workflow id for a wire id or alias."""
+    if workflow_id is None:
+        return None
+    key = workflow_id.strip().lower()
+    if not key:
+        return None
+    # Ensure cache (and alias index) is warm.
+    all_workflows()
+    return _WORKFLOW_ID_ALIASES.get(key, key)
+
+
+def canonical_event_type(event_type: str | None) -> str | None:
+    """Return the canonical event_type for a wire value or alias."""
+    if event_type is None:
+        return None
+    key = event_type.strip().lower()
+    if not key:
+        return None
+    all_workflows()
+    return _EVENT_TYPE_ALIASES.get(key, key)
+
+
+def _filter_event_types(wf: WorkflowDefinition) -> set[str]:
+    """Wire event_types allowed by ``match.event_types`` (empty = any).
+
+    Partner aliases expand the set when listed (directly or via their canonical).
+    """
+    declared = {e.lower() for e in wf.match.event_types}
+    if not declared:
+        return set()
+    accepted = set(declared)
+    for canon, aliases in wf.aliases.event_types.items():
+        alias_set = set(aliases)
+        if canon in accepted or accepted & alias_set:
+            accepted.add(canon)
+            accepted |= alias_set
+    for et in list(accepted):
+        canon = _EVENT_TYPE_ALIASES.get(et)
+        if canon:
+            accepted.add(canon)
+    return accepted
+
+
 # --- Cache ---
 def clear_cache() -> None:
-    global _CACHE
+    global _CACHE, _WORKFLOW_ID_ALIASES, _EVENT_TYPE_ALIASES
     _CACHE = None
+    _WORKFLOW_ID_ALIASES = {}
+    _EVENT_TYPE_ALIASES = {}
 
 
 def all_workflows(*, reload: bool = False) -> list[WorkflowDefinition]:
@@ -48,6 +151,7 @@ def all_workflows(*, reload: bool = False) -> list[WorkflowDefinition]:
             logger.warning("no workflow files found; using built-in default_sealed")
         for wf in loaded:
             _warn_unknown_extensions(wf)
+        _rebuild_alias_index(loaded)
         _CACHE = loaded
     return list(_CACHE)
 
@@ -85,7 +189,7 @@ def _warn_unknown_extensions(wf: WorkflowDefinition) -> None:
 
 # --- Resolution ---
 def get_workflow(workflow_id: str) -> WorkflowDefinition | None:
-    wid = workflow_id.strip().lower()
+    wid = canonical_workflow_id(workflow_id) or workflow_id.strip().lower()
     for wf in all_workflows():
         if wf.id == wid and wf.enabled:
             return wf
@@ -100,7 +204,8 @@ def resolve_workflow(
 ) -> WorkflowDefinition:
     """Pick a workflow for an ingest event.
 
-    Priority: explicit workflow_id → content_type+event_type match → default flag.
+    Priority: explicit workflow_id (incl. aliases) → content_type+event_type
+    match (aliases expand match sets) → default flag.
     """
     workflows = [w for w in all_workflows() if w.enabled]
 
@@ -112,14 +217,16 @@ def resolve_workflow(
 
     ct = content_type.strip().lower()
     et = (event_type or "").strip().lower() or None
+    et_canon = canonical_event_type(et) if et else None
 
     matches: list[WorkflowDefinition] = []
     for wf in workflows:
         ctypes = [c.lower() for c in wf.match.content_types]
         if ctypes and ct not in ctypes:
             continue
-        etypes = [e.lower() for e in wf.match.event_types]
-        if etypes and (et is None or et not in etypes):
+        accepted = _filter_event_types(wf)
+        # Empty match.event_types = any event_type for this content_type.
+        if accepted and (et is None or (et not in accepted and et_canon not in accepted)):
             continue
         matches.append(wf)
 
@@ -152,6 +259,7 @@ def list_workflow_summaries() -> list[dict[str, object]]:
             "content_types": w.match.content_types,
             "event_types": w.match.event_types,
             "catalog_event_types": [e.model_dump() for e in w.event_types],
+            "aliases": w.aliases.model_dump(),
             "processor": w.pipeline.processor,
             "steps": w.pipeline.steps,
             "projection": (

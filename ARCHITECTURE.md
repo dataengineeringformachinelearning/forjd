@@ -30,6 +30,7 @@ Dragonfly                   Streams bus · rate limits · cache
 |---------|--------|
 | Auth / principals | Supabase Auth users + `service_accounts` (sql/014); see `backend/docs/AUTH.md` |
 | Sealed ingest API | FastAPI → Postgres (ciphertext-only); user JWT or tenant service token |
+| Crypto sessions / replay / status / analytics | FastAPI + `require_tenant_access` (human member **or** scoped `fjsvc_`) |
 | Daemon ingest (API key) | Rust `FORJD_ROLE=ingest` → outbox (sealed envelopes required) |
 | Rollup + size/rate detectors | Rust `run_sealed_pipeline` (Pathway fallback) |
 | Outbox → Streams, probes, cron | Rust data plane |
@@ -56,19 +57,39 @@ pipeline:
 Processors resolve via `app.workflows.processors.REGISTRY`. Detectors via
 `app.workflows.detectors.REGISTRY`. Add a SaaS vertical by dropping YAML — do not fork ingest.
 
+Partner / legacy wire ids are also config-only:
+
+```yaml
+aliases:
+  workflow_ids: [partner_legacy_id]
+  event_types:
+    threat.metric: [partner.metric]
+```
+
+The registry maps aliases to the canonical workflow family before storage.
+Product names never belong in engine/API code.
+
 ## Subprocessor model (partner SaaS)
 
 - A trusted partner keeps **its own** end-user auth (e.g. Firebase).
 - FORJD issues a **tenant-bound** service principal; that token is the only
   credential the subprocessor uses against FORJD.
 - Service principals cannot cross tenants, create tenants, or mint other keys.
+- Default scopes cover ingest, projections, crypto sessions, replay/DLQ,
+  status management, and analytics reads (see `AUTH.md`).
 - Details, scopes, and minting API: [`backend/docs/AUTH.md`](backend/docs/AUTH.md).
 
 ## SQL apply order
 
-`003` → `016` under `backend/sql/` (see that folder’s README). Production forces
+`003` → `017` under `backend/sql/` (see that folder’s README). Production forces
 `SOFT_MIGRATE_SCHEMA=false`, `REQUIRE_RLS=true`, `REQUIRE_CRYPTO_SESSION=true`.
-Realtime + `projection_feed` land in `015`; ML scores/runs in `016`.
+Realtime + `projection_feed` land in `015`; ML scores/runs in `016`; service-principal
+session actor + expanded default scopes in `017`.
+
+## Production cutover
+
+Operator checklist (preflight, dual-write → read switch → write switch →
+decommission, rollback): [`CUTOVER.md`](CUTOVER.md).
 
 ## Explicit non-goals
 
@@ -76,3 +97,4 @@ Realtime + `projection_feed` land in `015`; ML scores/runs in `016`.
 - Accepting partner SaaS end-user tokens at the FORJD edge
 - Server-side plaintext ML on sealed payloads
 - Python reimplementation of Rust relay / probe / normalizer / scheduler
+- Product-specific workflow or event names in `app/` / `engine/` (YAML only)

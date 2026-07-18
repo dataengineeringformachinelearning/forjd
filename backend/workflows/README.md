@@ -12,7 +12,9 @@ dropping a file here** — do not fork ingest routes or crypto.
 | **ProjectionDefinition** | `ProjectionDefinition` | Durable projection name/version/retention |
 | **WorkflowDefinition** | top-level YAML | Ties match rules, encryption policy, pipeline, outputs |
 
-Resolution: `workflow_id` → `content_type`+`event_type` match → `default: true`.
+Resolution: `workflow_id` (incl. aliases) → `content_type`+`event_type` match
+→ `default: true`. Storage always uses the **canonical** workflow id and
+canonical event types after alias resolution.
 
 ## Contract
 
@@ -22,12 +24,37 @@ Resolution: `workflow_id` → `content_type`+`event_type` match → `default: tr
 | `match.content_types` | Primary discriminator (also stored on events) |
 | `match.event_types` | Optional finer routing; empty = any |
 | `event_types` | Optional catalog (`EventType[]`) for UI/discovery |
+| `aliases` | Partner/legacy wire ids → this workflow (config only) |
 | `encryption` | Allowed modes/algos (fail closed; E2EE only today) |
 | `pipeline.processor` | Key in `app.workflows.processors.REGISTRY` |
 | `pipeline.steps` | Free-form steps (`rollup` + registered detectors) |
 | `pipeline.projection` / `projection_name` | Durable projection contract |
 | `pipeline.detector_params` | Open map for custom detector knobs |
 | `outputs.tags` | Copied into `stream_results.metadata` for consumers |
+
+## Partner / legacy aliases
+
+Product-specific wire names must **not** appear in engine or API code. Declare
+them on the target universal workflow:
+
+```yaml
+id: threat_telemetry
+aliases:
+  workflow_ids:
+    - partner_legacy_telemetry   # example — any partner slug
+  event_types:
+    threat.metric:
+      - partner.metric
+    threat.alert:
+      - partner.alert
+```
+
+Clients may send the alias `workflow_id` / `event_type`; FORJD resolves to the
+canonical family before persistence and projection filters. First-party example
+YAML (`threat_telemetry.yaml`) ships **without** product-specific aliases.
+Copy `examples/partner_legacy_aliases.example.yaml` into an enabled
+partner-local file under this directory when a subprocessor still sends legacy
+wire ids (`examples/` is not loaded by the registry).
 
 ## Add a use case
 
