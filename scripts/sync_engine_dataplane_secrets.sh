@@ -28,6 +28,13 @@ if [[ -z "${POSTGRES_DSN}" || -z "${REDIS_URL}" ]]; then
   exit 1
 fi
 
+# Production data-plane requires sslmode on Postgres (FORJD_TRANSPORT_SECURITY=required).
+case "${POSTGRES_DSN}" in
+  *sslmode=*) ;;
+  *\?*) POSTGRES_DSN="${POSTGRES_DSN}&sslmode=require" ;;
+  *) POSTGRES_DSN="${POSTGRES_DSN}?sslmode=require" ;;
+esac
+
 echo "Setting DATABASE_URL, POSTGRES_DSN, REDIS_URL, FORJD_ROLE=all on ${ENGINE_APP}..."
 fly secrets set \
   "DATABASE_URL=${POSTGRES_DSN}" \

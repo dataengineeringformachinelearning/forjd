@@ -2,6 +2,7 @@
 
 ## Log
 
+- 2026-07-18: Finished DEML↔FORJD cutover ops — Railway user-plane only (backend/frontend/dragonfly); retired data-plane services deleted; volumes queued for purge. Platform account mapped to FORJD tenant; service token projections verified. Engine left on `FORJD_ROLE=engine` after `all` crash-looped (DB/Redis secrets present; sealed process path healthy).
 - 2026-07-17: Applied production SQL `003`–`016` on Supabase via forjd-backend (`SCHEMA_OK`); `/ready` now reports `schema_rls=true`. Railway deml-backend stripped legacy data-plane env; still needs `FORJD_SERVICE_TOKEN` + `FORJD_TENANT_ID` before cutover.
 - 2026-07-17: Cutover prep for DEML subprocessor — added `deml_telemetry.yaml` (deml.metric/deml.alert), engine secret sync script, and redeployed forjd-engine with current fly.toml (process-only until DB/Redis secrets are copied).
 - 2026-07-14: Initialized the backend project. Ran `mkdir backend && cd backend`, `uv init --app`, then added core dependencies: FastAPI + uvicorn[standard], pydantic-settings, python-dotenv, redis, asyncpg, httpx, Prefect[redis], and Pathway. This establishes the foundation for the API, workflow orchestration, and high-performance streaming.

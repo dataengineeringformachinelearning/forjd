@@ -100,6 +100,9 @@ Apply SQL `006`–`010` for routing, projections/DLQ, status, daemon plane, audi
 | `default_sealed.yaml` | Generic fallback (`application/forjd-event+v1`) |
 | `analytics_events.yaml` | Product analytics |
 | `threat_telemetry.yaml` | Example threat/telemetry vertical (not platform core; used via service token + this content_type) |
-| `deml_telemetry.yaml` | DEML subprocessor (`deml.metric` / `deml.alert`, `workflow_id=deml_telemetry`) |
+| `examples/partner_legacy_aliases.example.yaml` | Template for partner-local wire-id aliases onto a canonical family (not loaded) |
 
 Platform surfaces (ingest, projections, replay/DLQ, status) stay use-case agnostic.
+Partner product names belong only in deploy-time alias overlays or the partner BFF —
+never in first-party `app/` / `engine/` code.
+

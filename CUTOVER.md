@@ -1,8 +1,9 @@
 # FORJD production cutover checklist
 
 Safe sequence for taking FORJD as the exclusive sealed streaming engine for
-partner subprocessors (including DEML). FORJD stays **universal** — partner
-wire names belong only in YAML `aliases` or in the partner’s own BFF rewrite.
+partner subprocessors. FORJD stays **universal** — partner wire names belong
+only in YAML `aliases` or in the partner’s own BFF rewrite.
+
 
 ## Preflight
 
