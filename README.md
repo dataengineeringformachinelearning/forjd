@@ -124,7 +124,7 @@ Production path for replacing Redpanda-style ingress with FORJD as the sealed pi
 3. Clients authenticate with Supabase Auth **or** a tenant service token (`fjsvc_…`), publish X25519 public keys (`POST /api/v1/sessions`), derive AES-256 via ECDH+HKDF, and `POST /api/v1/ingest` with envelopes + `content_type` (YAML workflow in [`backend/workflows/`](backend/workflows/); partner wire ids via YAML `aliases`).
 4. Rust sealed pipeline (Pathway fallback) processes **metadata only**; consumers poll `GET /api/v1/projections` or Realtime on `stream_results`. Partner SaaS apps call FORJD as a subprocessor — see [`backend/docs/AUTH.md`](backend/docs/AUTH.md).
 
-Details: [`backend/sql/README.md`](backend/sql/README.md) and [`backend/README.md`](backend/README.md).
+Details: [`backend/sql/README.md`](backend/sql/README.md), [`backend/README.md`](backend/README.md), and production cutover [`CUTOVER.md`](CUTOVER.md).
 
 ## Unsupervised anomaly PoC (optional)
 
