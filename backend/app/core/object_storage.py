@@ -1,4 +1,4 @@
-"""S3-compatible object storage for export/report artifacts (from DEML RustFS client)."""
+"""S3-compatible object storage for export/report artifacts ."""
 
 from __future__ import annotations
 

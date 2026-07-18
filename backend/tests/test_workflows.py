@@ -41,17 +41,17 @@ class TestWorkflowRegistry(unittest.TestCase):
     def tearDown(self) -> None:
         clear_cache()
 
-    def test_default_and_deml_resolution(self) -> None:
+    def test_default_and_threat_resolution(self) -> None:
         workflows = all_workflows()
         ids = {w.id for w in workflows}
         self.assertIn("default_sealed", ids)
-        self.assertIn("deml_telemetry", ids)
+        self.assertIn("threat_telemetry", ids)
 
         default = resolve_workflow(content_type="application/forjd-event+v1")
         self.assertEqual(default.id, "default_sealed")
 
-        deml = resolve_workflow(content_type="application/forjd-telemetry+v1")
-        self.assertEqual(deml.id, "deml_telemetry")
+        threat = resolve_workflow(content_type="application/forjd-telemetry+v1")
+        self.assertEqual(threat.id, "threat_telemetry")
 
         analytics = resolve_workflow(content_type="application/forjd-analytics+v1")
         self.assertEqual(analytics.id, "analytics_events")

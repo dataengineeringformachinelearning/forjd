@@ -3,11 +3,11 @@
 FORJD is a **universal secure streaming backend**. It serves:
 
 1. **Enterprise / direct users** — humans on Supabase Auth (FORJD console / API).
-2. **Trusted subprocessors** — machine callers such as the DEML Django app, which
-   manages its **own** end-user identity (Firebase) and calls FORJD with a
-   **tenant-scoped service token**.
+2. **Trusted subprocessors** — machine callers (partner SaaS backends) that keep
+   their **own** end-user identity and call FORJD with a **tenant-scoped
+   service token**.
 
-FORJD never accepts DEML (or other SaaS) end-user tokens.
+FORJD never accepts a partner's end-user tokens.
 
 ## Principal kinds
 
@@ -20,30 +20,60 @@ Resolved in `app.core.auth.AuthUser` (`kind`, `scopes`, `subprocessor`, `actor_i
 
 **Rejected:** Supabase `service_role` JWTs on application routes (too privileged).
 
-## Subprocessor flow (DEML example)
+## Subprocessor flow
 
 ```
-DEML end-user ──Firebase──► DEML Django
-                              │
-                              │ Authorization: Bearer fjsvc_…
-                              │ (tenant-scoped service account)
-                              ▼
-                           FORJD API
-                     ingest / projections
-                              │
-                              ▼
-                     telemetry_events (ciphertext)
+Partner end-user ──(partner auth)──► Partner SaaS backend
+                                          │
+                                          │ Authorization: Bearer fjsvc_…
+                                          │ (tenant-scoped service account)
+                                          ▼
+                                       FORJD API
+                          sessions → ingest → projections
+                                          │
+                                          ▼
+                          telemetry_events (ciphertext)
+                          stream_results / projection_feed
 ```
 
 1. Enterprise admin creates a FORJD tenant and membership (human JWT).
-2. Admin mints a service account: `POST /api/v1/service-accounts` with
-   `subprocessor: "deml"` (token returned **once**).
-3. DEML stores the token as a secret; every call includes
+2. Admin mints a service account: `POST /api/v1/service-accounts` with an
+   optional `subprocessor` label (token returned **once**).
+3. The partner stores the token as a secret; every call includes
    `Authorization: Bearer fjsvc_…` and the same `tenant_id` in the body/query.
 4. FORJD enforces: token → single tenant + scopes (`ingest:write`, …).
-5. Payloads remain E2EE: DEML (or its clients) seal with AES-256-GCM; FORJD
-   stores ciphertext only. Register `crypto_sessions` with a human or
-   `sessions:write` service scope before ingest when `REQUIRE_CRYPTO_SESSION=true`.
+5. Payloads remain E2EE: the partner (or its clients) seal with AES-256-GCM;
+   FORJD stores ciphertext only. Register `crypto_sessions` before ingest when
+   `REQUIRE_CRYPTO_SESSION=true` (default service scopes include `sessions:write`).
+
+### Concrete HTTP sequence
+
+```http
+# 1) Human (Supabase JWT) mints a subprocessor token once
+POST /api/v1/service-accounts
+Authorization: Bearer <supabase_user_jwt>
+{"tenant_id":"<uuid>","name":"production ingest","subprocessor":"partner-app"}
+
+# 2) Partner registers an X25519 public session (service token)
+POST /api/v1/sessions
+Authorization: Bearer fjsvc_…
+{"tenant_id":"<uuid>","session_id":"device-1","identity_public_key":"<b64>"}
+
+# 3) Partner ingests a sealed envelope (ciphertext only)
+POST /api/v1/ingest
+Authorization: Bearer fjsvc_…
+{"tenant_id":"<uuid>","client_event_id":"evt-1","content_type":"application/forjd-event+v1",
+ "encryption":{"mode":"e2ee","algo":"aes-256-gcm"},
+ "envelope":{"algo":"aes-256-gcm","key_id":"device-1","nonce":"<b64>","ciphertext":"<b64>"}}
+
+# 4) Partner polls live projections (or Realtime-subscribes to stream_results)
+GET /api/v1/projections?tenant_id=<uuid>&since=2026-07-17T00:00:00Z
+Authorization: Bearer fjsvc_…
+```
+
+Workflow routing is config-only: send `content_type` /
+`application/forjd-telemetry+v1` (example `threat_telemetry` YAML) or an
+explicit `workflow_id`. Do not fork FORJD ingest per product.
 
 ## Scopes
 
@@ -53,8 +83,10 @@ DEML end-user ──Firebase──► DEML Django
 | `ingest:read` | List event metadata / stream results |
 | `projections:read` | List projections / checkpoints |
 | `projections:run` | Advance projection watermarks |
-| `sessions:write` / `sessions:read` | Crypto session directory (optional) |
+| `sessions:write` / `sessions:read` | Crypto session directory |
 | `*` | All scopes |
+
+Default mint includes ingest, projections, and sessions scopes.
 
 Humans use `tenant_members` roles (`owner` / `admin` / `member` / `viewer`) instead.
 
@@ -67,8 +99,15 @@ Humans use `tenant_members` roles (`owner` / `admin` / `member` / `viewer`) inst
 {
   "principal_type": "service",
   "tenant_id": "<uuid>",
-  "subprocessor": "deml",
-  "scopes": ["ingest:write", "ingest:read", "projections:read", "projections:run"]
+  "subprocessor": "partner-app",
+  "scopes": [
+    "ingest:write",
+    "ingest:read",
+    "projections:read",
+    "projections:run",
+    "sessions:write",
+    "sessions:read"
+  ]
 }
 ```
 
@@ -86,4 +125,5 @@ Humans use `tenant_members` roles (`owner` / `admin` / `member` / `viewer`) inst
 
 ## SQL
 
-Apply `backend/sql/014_service_accounts.sql` after `013`.
+Apply `backend/sql/014_service_accounts.sql` after `013`, then
+`015_realtime_and_consumer.sql` for Realtime + `projection_feed`.

@@ -1,4 +1,4 @@
-"""Tenant-scoped threat model train/score (DEML ThreatModel port)."""
+"""Tenant-scoped threat model train/score ."""
 
 from __future__ import annotations
 

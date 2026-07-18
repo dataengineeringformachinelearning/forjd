@@ -192,7 +192,7 @@ async def _execute_actions(
         if action_type == "webhook":
             result = await _run_webhook(cfg, context)
         elif action_type in {"email_alert", "block_ip", "revoke_api_key"}:
-            # Identity-side actions stay in DEML/Django; emit a request receipt only.
+            # Identity-side actions stay with the caller; emit a request receipt only.
             result = {
                 "ok": True,
                 "deferred": True,

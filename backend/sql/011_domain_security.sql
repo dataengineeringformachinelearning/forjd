@@ -1,7 +1,7 @@
 -- =============================================================================
--- FORJD domain security (DEML data-plane extract) — tenant-scoped, no auth.User
+-- FORJD domain security — tenant-scoped, no auth.User
 -- =============================================================================
--- Apply after 010. Identity/billing stay in DEML Django; FORJD owns workload tables.
+-- Apply after 010. Identity/billing stay with the partner control plane; FORJD owns workload tables.
 -- Opaque actor_id fields may hold Supabase user UUIDs without joining auth tables.
 -- =============================================================================
 

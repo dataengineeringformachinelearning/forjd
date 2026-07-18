@@ -20,8 +20,25 @@ npm run build-storybook    # dist/storybook/forjd-ui
 npm run chromatic          # needs CHROMATIC_PROJECT_TOKEN
 ```
 
-Public Storybook: [ui.forjd.co](https://ui.forjd.co) (Vercel project `ui`). App: [forjd.co](https://forjd.co) (project `forjd`). See `ui/README.md`.
-
 Put new stories next to components: `libs/forjd-ui/src/lib/<name>/<name>.stories.ts`.
 
 See `libs/forjd-ui/README.md` for Chromatic first-time setup.
+
+### Public Storybook (ui.forjd.co)
+
+| Vercel project | Domain | Build | Output |
+|----------------|--------|-------|--------|
+| `forjd` | forjd.co | `npm run build` | `dist/frontend/browser` |
+| `ui` | ui.forjd.co | `npm run build-storybook` | `dist/storybook/forjd-ui` |
+
+Both use Root Directory `frontend/`. Build commands are set **per project** in Vercel.
+`vercel.json` has shared SPA rewrites + PWA headers; Storybook may use `vercel.ui.json`.
+
+```bash
+# From repo root
+npx vercel deploy --prod --yes --project ui     # Storybook
+npx vercel deploy --prod --yes --project forjd  # app
+
+# Local check
+cd frontend && npm run build-storybook && npx serve dist/storybook/forjd-ui
+```

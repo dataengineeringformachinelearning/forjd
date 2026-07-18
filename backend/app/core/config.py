@@ -88,7 +88,7 @@ class Settings(BaseSettings):
     ML_MODEL_DIR: str = "data/models"
     ML_MODEL_VERSION: str = "lstm-ae-v1"
 
-    # --- Domain scanners / integrations (DEML extract; optional) ---
+    # --- Domain scanners / integrations (optional) ---
     PAGESPEED_API_KEY: str = ""
     HIBP_API_KEY: str = ""
     TOR_PROXY_URL: str = ""

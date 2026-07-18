@@ -1,4 +1,4 @@
-"""Firecrawl technology extraction client (from DEML; httpx, no Django)."""
+"""Firecrawl technology extraction client (httpx)."""
 
 from __future__ import annotations
 

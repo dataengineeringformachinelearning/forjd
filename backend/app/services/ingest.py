@@ -2,11 +2,23 @@
 
 Ingest path guarantees:
   • Caller presents a verified principal (`get_current_user`): enterprise user JWT
-    or tenant-scoped service token (subprocessor / M2M, e.g. DEML).
+    or tenant-scoped service token (subprocessor / M2M).
   • Tenant isolation checked before any write (`require_tenant_access`).
   • Envelope fields are validated but **never decrypted**.
   • Workflow YAML/JSON selects processor + thresholds (not product forks).
   • Prefect + Pathway receive metadata only; results land in `stream_results`.
+
+How a partner SaaS calls FORJD as a subprocessor
+----------------------------------------------------
+1. Enterprise admin creates tenant + mints ``POST /api/v1/service-accounts``
+   (``subprocessor`` label optional, e.g. ``\"partner-app\"``).
+2. The partner stores ``fjsvc_…`` as a secret; every request uses
+   ``Authorization: Bearer fjsvc_…`` and the bound ``tenant_id``.
+3. Register crypto session (``POST /api/v1/sessions``) then
+   ``POST /api/v1/ingest`` with AES-256-GCM envelopes.
+4. Read scores via ``GET /api/v1/projections`` / ``GET /api/v1/ingest/results``
+   or Supabase Realtime on ``stream_results`` / ``projection_feed``.
+FORJD never accepts partner end-user tokens — only the service principal.
 """
 
 from __future__ import annotations
@@ -14,6 +26,7 @@ from __future__ import annotations
 import json
 import logging
 from collections import defaultdict
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -395,6 +408,8 @@ async def list_stream_results(
     limit: int = 20,
     anomalies_only: bool = False,
     workflow_id: str | None = None,
+    since: datetime | None = None,
+    after_id: UUID | None = None,
 ) -> list[dict[str, Any]]:
     await tenant_svc.require_tenant_access(
         pool,
@@ -409,6 +424,17 @@ async def list_stream_results(
     if workflow_id:
         args.append(workflow_id)
         clauses.append(f"workflow_id = ${len(args)}")
+    if since is not None:
+        args.append(since)
+        clauses.append(f"created_at > ${len(args)}")
+    if after_id is not None:
+        args.append(str(after_id))
+        clauses.append(
+            f"(created_at, id) > ("
+            f"(SELECT created_at FROM stream_results WHERE id = ${len(args)}::uuid), "
+            f"${len(args)}::uuid)"
+        )
+    order = "ASC" if (since is not None or after_id is not None) else "DESC"
     args.append(limit)
     limit_ph = f"${len(args)}"
     where = " AND ".join(clauses)
@@ -419,7 +445,7 @@ async def list_stream_results(
                workflow_id
         FROM stream_results
         WHERE {where}
-        ORDER BY created_at DESC
+        ORDER BY created_at {order}, id {order}
         LIMIT {limit_ph}
         """,
         *args,

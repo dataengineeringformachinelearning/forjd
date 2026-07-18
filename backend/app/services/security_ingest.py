@@ -1,6 +1,6 @@
 """Integration-style security alert ingest → threat intel + SOC correlate.
 
-From DEML integrations/api ingest_security_alert (no Django User / API-key table).
+Security-alert ingest (no end-user identity table).
 Auth is JWT membership on the tenant.
 """
 

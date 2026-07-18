@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 class ServiceAccountCreate(BaseModel):
     tenant_id: UUID
     name: str = Field(min_length=1, max_length=128)
-    # e.g. "deml" — audit / policy label; not a trust boundary by itself.
+    # e.g. "partner-app" — audit / policy label; not a trust boundary by itself.
     subprocessor: str = Field(default="", max_length=64)
     scopes: list[str] | None = None
     # Optional Supabase Auth user for M2M JWTs (app_metadata.forjd).

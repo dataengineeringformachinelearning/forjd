@@ -1,4 +1,4 @@
-"""Threat intelligence ingestion and lookup (DEML abuse.ch / TAXII path)."""
+"""Threat intelligence ingestion and lookup (abuse.ch / TAXII)."""
 
 from __future__ import annotations
 

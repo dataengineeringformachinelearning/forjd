@@ -1,4 +1,4 @@
-"""Batch data exports via Polars (CSV / JSON / Parquet) — DEML export jobs path."""
+"""Batch data exports via Polars (CSV / JSON / Parquet) ."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-//! Dragonfly Streams bus — replaces DEML Redpanda/Kafka for FORJD.
+//! Dragonfly Streams bus — FORJD internode messaging (Streams, not Kafka).
 
 use anyhow::{bail, Context, Result};
 use base64::{engine::general_purpose::STANDARD, Engine as _};

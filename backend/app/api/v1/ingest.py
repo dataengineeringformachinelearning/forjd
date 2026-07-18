@@ -1,21 +1,47 @@
 """Universal E2EE ingestion API — user/service principal + ciphertext-only.
 
-Accepts enterprise Supabase user JWTs and tenant-scoped service tokens
-(subprocessors such as DEML). Server never sees plaintext payloads.
+Accepts enterprise Supabase user JWTs and tenant-scoped service tokens.
+Server never sees plaintext payloads.
+
+Subprocessor call pattern
+-------------------------
+Partner SaaS backends keep their own end-user auth. Against FORJD they use only
+a tenant-bound Bearer token:
+
+  Authorization: Bearer fjsvc_<prefix>_<secret>
+  POST /api/v1/ingest          — sealed AES-256-GCM envelope + tenant_id
+  GET  /api/v1/ingest/results  — scores/rollups (optional since=/after_id=)
+  GET  /api/v1/projections     — durable projection feed (preferred)
+
+Never forward partner end-user tokens to FORJD.
 """
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.core.auth import AuthUser, get_current_user, pool_from_request
 from app.models.ingest import EmbeddingIngestRequest, IngestBatchRequest, IngestEventRequest
 from app.services import ingest as ingest_svc
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
+
+
+# --- Parse ISO cursor for live polling ---
+def _parse_since(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="since must be an ISO-8601 timestamp",
+        ) from exc
 
 
 # --- Primary ingest (POST /api/v1/ingest) ---
@@ -75,7 +101,7 @@ async def list_events(
     return {"ok": True, "tenant_id": str(tenant_id), "events": rows}
 
 
-# --- Stream results (Pathway scores/rollups; no ciphertext) ---
+# --- Stream results (Pathway/Rust scores; no ciphertext) ---
 @router.get("/results")
 async def list_results(
     request: Request,
@@ -83,9 +109,17 @@ async def list_results(
     limit: int = 20,
     anomalies_only: bool = False,
     workflow_id: str | None = None,
+    since: str | None = Query(
+        default=None,
+        description="ISO-8601 cursor — return rows with created_at > since (ascending)",
+    ),
+    after_id: UUID | None = Query(
+        default=None,
+        description="Keyset cursor — return rows after this stream_results.id",
+    ),
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """List Pathway/Prefect stream_results for a tenant (any SaaS consumer)."""
+    """List Pathway/Prefect/Rust stream_results for a tenant (any SaaS consumer)."""
     pool = pool_from_request(request)
     if pool is None:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
@@ -97,6 +131,8 @@ async def list_results(
         limit=limit,
         anomalies_only=anomalies_only,
         workflow_id=workflow_id,
+        since=_parse_since(since),
+        after_id=after_id,
     )
     return {"ok": True, "tenant_id": str(tenant_id), "results": rows}
 

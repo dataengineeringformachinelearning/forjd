@@ -1,6 +1,6 @@
 """Manage tenant-scoped service accounts (enterprise user JWT only).
 
-Subprocessors like DEML call ingest/projections with the minted token —
+Subprocessors like partner SaaS call ingest/projections with the minted token —
 they never manage keys with that same token.
 """
 

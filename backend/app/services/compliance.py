@@ -1,4 +1,4 @@
-"""SOC readiness criteria payload (from DEML ml/compliance/soc.py)."""
+"""SOC readiness criteria payload ."""
 
 from __future__ import annotations
 

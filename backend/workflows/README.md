@@ -39,7 +39,7 @@ Resolution: `workflow_id` → `content_type`+`event_type` match → `default: tr
 4. Optional: add a detector in `app/workflows/detectors/` and list it in
    `pipeline.steps`, or a processor in `app/workflows/processors/`.
 
-## Domain security APIs (DEML extract)
+## Domain security APIs (optional)
 
 Beyond YAML workflows, tenant-scoped domain routes live under `/api/v1`:
 
@@ -72,6 +72,6 @@ Apply SQL `006`–`010` for routing, projections/DLQ, status, daemon plane, audi
 |------|------|
 | `default_sealed.yaml` | Generic fallback (`application/forjd-event+v1`) |
 | `analytics_events.yaml` | Product analytics |
-| `deml_telemetry.yaml` | Example threat/telemetry tenant config (not platform core) |
+| `threat_telemetry.yaml` | Example threat/telemetry vertical (not platform core; used via service token + this content_type) |
 
 Platform surfaces (ingest, projections, replay/DLQ, status) stay use-case agnostic.

@@ -1,4 +1,4 @@
-"""Tenant-scoped service accounts for M2M / subprocessors (e.g. DEML).
+"""Tenant-scoped service accounts for M2M / subprocessors.
 
 Issuance is human-only (owner/admin). Tokens are shown once at create time.
 Auth verification lives in `app.core.auth`; this module owns persistence.
@@ -27,12 +27,16 @@ from app.services import tenants as tenant_svc
 
 logger = logging.getLogger("forjd.service_accounts")
 
-# --- Default scopes for SaaS subprocessors (ingest + projections) ---
+# --- Default scopes for SaaS subprocessors (ingest + projections + sessions) ---
+# sessions:* lets partners register X25519 public keys when
+# REQUIRE_CRYPTO_SESSION=true (human mint still required for the token itself).
 DEFAULT_SCOPES: tuple[str, ...] = (
     "ingest:write",
     "ingest:read",
     "projections:read",
     "projections:run",
+    "sessions:write",
+    "sessions:read",
 )
 
 ALLOWED_SCOPES = frozenset(
@@ -59,7 +63,8 @@ async def ensure_schema(pool: asyncpg.Pool) -> None:
             auth_user_id UUID UNIQUE,
             scopes TEXT[] NOT NULL DEFAULT ARRAY[
                 'ingest:write', 'ingest:read',
-                'projections:read', 'projections:run'
+                'projections:read', 'projections:run',
+                'sessions:write', 'sessions:read'
             ]::text[],
             is_active BOOLEAN NOT NULL DEFAULT TRUE,
             revoked_at TIMESTAMPTZ,

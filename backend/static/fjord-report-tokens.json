@@ -3,7 +3,7 @@
   "meta": {
     "name": "viking-ui",
     "version": "2.1.0",
-    "description": "Canonical DEML design tokens — single source of truth for primitives, semantic aliases, and component foundations",
+    "description": "Canonical FJORD design tokens — single source of truth for primitives, semantic aliases, and component foundations",
     "canonicalScss": "../styles/_variables.scss",
     "documentation": "../../../THEME.md"
   },

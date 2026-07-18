@@ -14,16 +14,17 @@ Apply in order in the Supabase SQL editor (or `psql`).
 | `008_status_pages.sql` | Status pages / services / incidents (public when published) |
 | `009_daemon_data_plane.sql` | Rust daemon outbox, scheduler, API keys, normalizer, probes |
 | `010_audit_and_rate_limits.sql` | Metadata-only `audit_events` + `daemon_api_keys.rate_limit_rpm` |
-| `011_domain_security.sql` | DEML domain extract — threat intel, SOC cases, playbooks, exports, ML runs |
+| `011_domain_security.sql` | Domain security — threat intel, SOC cases, playbooks, exports, ML runs |
 | `012_domain_scanners.sql` | Lighthouse, OSINT endpoints, validated sites, honeypots, report archives |
 | `013_e2ee_hardening.sql` | Nonce uniqueness `(tenant_id,key_id,nonce)` + `crypto_sessions.revoked_at` |
 | `014_service_accounts.sql` | Tenant-scoped M2M / subprocessor principals (`fjsvc_` + Auth binding) |
+| `015_realtime_and_consumer.sql` | Realtime publication, `projection_feed` view, cursor indexes, sessions scopes |
 
-## Secure path (`003`–`014`)
+## Secure path (`003`–`015`)
 
 1. Enable extensions **vector** and **pgcrypto** (Dashboard → Database → Extensions).
-2. Run `003` → `014` in order.
-3. Optional Realtime: Dashboard → Replication → add `telemetry_events` and/or `stream_results`.
+2. Run `003` → `015` in order.
+3. Realtime: `015` adds `stream_results` + `telemetry_events` to `supabase_realtime` when present; confirm in Dashboard → Replication.
 4. Set backend env: `SUPABASE_URL`, `SUPABASE_JWT_SECRET` (or rely on JWKS), `POSTGRES_DSN`.
 5. Add SaaS use cases as YAML under `backend/workflows/` (see that folder’s README).
 
@@ -47,9 +48,10 @@ Apply in order in the Supabase SQL editor (or `psql`).
 | `crypto_sessions` | Public keys for peer discovery — never private keys |
 | Pathway | Rolls up metadata + size anomalies, never decrypts |
 | `stream_results` | Consumer-facing scores/rollups (no ciphertext) |
+| `projection_feed` | View over `stream_results` for Realtime / polling clients |
 | `use_cases` | Optional DB catalog of workflows |
 | `sealed_events` | View alias over `telemetry_events` |
 
 Plaintext never crosses the API on the E2EE path. Downstream SaaS consumers
-(analytics, threat, telemetry, …) read `stream_results` (and optionally sealed
-events for client decrypt) under RLS.
+(analytics, threat, telemetry, …) read `stream_results` / `projection_feed`
+(and optionally sealed events for client decrypt) under RLS.

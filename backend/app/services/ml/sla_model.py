@@ -1,4 +1,4 @@
-"""Tenant SLA regressor (DEML train_tenant_sla core, tenant_id I/O).
+"""Tenant SLA regressor (tenant_id I/O).
 
 Optional deps: torch (ml group). GridSearchCV needs scikit-learn when available;
 falls back to a single estimator fit without sklearn.

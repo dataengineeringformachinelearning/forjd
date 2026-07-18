@@ -68,7 +68,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 # FastAPI idiomatic `Depends(...)` defaults.
 ignore = ["B008"]
 
-# Ported DEML PDF renderer keeps its original 2-space layout.
+# PDF renderer keeps its original 2-space layout.
 [tool.ruff.lint.per-file-ignores]
 "app/services/pdf_report.py" = ["E501"]
 

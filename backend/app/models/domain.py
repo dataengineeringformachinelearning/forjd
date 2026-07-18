@@ -1,4 +1,4 @@
-"""Pydantic request models for DEML-extracted domain APIs."""
+"""Pydantic request models for domain APIs."""
 
 from __future__ import annotations
 

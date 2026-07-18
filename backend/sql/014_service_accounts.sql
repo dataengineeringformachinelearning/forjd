@@ -5,9 +5,9 @@
 --
 -- Subprocessor model:
 --   • Enterprise humans authenticate with Supabase Auth user JWTs + tenant_members.
---   • Trusted apps (e.g. DEML Django) authenticate with a *tenant-bound* service
+--   • Trusted partner SaaS backends authenticate with a *tenant-bound* service
 --     principal — never a global platform key for tenant data.
---   • DEML keeps end-user Firebase Auth; FORJD never sees DEML end-user tokens.
+--   • Partners keep their own end-user auth; FORJD never sees those end-user tokens.
 --   • Service tokens may be opaque (`fjsvc_…`) or Supabase Auth JWTs whose
 --     app_metadata.forjd.principal_type = 'service' and match this table.
 --   • All writes remain ciphertext-blind; E2EE keys stay client/subprocessor-side.
@@ -19,9 +19,9 @@
 CREATE TABLE IF NOT EXISTS public.service_accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES public.tenants (id) ON DELETE CASCADE,
-  -- Human-readable label (e.g. "DEML production ingest").
+  -- Human-readable label (e.g. "production ingest").
   name TEXT NOT NULL,
-  -- Subprocessor slug for audit / policy (e.g. 'deml', 'enterprise-direct').
+  -- Subprocessor slug for audit / policy (e.g. 'partner-app', 'enterprise-direct').
   subprocessor TEXT NOT NULL DEFAULT '',
   -- Opaque token lookup (NULL when JWT-only via auth_user_id).
   prefix TEXT UNIQUE,

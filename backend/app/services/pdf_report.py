@@ -1,6 +1,6 @@
 """Render searchable, token-driven FORJD operational reports as PDF bytes.
 
-Ported from DEML's hand-rolled PDF renderer; uses FJORD token mirror under
+Hand-rolled PDF renderer; uses FJORD token mirror under
 ``backend/static/fjord-report-tokens.json`` (no Django dependency).
 """
 
@@ -373,7 +373,7 @@ def _append_header_chrome(commands: list[str], *, theme: PdfReportTheme) -> None
   lockup_x = theme.margin + theme.logo_size + theme.compact_gap
   _append_text(
     commands,
-    "DEML",
+    "FORJD",
     x=lockup_x,
     y=PAGE_HEIGHT - theme.gap - theme.font_subtitle,
     font="F2",
@@ -699,7 +699,7 @@ def _append_footer(
   )
   _append_text(
     commands,
-    "DEML / CONFIDENTIAL OPERATIONAL REPORT",
+    "FORJD / CONFIDENTIAL OPERATIONAL REPORT",
     x=theme.margin,
     y=footer_y + theme.grid_unit,
     font="F2",
@@ -915,7 +915,7 @@ def render_pdf_report(
       (
         f"{info_id} 0 obj<< /Title ({_escape_pdf_text(title)}) "
         "/Author (Data Engineering for AI Engineering and Cybersecurity) "
-        "/Subject (DEML operational data export) /Creator (DEML Platform) "
+        "/Subject (FORJD operational data export) /Creator (FORJD Platform) "
         f"/CreationDate (D:{generated_at.astimezone(datetime_timezone.utc).strftime('%Y%m%d%H%M%SZ')}) "
         ">>endobj\n"
       ).encode("cp1252", errors="replace"),

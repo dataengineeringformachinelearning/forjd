@@ -89,4 +89,4 @@ Apply `backend/sql/009`–`010` for outbox / API keys / audit before enabling `F
 - Multi-stage image (`rust:1.97.0-bookworm` → `debian:bookworm-slim`), `USER 1001`.
 - PyO3 path stays lean (no `data-plane` deps).
 - Arrow/Parquet **59**, edition **2024**, rustc **1.97**.
-- Former `engine/daemon/` crate is folded into `src/data_plane/` — see `daemon/README.md`.
+- Data-plane roles live in `src/data_plane/` (outbox, ingest, probes, scheduler).

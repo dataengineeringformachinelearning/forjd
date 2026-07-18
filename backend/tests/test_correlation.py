@@ -1,4 +1,4 @@
-"""Unit tests for SOC correlation rules (DEML extract)."""
+"""Unit tests for SOC correlation rules ."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""DEML ThreatModel / CESModel — tenant-scoped training without Django User.
+"""ThreatModel / CESModel — tenant-scoped training without end-user FK.
 
 Feature extraction reads FORJD threat_intelligence + incident_cases + stream_results.
 Install: uv sync --group ml
@@ -30,7 +30,7 @@ except ImportError:  # pragma: no cover
     _TORCH_OK = False
 
 
-# --- Model definitions (ported from DEML ml_services) ---
+# --- Model definitions  ---
 if _TORCH_OK:
 
     class ThreatModel(nn.Module):

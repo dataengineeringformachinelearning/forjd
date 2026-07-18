@@ -4,13 +4,13 @@ Principal kinds
 ---------------
 * **user** — Enterprise human via Supabase Auth access token. Tenant access
   comes from `tenant_members` (multi-tenant membership).
-* **service** — Machine / subprocessor (e.g. DEML Django) bound to **one**
+* **service** — Machine / subprocessor (partner SaaS backend) bound to **one**
   tenant. Authenticated by:
   1. Opaque token `fjsvc_<prefix>_<secret>` (hashed in `service_accounts`), or
   2. Supabase JWT with `app_metadata.forjd.principal_type = "service"` that
      matches an active `service_accounts.auth_user_id` row.
 
-DEML end-users stay on Firebase inside DEML. FORJD never accepts DEML user
+Partner apps keep their own end-user auth. FORJD never accepts those end-user
 tokens — only the subprocessor's tenant-scoped service principal.
 """
 
@@ -316,7 +316,7 @@ async def get_current_user(
     token = creds.credentials
     pool = pool_from_request(request)
 
-    # Opaque M2M token (DEML / other subprocessors) — does not need JWKS.
+    # Opaque M2M token (subprocessors) — does not need JWKS.
     if looks_like_service_token(token):
         if pool is None:
             raise HTTPException(

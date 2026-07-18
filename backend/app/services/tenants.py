@@ -439,7 +439,8 @@ async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
             auth_user_id UUID UNIQUE,
             scopes TEXT[] NOT NULL DEFAULT ARRAY[
                 'ingest:write', 'ingest:read',
-                'projections:read', 'projections:run'
+                'projections:read', 'projections:run',
+                'sessions:write', 'sessions:read'
             ]::text[],
             is_active BOOLEAN NOT NULL DEFAULT TRUE,
             revoked_at TIMESTAMPTZ,

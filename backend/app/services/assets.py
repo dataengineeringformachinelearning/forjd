@@ -1,4 +1,4 @@
-"""Tenant assets + vulnerabilities CRUD (DEML domain tables, tenant_id)."""
+"""Tenant assets + vulnerabilities CRUD (tenant_id)."""
 
 from __future__ import annotations
 

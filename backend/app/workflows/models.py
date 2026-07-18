@@ -25,7 +25,7 @@ class EventType(BaseModel):
         min_length=1,
         max_length=128,
         pattern=r"^[a-z0-9][a-z0-9_.-]*$",
-        description="Stable event type id (e.g. page.view, deml.alert)",
+        description="Stable event type id (e.g. page.view, threat.alert)",
     )
     content_type: str = Field(
         default="application/forjd-event+v1",

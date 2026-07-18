@@ -1,4 +1,4 @@
-"""Google PageSpeed / Lighthouse scans (from DEML lighthouse_scanner)."""
+"""Google PageSpeed / Lighthouse scans ."""
 
 from __future__ import annotations
 

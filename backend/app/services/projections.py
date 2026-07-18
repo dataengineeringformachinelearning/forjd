@@ -2,6 +2,15 @@
 
 Idempotent upserts + watermarks; no plaintext. Ciphertext stays in
 telemetry_events; processors see sizes/routing only.
+
+Subprocessor consumers (partner SaaS backends)
+----------------------------------------------
+1. Mint a tenant-bound ``fjsvc_…`` token (human JWT → POST /service-accounts).
+2. Poll ``GET /api/v1/projections?tenant_id=&since=`` (or Realtime on
+   ``stream_results`` / ``projection_feed``).
+3. Optionally ``POST /api/v1/projections/run`` with ``projections:run`` to
+   advance watermarks after backfill.
+Partner end-user tokens are never sent here.
 """
 
 from __future__ import annotations
@@ -400,8 +409,12 @@ async def list_projections(
     user: AuthUser,
     tenant_id: UUID,
     projection_name: str | None = None,
+    workflow_id: str | None = None,
+    since: datetime | None = None,
+    after_id: UUID | None = None,
     limit: int = 50,
 ) -> list[dict[str, Any]]:
+    """List durable projection rows for any SaaS consumer (cursor via since/after_id)."""
     await tenant_svc.require_tenant_access(
         pool,
         principal=user,
@@ -413,6 +426,21 @@ async def list_projections(
     if projection_name:
         args.append(projection_name)
         clauses.append(f"projection_name = ${len(args)}")
+    if workflow_id:
+        args.append(workflow_id)
+        clauses.append(f"workflow_id = ${len(args)}")
+    if since is not None:
+        args.append(since)
+        clauses.append(f"created_at > ${len(args)}")
+    if after_id is not None:
+        args.append(str(after_id))
+        clauses.append(
+            f"(created_at, id) > ("
+            f"(SELECT created_at FROM stream_results WHERE id = ${len(args)}::uuid), "
+            f"${len(args)}::uuid)"
+        )
+    # Live feed (since/after) is ascending; dashboard "latest" is descending.
+    order = "ASC" if (since is not None or after_id is not None) else "DESC"
     args.append(limit)
     limit_ph = len(args)
     rows = await pool.fetch(
@@ -422,7 +450,7 @@ async def list_projections(
                workflow_id, projection_name, projection_version
         FROM stream_results
         WHERE {" AND ".join(clauses)}
-        ORDER BY created_at DESC
+        ORDER BY created_at {order}, id {order}
         LIMIT ${limit_ph}
         """,
         *args,

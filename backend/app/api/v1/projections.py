@@ -1,11 +1,21 @@
-"""Durable projections API — live read models from sealed metadata."""
+"""Durable projections API — live read models from sealed metadata.
+
+Primary consumer surface for subprocessors (any SaaS):
+  GET  /api/v1/projections?tenant_id=&since=…     — poll live scores
+  GET  /api/v1/projections/checkpoints            — watermark
+  POST /api/v1/projections/run                    — advance from sealed meta
+
+Auth: Supabase user JWT (tenant member) or tenant-bound ``fjsvc_…`` service
+token with ``projections:read`` / ``projections:run``. Never partner end-user tokens.
+"""
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
 from app.core.auth import AuthUser, get_current_user, pool_from_request
@@ -20,15 +30,38 @@ class ProjectRunRequest(BaseModel):
     limit: int = Field(default=200, ge=1, le=1000)
 
 
+# --- Parse ISO cursor for live polling ---
+def _parse_since(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="since must be an ISO-8601 timestamp",
+        ) from exc
+
+
 # --- List durable projection rows ---
 @router.get("")
 async def list_projections(
     request: Request,
     tenant_id: UUID,
     name: str | None = None,
+    workflow_id: str | None = None,
+    since: str | None = Query(
+        default=None,
+        description="ISO-8601 cursor — return rows with created_at > since (ascending)",
+    ),
+    after_id: UUID | None = Query(
+        default=None,
+        description="Keyset cursor — return rows after this stream_results.id",
+    ),
     limit: int = 50,
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
+    """Live projection feed for SaaS consumers (poll or Realtime-subscribe)."""
     pool = pool_from_request(request)
     if pool is None:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
@@ -37,6 +70,9 @@ async def list_projections(
         user=user,
         tenant_id=tenant_id,
         projection_name=name,
+        workflow_id=workflow_id,
+        since=_parse_since(since),
+        after_id=after_id,
         limit=max(1, min(limit, 200)),
     )
     return {"ok": True, "tenant_id": str(tenant_id), "projections": rows}

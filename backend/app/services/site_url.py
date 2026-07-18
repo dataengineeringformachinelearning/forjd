@@ -1,4 +1,4 @@
-"""SSRF-safe public site URL validation (from DEML firecrawl_technology)."""
+"""SSRF-safe public site URL validation ."""
 
 from __future__ import annotations
 

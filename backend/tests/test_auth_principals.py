@@ -63,7 +63,7 @@ class TestJwtClaimShaping(unittest.TestCase):
                 "forjd": {
                     "principal_type": "service",
                     "tenant_id": "33333333-3333-3333-3333-333333333333",
-                    "subprocessor": "deml",
+                    "subprocessor": "partner-app",
                     "scopes": ["ingest:write", "projections:run"],
                 }
             },
@@ -72,7 +72,7 @@ class TestJwtClaimShaping(unittest.TestCase):
         principal = _principal_from_claims(claims)
         self.assertEqual(principal.kind, PrincipalKind.SERVICE)
         self.assertEqual(principal.tenant_id, "33333333-3333-3333-3333-333333333333")
-        self.assertEqual(principal.subprocessor, "deml")
+        self.assertEqual(principal.subprocessor, "partner-app")
         self.assertIn("ingest:write", principal.scopes)
         self.assertTrue(principal.actor_id.startswith("svc:"))
 

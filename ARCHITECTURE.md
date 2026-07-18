@@ -13,7 +13,7 @@ Universal secure streaming platform. Stability and E2EE over novelty.
 
 ```
 Angular (forjd.co)          Supabase Auth user JWT + WebCrypto seal
-DEML Django (subprocessor)  Tenant-scoped service token (fjsvc_… / M2M JWT)
+Partner SaaS (subprocessor)  Tenant-scoped service token (fjsvc_… / M2M JWT)
         │
         ▼
 FastAPI (forjd-backend)     Principal verify (user vs service), tenancy, Prefect
@@ -56,9 +56,9 @@ pipeline:
 Processors resolve via `app.workflows.processors.REGISTRY`. Detectors via
 `app.workflows.detectors.REGISTRY`. Add a SaaS vertical by dropping YAML — do not fork ingest.
 
-## Subprocessor model (DEML and other SaaS)
+## Subprocessor model (partner SaaS)
 
-- DEML (or any trusted app) keeps **its own** end-user auth (e.g. Firebase).
+- A trusted partner keeps **its own** end-user auth (e.g. Firebase).
 - FORJD issues a **tenant-bound** service principal; that token is the only
   credential the subprocessor uses against FORJD.
 - Service principals cannot cross tenants, create tenants, or mint other keys.
@@ -66,12 +66,13 @@ Processors resolve via `app.workflows.processors.REGISTRY`. Detectors via
 
 ## SQL apply order
 
-`003` → `014` under `backend/sql/` (see that folder’s README). Production forces
+`003` → `015` under `backend/sql/` (see that folder’s README). Production forces
 `SOFT_MIGRATE_SCHEMA=false`, `REQUIRE_RLS=true`, `REQUIRE_CRYPTO_SESSION=true`.
+Realtime + `projection_feed` land in `015`.
 
 ## Explicit non-goals
 
 - ClickHouse / Redpanda / Firebase / Firestore **as FORJD identity or OLAP**
-- Accepting DEML (or other SaaS) end-user tokens at the FORJD edge
+- Accepting partner SaaS end-user tokens at the FORJD edge
 - Server-side plaintext ML on sealed payloads
 - Python reimplementation of Rust relay / probe / normalizer / scheduler

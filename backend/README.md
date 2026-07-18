@@ -56,13 +56,13 @@ uv run forjd
 
 ### Secure streaming (Supabase Auth + E2EE)
 
-1. Run SQL `003`→`014` (see [`sql/README.md`](sql/README.md)).
+1. Run SQL `003`→`015` (see [`sql/README.md`](sql/README.md)).
 2. Set `SUPABASE_URL` and/or `SUPABASE_JWT_SECRET` in `.env`.
 3. **Enterprise users:** Supabase Auth → `Authorization: Bearer <access_token>`.
-4. **Subprocessors (e.g. DEML):** admin mints `POST /api/v1/service-accounts` → DEML calls with `Bearer fjsvc_…` (see [`docs/AUTH.md`](docs/AUTH.md)). DEML keeps Firebase for its end-users.
+4. **Subprocessors:** admin mints `POST /api/v1/service-accounts` → the partner calls with `Bearer fjsvc_…` (see [`docs/AUTH.md`](docs/AUTH.md)). Partners keep their own end-user auth.
 5. Publish X25519 *public* keys via `POST /api/v1/sessions` (private keys stay on device / subprocessor).
 6. Derive AES-256 via X25519 ECDH + HKDF; seal with AES-256-GCM; `POST /api/v1/ingest` with `content_type` / optional `event_type` / `workflow_id`.
-7. Prefect / Rust sealed pipeline write durable `stream_results`; `POST /api/v1/projections/run` for catch-up.
+7. Prefect / Rust sealed pipeline write durable `stream_results`; poll `GET /api/v1/projections?since=` or Realtime; `POST /api/v1/projections/run` for catch-up.
 
 **New use case:** add `workflows/my_saas.yaml` (or a detector under `app/workflows/detectors/`) — no ingest/API fork required.
 

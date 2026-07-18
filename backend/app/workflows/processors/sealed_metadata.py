@@ -1,4 +1,9 @@
-"""Default processor: Pathway rollup + size anomaly on sealed metadata only."""
+"""Default processor: Rust sealed pipeline (Pathway/Python soft-fallback).
+
+Config-driven via YAML ``pipeline.processor: sealed_metadata``. Operates on
+cipher lengths + routing metadata only — never decrypts. Prefer this (or the
+``rust_sealed_metadata`` alias) for all SaaS verticals.
+"""
 
 from __future__ import annotations
 

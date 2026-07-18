@@ -1,7 +1,11 @@
 """Prefect flow for configurable sealed-stream ingest.
 
-Loads a WorkflowDefinition (YAML/JSON), runs the registered processor
-(Pathway by default), and returns result rows for Supabase persistence.
+Loads a WorkflowDefinition (YAML under ``backend/workflows/``), runs the
+registered processor (Rust sealed pipeline preferred; Pathway/Python fallback),
+and returns result rows for Supabase ``stream_results``.
+
+Use-case agnostic: any SaaS select a workflow via ``content_type`` /
+``workflow_id`` — they do not get a forked Prefect flow.
 Soft-fails when Prefect API is offline (same pattern as pulse).
 """
 

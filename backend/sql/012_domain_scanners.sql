@@ -1,5 +1,5 @@
 -- =============================================================================
--- FORJD domain scanners / reports (DEML extract wave 2)
+-- FORJD domain scanners / reports (wave 2)
 -- =============================================================================
 -- Apply after 011. Lighthouse, OSINT endpoints, validated sites, honeypots, reports.
 -- =============================================================================

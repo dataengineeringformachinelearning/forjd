@@ -1,4 +1,4 @@
-"""Honeypot endpoints + interaction analysis (from DEML ml_services)."""
+"""Honeypot endpoints + interaction analysis ."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Tenant analytics rollups + CES overview formulas (from DEML aggregate/overview)."""
+"""Tenant analytics rollups + CES overview formulas ."""
 
 from __future__ import annotations
 

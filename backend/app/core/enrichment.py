@@ -1,4 +1,4 @@
-"""UA parsing + IP geolocation enrichment (from DEML utils/enrichment)."""
+"""UA parsing + IP geolocation enrichment ."""
 
 from __future__ import annotations
 

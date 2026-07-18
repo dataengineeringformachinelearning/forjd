@@ -43,5 +43,6 @@ htmlcov/
 
 # ML checkpoints (LSTM-AE PoC)
 backend/data/models/*.pt
-.vercel
-.env*
+
+# Vercel CLI metadata
+.vercel/

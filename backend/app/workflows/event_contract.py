@@ -1,4 +1,4 @@
-"""Validation and integrity helpers for versioned projection events (from DEML)."""
+"""Validation and integrity helpers for versioned projection events ."""
 
 from __future__ import annotations
 

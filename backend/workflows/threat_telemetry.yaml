@@ -1,19 +1,22 @@
-# Example use case (threat / telemetry SaaS) — not platform core.
+# Example vertical (threat / telemetry SaaS) — not platform core.
+# Any subprocessor points at this via content_type / workflow_id.
 # Same blind processor as default; tighter thresholds + tagged outputs.
-id: deml_telemetry
+id: threat_telemetry
 name: Threat telemetry (example)
 description: >
   Sealed telemetry for a detection/response product. Demonstrates how a
   specialized SaaS vertical is just YAML — same E2EE ingest and projections.
+  Any partner calls FORJD as a subprocessor with a tenant service
+  token; it does not get a forked ingest path.
 version: 1
 enabled: true
 default: false
 
 event_types:
-  - name: deml.metric
+  - name: threat.metric
     content_type: application/forjd-telemetry+v1
     description: Numeric / counter telemetry
-  - name: deml.alert
+  - name: threat.alert
     content_type: application/forjd-telemetry+v1
     description: Alert / finding envelope
 
@@ -27,9 +30,10 @@ encryption:
   algos: [aes-256-gcm]
 
 pipeline:
+  # Rust forjd-engine preferred via sealed_metadata; Pathway/Python fallback.
   processor: sealed_metadata
   projection:
-    name: deml.sealed_rollup
+    name: threat.sealed_rollup
     version: 1
     description: Sealed rollup + anomaly scores for threat telemetry
   steps:
@@ -46,5 +50,5 @@ pipeline:
 outputs:
   table: stream_results
   tags:
-    use_case: deml
-    consumer: deml
+    use_case: threat_telemetry
+    vertical: detection

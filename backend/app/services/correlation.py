@@ -1,4 +1,4 @@
-"""Built-in correlation rules and playbook trigger evaluation (from DEML, no ORM)."""
+"""Built-in correlation rules and playbook trigger evaluation (no ORM)."""
 
 from __future__ import annotations
 

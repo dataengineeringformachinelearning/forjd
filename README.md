@@ -119,10 +119,10 @@ cargo run --no-default-features --features server   # HTTP on :8080
 
 Production path for replacing Redpanda-style ingress with FORJD as the sealed pipe:
 
-1. Apply SQL `003`→`008` under [`backend/sql/`](backend/sql/) (tenants, RLS, sealed events, projections/DLQ, status pages).
+1. Apply SQL `003`→`015` under [`backend/sql/`](backend/sql/) (tenants, RLS, sealed events, projections/DLQ, service accounts, Realtime).
 2. Configure `SUPABASE_URL` / `SUPABASE_JWT_SECRET` on the API (see `backend/.env.example`).
-3. Clients authenticate with Supabase Auth, publish X25519 public keys (`POST /api/v1/sessions`), derive AES-256 via ECDH+HKDF, and `POST /api/v1/ingest` with envelopes + `content_type` (YAML workflow in [`backend/workflows/`](backend/workflows/)).
-4. Prefect + Pathway process **metadata only**; durable projections, replay/DLQ, and status pages mirror DEML capabilities without Kafka/Railway. DEML is one use case (`deml_telemetry.yaml`).
+3. Clients authenticate with Supabase Auth **or** a tenant service token (`fjsvc_…`), publish X25519 public keys (`POST /api/v1/sessions`), derive AES-256 via ECDH+HKDF, and `POST /api/v1/ingest` with envelopes + `content_type` (YAML workflow in [`backend/workflows/`](backend/workflows/)).
+4. Rust sealed pipeline (Pathway fallback) processes **metadata only**; consumers poll `GET /api/v1/projections` or Realtime on `stream_results`. Partner SaaS apps call FORJD as a subprocessor — see [`backend/docs/AUTH.md`](backend/docs/AUTH.md).
 
 Details: [`backend/sql/README.md`](backend/sql/README.md) and [`backend/README.md`](backend/README.md).
 
@@ -191,7 +191,7 @@ Domain: [https://forjd.co](https://forjd.co). `frontend/vercel.json` is set up. 
 
 ### Storybook → Vercel (ui.forjd.co)
 
-Public forjd-ui Storybook: [https://ui.forjd.co](https://ui.forjd.co). Separate Vercel project (`ui`) using `frontend/vercel.ui.json` — see `frontend/ui/README.md`. Attach the `ui.forjd.co` domain after the first production deploy.
+Public forjd-ui Storybook: [https://ui.forjd.co](https://ui.forjd.co). Separate Vercel project (`ui`) — see [`frontend/README.md`](frontend/README.md). Attach the `ui.forjd.co` domain after the first production deploy.
 
 ### API custom domain
 
@@ -203,11 +203,11 @@ fly certs add backend.forjd.co -a forjd-backend
 ## Layout
 
 ```text
-backend/     FastAPI, Prefect, Polars/Pathway services, Compose
-engine/      Rust core (PyO3 + unified process/data-plane binary / Dockerfile / fly.toml)
-frontend/    Angular app + forjd-ui
+backend/           FastAPI, Prefect, Polars/Pathway, SQL
+engine/            Rust core (PyO3 + process/data-plane / Fly)
+frontend/          Angular app + forjd-ui
 infra/dragonfly/   Fly.io Dragonfly
-infra/engine/      Pointer to engine Fly deploy docs
+supabase/          Edge Functions + Realtime notes
 ```
 
 More detail: [`backend/README.md`](backend/README.md), [`AGENTS.md`](AGENTS.md), [`LOG.MD`](LOG.MD).
