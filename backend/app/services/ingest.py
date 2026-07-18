@@ -46,7 +46,11 @@ from app.services import projections as proj_svc
 from app.services import sessions as session_svc
 from app.services import tenants as tenant_svc
 from app.workflows.models import WorkflowDefinition
-from app.workflows.registry import resolve_workflow
+from app.workflows.registry import (
+    canonical_event_type,
+    canonical_workflow_id,
+    resolve_workflow,
+)
 
 logger = logging.getLogger("forjd.ingest")
 
@@ -102,12 +106,20 @@ async def ingest_events(
             event_type=event.event_type,
             workflow_id=event.workflow_id,
         )
+        # Partner aliases → canonical event_type for storage / processors.
+        stored_event_type = canonical_event_type(event.event_type) or event.event_type
         _validate_encryption(event, workflow)
         # Zero-trust: key_id must be a registered crypto session (prod).
         await session_svc.require_active_session(
             pool, tenant_id=event.tenant_id, key_id=event.envelope.key_id
         )
-        result = await _insert_event(pool, user=user, event=event, workflow=workflow)
+        result = await _insert_event(
+            pool,
+            user=user,
+            event=event,
+            workflow=workflow,
+            event_type=stored_event_type,
+        )
         results.append(result)
 
         try:
@@ -124,11 +136,11 @@ async def ingest_events(
                 "key_id": event.envelope.key_id,
                 "cipher_len": cipher_len,
                 "content_type": event.content_type,
-                "event_type": event.event_type or "",
+                "event_type": stored_event_type or "",
                 "workflow_id": workflow.id,
             }
         )
-        workflow_meta[workflow.id] = (event.content_type, event.event_type)
+        workflow_meta[workflow.id] = (event.content_type, stored_event_type)
 
     prefect_runs: list[dict[str, Any]] = []
     pathway_summary: dict[str, Any] = {
@@ -221,11 +233,14 @@ async def _insert_event(
     user: AuthUser,
     event: IngestEventRequest,
     workflow: WorkflowDefinition,
+    event_type: str | None = None,
 ) -> IngestEventResult:
     try:
         sealed = event.envelope.to_sealed()
     except CryptoError as exc:
         raise ValueError(str(exc)) from exc
+
+    stored_event_type = event_type if event_type is not None else event.event_type
 
     try:
         row = await pool.fetchrow(
@@ -255,7 +270,7 @@ async def _insert_event(
             sealed.ciphertext,
             sealed.ciphertext_sha256,
             event.content_type,
-            event.event_type,
+            stored_event_type,
             event.schema_version,
             workflow.id,
             json.dumps(event.metadata),
@@ -421,8 +436,9 @@ async def list_stream_results(
     args: list[Any] = [str(tenant_id)]
     if anomalies_only:
         clauses.append("is_anomaly = TRUE")
-    if workflow_id:
-        args.append(workflow_id)
+    canon_wf = canonical_workflow_id(workflow_id)
+    if canon_wf:
+        args.append(canon_wf)
         clauses.append(f"workflow_id = ${len(args)}")
     if since is not None:
         args.append(since)

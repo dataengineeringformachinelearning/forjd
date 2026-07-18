@@ -1,4 +1,4 @@
-"""Status pages API — public published pages + JWT-managed ops visibility."""
+"""Status pages API — public published pages + member/service-managed ops."""
 
 from __future__ import annotations
 

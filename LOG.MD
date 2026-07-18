@@ -100,6 +100,8 @@
 
 - 2026-07-17: Scrubbed product-specific naming from docs, comments, SQL headers, PDF branding, and tests so FORJD reads as a standalone universal streaming platform; subprocessors are generic partner SaaS backends.
 
+- 2026-07-18: Unblocked partner cutover: YAML `aliases` map legacy workflow/event wire ids onto universal families (no product names in code); extended `fjsvc_` scopes to sessions, replay/DLQ, status, and analytics:read; sql/016 drops crypto_sessions→auth.users FK so service principals can register sessions.
+
 ## Packages
 
 Direct dependencies only. Star these on GitHub.

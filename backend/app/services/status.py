@@ -1,4 +1,8 @@
-"""Tenant status pages — operational visibility for any SaaS product."""
+"""Tenant status pages — operational visibility for any SaaS product.
+
+Managed routes accept human members or scoped service principals
+(`status:read` / `status:write`). Public published slug stays unauthenticated.
+"""
 
 from __future__ import annotations
 
@@ -29,11 +33,12 @@ async def create_page(
     is_published: bool = False,
 ) -> dict[str, Any]:
     await tenant_svc.ensure_secure_schema(pool)
-    await tenant_svc.require_member(
+    await tenant_svc.require_tenant_access(
         pool,
+        principal=user,
         tenant_id=tenant_id,
-        user_id=user.user_id,
         min_roles=frozenset({"owner", "admin"}),
+        required_scopes=frozenset({"status:write"}),
     )
     slug = slug.strip().lower()
     if not _SLUG_RE.match(slug):
@@ -60,7 +65,12 @@ async def list_pages(
     user: AuthUser,
     tenant_id: UUID,
 ) -> list[dict[str, Any]]:
-    await tenant_svc.require_member(pool, tenant_id=tenant_id, user_id=user.user_id)
+    await tenant_svc.require_tenant_access(
+        pool,
+        principal=user,
+        tenant_id=tenant_id,
+        required_scopes=frozenset({"status:read"}),
+    )
     rows = await pool.fetch(
         """
         SELECT id::text, tenant_id::text, slug, title, description,
@@ -152,11 +162,12 @@ async def upsert_service(
     description: str = "",
     sort_order: int = 0,
 ) -> dict[str, Any]:
-    await tenant_svc.require_member(
+    await tenant_svc.require_tenant_access(
         pool,
+        principal=user,
         tenant_id=tenant_id,
-        user_id=user.user_id,
         min_roles=frozenset({"owner", "admin", "member"}),
+        required_scopes=frozenset({"status:write"}),
     )
     page = await _require_page(pool, tenant_id=tenant_id, page_id=page_id)
     row = await pool.fetchrow(
@@ -194,11 +205,12 @@ async def create_incident(
     severity: str = "minor",
     body: str = "",
 ) -> dict[str, Any]:
-    await tenant_svc.require_member(
+    await tenant_svc.require_tenant_access(
         pool,
+        principal=user,
         tenant_id=tenant_id,
-        user_id=user.user_id,
         min_roles=frozenset({"owner", "admin", "member"}),
+        required_scopes=frozenset({"status:write"}),
     )
     page = await _require_page(pool, tenant_id=tenant_id, page_id=page_id)
     row = await pool.fetchrow(

@@ -18,7 +18,7 @@ from app.core.auth import AuthUser
 from app.pipelines.projections import run_project_flow
 from app.services import projections as proj_svc
 from app.services import tenants as tenant_svc
-from app.workflows.registry import resolve_workflow
+from app.workflows.registry import canonical_workflow_id, resolve_workflow
 
 logger = logging.getLogger("forjd.replay")
 
@@ -36,8 +36,9 @@ async def fetch_meta_range(
 ) -> list[dict[str, Any]]:
     clauses = ["tenant_id = $1::uuid"]
     args: list[Any] = [str(tenant_id)]
-    if workflow_id:
-        args.append(workflow_id)
+    canon_wf = canonical_workflow_id(workflow_id)
+    if canon_wf:
+        args.append(canon_wf)
         clauses.append(f"workflow_id = ${len(args)}")
     if from_time is not None:
         args.append(from_time)
@@ -113,7 +114,12 @@ async def list_dlq(
     limit: int = 50,
     open_only: bool = True,
 ) -> list[dict[str, Any]]:
-    await tenant_svc.require_member(pool, tenant_id=tenant_id, user_id=user.user_id)
+    await tenant_svc.require_tenant_access(
+        pool,
+        principal=user,
+        tenant_id=tenant_id,
+        required_scopes=frozenset({"replay:read"}),
+    )
     clause = "AND resolved_at IS NULL" if open_only else ""
     rows = await pool.fetch(
         f"""
@@ -165,11 +171,12 @@ async def replay_events(
     dry_run: bool = False,
 ) -> dict[str, Any]:
     await tenant_svc.ensure_secure_schema(pool)
-    await tenant_svc.require_member(
+    await tenant_svc.require_tenant_access(
         pool,
+        principal=user,
         tenant_id=tenant_id,
-        user_id=user.user_id,
         min_roles=frozenset({"owner", "admin"}),
+        required_scopes=frozenset({"replay:write"}),
     )
     limit = max(1, min(limit, 1000))
     meta = await fetch_meta_range(
@@ -254,11 +261,12 @@ async def retry_dlq_item(
     tenant_id: UUID,
     dlq_id: UUID,
 ) -> dict[str, Any]:
-    await tenant_svc.require_member(
+    await tenant_svc.require_tenant_access(
         pool,
+        principal=user,
         tenant_id=tenant_id,
-        user_id=user.user_id,
         min_roles=frozenset({"owner", "admin"}),
+        required_scopes=frozenset({"replay:write"}),
     )
     row = await pool.fetchrow(
         """

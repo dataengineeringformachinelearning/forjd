@@ -63,6 +63,42 @@ class TestWorkflowRegistry(unittest.TestCase):
         )
         self.assertEqual(wf.id, "analytics_events")
 
+    def test_partner_workflow_id_alias(self) -> None:
+        """YAML aliases map partner wire ids → canonical family (config only)."""
+        from app.workflows.registry import canonical_event_type, canonical_workflow_id
+
+        wf = resolve_workflow(
+            content_type="application/forjd-telemetry+v1",
+            workflow_id="deml_telemetry",
+        )
+        self.assertEqual(wf.id, "threat_telemetry")
+        self.assertEqual(canonical_workflow_id("deml_telemetry"), "threat_telemetry")
+        self.assertEqual(canonical_event_type("deml.metric"), "threat.metric")
+        self.assertEqual(canonical_event_type("deml.alert"), "threat.alert")
+
+    def test_yaml_aliases_roundtrip(self) -> None:
+        text = """
+id: partner_family
+name: Partner family
+match:
+  content_types: [application/forjd-partner+v1]
+aliases:
+  workflow_ids: [legacy_partner_wf]
+  event_types:
+    partner.metric: [legacy.metric]
+pipeline:
+  processor: sealed_metadata
+  steps: [rollup]
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "partner.yaml"
+            path.write_text(text, encoding="utf-8")
+            loaded = load_workflow_file(path)
+        self.assertEqual(loaded.aliases.workflow_ids, ["legacy_partner_wf"])
+        self.assertEqual(
+            loaded.aliases.event_types["partner.metric"], ["legacy.metric"]
+        )
+
     def test_unknown_workflow_id(self) -> None:
         with self.assertRaises(ValueError):
             resolve_workflow(

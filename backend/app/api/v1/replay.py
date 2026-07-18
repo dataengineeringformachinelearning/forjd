@@ -1,4 +1,4 @@
-"""Event replay + DLQ API (admin/owner; metadata-only reprocess)."""
+"""Event replay + DLQ API (admin/owner or scoped service; metadata-only)."""
 
 from __future__ import annotations
 

@@ -20,6 +20,17 @@ event_types:
     content_type: application/forjd-telemetry+v1
     description: Alert / finding envelope
 
+# Partner / legacy wire aliases → this universal family.
+# Product-specific names live only here (never hardcoded in engine/API code).
+aliases:
+  workflow_ids:
+    - deml_telemetry
+  event_types:
+    threat.metric:
+      - deml.metric
+    threat.alert:
+      - deml.alert
+
 match:
   content_types:
     - application/forjd-telemetry+v1

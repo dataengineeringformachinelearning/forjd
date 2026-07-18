@@ -440,7 +440,10 @@ async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
             scopes TEXT[] NOT NULL DEFAULT ARRAY[
                 'ingest:write', 'ingest:read',
                 'projections:read', 'projections:run',
-                'sessions:write', 'sessions:read'
+                'sessions:write', 'sessions:read',
+                'replay:read', 'replay:write',
+                'status:read', 'status:write',
+                'analytics:read'
             ]::text[],
             is_active BOOLEAN NOT NULL DEFAULT TRUE,
             revoked_at TIMESTAMPTZ,
