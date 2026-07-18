@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import Any
 
 import asyncpg
@@ -51,22 +50,11 @@ _SOC_CRITERIA: list[dict[str, str]] = [
 
 
 async def build_soc_status(pool: asyncpg.Pool | None = None) -> dict[str, Any]:
+    """Static SOC criteria — never query cross-tenant session tables."""
+    del pool  # reserved for future tenant-scoped signals only
     total = len(_SOC_CRITERIA)
     compliant_count = sum(1 for c in _SOC_CRITERIA if c["status"] == "compliant")
     score = float(compliant_count / total)
-    rotation_days_remaining = 30
-    if pool is not None:
-        # Prefer crypto_sessions activity as a soft rotation signal when DEK table absent.
-        newest = await pool.fetchval(
-            """
-            SELECT created_at FROM crypto_sessions
-            ORDER BY created_at DESC LIMIT 1
-            """
-        )
-        if newest is not None:
-            created = newest if newest.tzinfo else newest.replace(tzinfo=UTC)
-            days_passed = (datetime.now(UTC) - created).days
-            rotation_days_remaining = max(0, 30 - days_passed)
     return {
         "status": "success",
         "overall_score": score,
@@ -75,6 +63,6 @@ async def build_soc_status(pool: asyncpg.Pool | None = None) -> dict[str, Any]:
             "transit": "TLS 1.3 on all connections",
             "rest": "Managed volume encryption + AES-256-GCM envelopes",
             "clientPayload": "E2EE sealed ingest; server-blind ciphertext",
-            "rotationDaysRemaining": rotation_days_remaining,
+            "rotationDaysRemaining": 30,
         },
     }

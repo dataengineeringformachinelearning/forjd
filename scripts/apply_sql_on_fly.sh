@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Apply backend/sql/003–016 inside forjd-backend (uses machine POSTGRES_DSN; never prints it).
+# Apply backend/sql/003–017 inside forjd-backend (uses machine POSTGRES_DSN; never prints it).
 #
 # Usage:
 #   ./scripts/apply_sql_on_fly.sh

@@ -18,6 +18,9 @@ aliases:
       - partner.metric
     threat.alert:
       - partner.alert
+  # Optional legacy MIME values (resolved before match.content_types).
+  content_types:
+    - application/vnd.partner.telemetry+v1
 
 match:
   content_types:

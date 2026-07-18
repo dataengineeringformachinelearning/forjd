@@ -33,23 +33,21 @@ pub async fn run_db_cleanup(pool: &PgPool) -> Result<()> {
     let scheduled_cutoff = Utc::now() - chrono::Duration::days(SCHEDULED_TASK_RETENTION_DAYS);
     let receipt_cutoff = Utc::now() - chrono::Duration::days(RECEIPT_RETENTION_DAYS);
 
-    let outbox_published = sqlx::query(
-        "DELETE FROM outbox_events WHERE is_published = true AND published_at < $1",
-    )
-    .bind(outbox_cutoff)
-    .execute(pool)
-    .await
-    .context("failed to delete published outbox events")?
-    .rows_affected();
+    let outbox_published =
+        sqlx::query("DELETE FROM outbox_events WHERE is_published = true AND published_at < $1")
+            .bind(outbox_cutoff)
+            .execute(pool)
+            .await
+            .context("failed to delete published outbox events")?
+            .rows_affected();
 
-    let outbox_dlq = sqlx::query(
-        "DELETE FROM outbox_events WHERE dlq_at IS NOT NULL AND dlq_at < $1",
-    )
-    .bind(outbox_dlq_cutoff)
-    .execute(pool)
-    .await
-    .context("failed to delete DLQ outbox events")?
-    .rows_affected();
+    let outbox_dlq =
+        sqlx::query("DELETE FROM outbox_events WHERE dlq_at IS NOT NULL AND dlq_at < $1")
+            .bind(outbox_dlq_cutoff)
+            .execute(pool)
+            .await
+            .context("failed to delete DLQ outbox events")?
+            .rows_affected();
 
     let endpoints = sqlx::query("DELETE FROM endpoint_observations WHERE observed_at < $1")
         .bind(observation_cutoff)
@@ -96,13 +94,7 @@ pub async fn run_db_cleanup(pool: &PgPool) -> Result<()> {
 
     info!(
         outbox_published,
-        outbox_dlq,
-        endpoints,
-        probes,
-        receipts,
-        scheduled,
-        dlq,
-        "db_cleanup: completed"
+        outbox_dlq, endpoints, probes, receipts, scheduled, dlq, "db_cleanup: completed"
     );
     Ok(())
 }
@@ -116,6 +108,9 @@ pub async fn run_optimize_database(pool: &PgPool) -> Result<()> {
             tracing::warn!(table, %error, "optimize_database: ANALYZE skipped");
         }
     }
-    info!(tables = ANALYZE_TABLES.len(), "optimize_database: completed");
+    info!(
+        tables = ANALYZE_TABLES.len(),
+        "optimize_database: completed"
+    );
     Ok(())
 }

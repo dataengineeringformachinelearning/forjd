@@ -86,7 +86,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    # DELETE required for session / service-account revoke from browser clients.
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-API-Key", "X-Request-ID"],
 )
 
@@ -107,7 +108,7 @@ async def health_check() -> dict[str, str]:
 
 @app.get("/ready")
 async def readiness(request: Request) -> JSONResponse:
-    """Readiness — Postgres + Redis must respond. Returns 503 if either is down."""
+    """Readiness — Postgres + Redis (+ optional engine) must respond."""
     checks: dict[str, bool] = {"postgres": False, "redis": False}
 
     pool = getattr(request.app.state, "db_pool", None)
@@ -135,9 +136,21 @@ async def readiness(request: Request) -> JSONResponse:
         except Exception:
             checks["redis"] = False
 
+    # Engine probe is informational — sealed API stays ready if Postgres/Redis/RLS ok.
+    # (HTTP engine may restart independently; Pathway/PyO3 remain soft-fallbacks.)
+    engine_meta: dict[str, Any] | None = None
+    if settings.ENGINE_URL.strip():
+        from app.services import engine as engine_svc
+
+        remote = await engine_svc.remote_version()
+        engine_ok = bool(remote and remote.get("service") == "forjd-engine")
+        engine_meta = {**(remote or {}), "ok": engine_ok}
+
     ready = all(checks.values())
     body: dict[str, Any] = {
         "status": "ready" if ready else "not_ready",
         "checks": checks,
     }
+    if engine_meta is not None:
+        body["engine"] = engine_meta
     return JSONResponse(content=body, status_code=200 if ready else 503)

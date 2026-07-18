@@ -52,7 +52,24 @@ struct UserAgentSummary {
 }
 
 pub async fn run(pool: PgPool, client: Client, cfg: Config) -> Result<()> {
-    let mut conn = bus::connect(&client).await?;
+    // --- Connect with backoff (Redis blips must not kill FORJD_ROLE=all) ---
+    let mut conn = {
+        let mut attempt = 0u32;
+        loop {
+            match bus::connect(&client).await {
+                Ok(conn) => break conn,
+                Err(error) if attempt < 12 => {
+                    attempt += 1;
+                    warn!(%error, attempt, "normalizer: Redis connect retry");
+                    tokio::time::sleep(std::time::Duration::from_secs(2.min(1 + u64::from(attempt))))
+                        .await;
+                }
+                Err(error) => {
+                    return Err(error).context("normalizer: Redis unavailable after retries");
+                }
+            }
+        }
+    };
     bus::ensure_group(&mut conn, TELEMETRY_STREAM, &cfg.normalizer_group_id).await?;
     let consumer = format!("forjd-normalizer-{}", Uuid::new_v4());
     info!(
@@ -90,9 +107,13 @@ pub async fn run(pool: PgPool, client: Client, cfg: Config) -> Result<()> {
 
             match result {
                 Ok(()) => {
-                    if let Err(error) =
-                        bus::ack(&mut conn, TELEMETRY_STREAM, &cfg.normalizer_group_id, &message.id)
-                            .await
+                    if let Err(error) = bus::ack(
+                        &mut conn,
+                        TELEMETRY_STREAM,
+                        &cfg.normalizer_group_id,
+                        &message.id,
+                    )
+                    .await
                     {
                         error!(%error, id = %message.id, "normalizer: ack failed");
                     }

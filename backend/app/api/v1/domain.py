@@ -6,7 +6,7 @@ from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.core.auth import AuthUser, get_current_user, pool_from_request
 from app.services import analytics as analytics_svc
@@ -86,11 +86,19 @@ class HoneypotCreateRequest(BaseModel):
 
 class HoneypotHitRequest(BaseModel):
     tenant_id: UUID
-    path: str
-    source_ip: str | None = None
-    method: str = "GET"
-    user_agent: str | None = None
-    payload: dict[str, Any] = Field(default_factory=dict)
+    path: str = Field(..., min_length=1, max_length=512)
+    source_ip: str | None = Field(default=None, max_length=128)
+    method: str = Field(default="GET", max_length=16)
+    user_agent: str | None = Field(default=None, max_length=512)
+    # Cap trap body — unauthenticated decoy must not accept unbounded JSON.
+    payload: dict[str, Any] = Field(default_factory=dict, max_length=32)
+
+    @field_validator("payload")
+    @classmethod
+    def _cap_payload(cls, value: dict[str, Any]) -> dict[str, Any]:
+        if len(str(value)) > 4096:
+            raise ValueError("payload too large")
+        return value
 
 
 class ReportRequest(BaseModel):
@@ -375,7 +383,12 @@ async def report_pdf(
 
 
 @router.get("/compliance/soc")
-async def compliance_soc(request: Request) -> dict[str, Any]:
+async def compliance_soc(
+    request: Request,
+    user: AuthUser = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Authenticated SOC criteria (static — no cross-tenant DB signals)."""
+    del user
     return await compliance_svc.build_soc_status(pool_from_request(request))
 
 

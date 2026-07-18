@@ -103,18 +103,21 @@ class Settings(BaseSettings):
     OBJECT_STORAGE_REGION: str = "us-east-1"
     OBJECT_STORAGE_ADDRESSING_STYLE: str = "path"
 
-    @model_validator(mode="after")
-    def _secure_production_defaults(self) -> Settings:
-        # Align with daemon: ENVIRONMENT=prod|production OR Fly (FLY_APP_NAME).
+    @property
+    def is_production(self) -> bool:
+        """True for ENVIRONMENT=prod|production or Fly-hosted processes."""
         import os
 
         env = self.ENVIRONMENT.lower().strip()
-        on_fly = bool(os.environ.get("FLY_APP_NAME"))
-        is_prod = env in {"production", "prod"} or on_fly
-        if is_prod and self.DEBUG:
+        return env in {"production", "prod"} or bool(os.environ.get("FLY_APP_NAME"))
+
+    @model_validator(mode="after")
+    def _secure_production_defaults(self) -> Settings:
+        # Align with daemon: ENVIRONMENT=prod|production OR Fly (FLY_APP_NAME).
+        if self.is_production and self.DEBUG:
             # Prefer explicit DEBUG=false in prod; coerce if someone left the example default.
             object.__setattr__(self, "DEBUG", False)
-        if is_prod:
+        if self.is_production:
             # Fail closed: no soft-migrate; require RLS + crypto session binding.
             object.__setattr__(self, "SOFT_MIGRATE_SCHEMA", False)
             object.__setattr__(self, "REQUIRE_RLS", True)

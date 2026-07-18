@@ -26,6 +26,8 @@ _CACHE: list[WorkflowDefinition] | None = None
 _WORKFLOW_ID_ALIASES: dict[str, str] = {}
 # event_type alias (lowercase) → canonical event_type (global across workflows)
 _EVENT_TYPE_ALIASES: dict[str, str] = {}
+# content_type alias (lowercase) → set of workflow ids that accept it
+_CONTENT_TYPE_ALIASES: dict[str, set[str]] = {}
 
 
 # --- Path resolution ---
@@ -42,11 +44,20 @@ def workflows_dir() -> Path:
 
 
 # --- Alias index ---
+def _alias_clash(kind: str, alias: str, existing: str, claimant: str) -> None:
+    """Warn always; fail closed in production so misroutes cannot ship silently."""
+    msg = f"{kind} alias {alias!r} claimed by both {existing!r} and {claimant!r}"
+    if settings.is_production:
+        raise RuntimeError(f"workflow alias collision: {msg}")
+    logger.warning("%s; keeping %r", msg, existing)
+
+
 def _rebuild_alias_index(workflows: list[WorkflowDefinition]) -> None:
-    """Build workflow_id / event_type alias maps from loaded YAML (fail soft on clashes)."""
-    global _WORKFLOW_ID_ALIASES, _EVENT_TYPE_ALIASES
+    """Build workflow_id / event_type / content_type alias maps from loaded YAML."""
+    global _WORKFLOW_ID_ALIASES, _EVENT_TYPE_ALIASES, _CONTENT_TYPE_ALIASES
     wid_map: dict[str, str] = {}
     et_map: dict[str, str] = {}
+    ct_map: dict[str, set[str]] = {}
 
     for wf in workflows:
         if not wf.enabled:
@@ -58,13 +69,7 @@ def _rebuild_alias_index(workflows: list[WorkflowDefinition]) -> None:
                 continue
             existing = wid_map.get(alias)
             if existing is not None and existing != wf.id:
-                logger.warning(
-                    "workflow alias %r claimed by both %r and %r; keeping %r",
-                    alias,
-                    existing,
-                    wf.id,
-                    existing,
-                )
+                _alias_clash("workflow", alias, existing, wf.id)
                 continue
             wid_map[alias] = wf.id
 
@@ -75,18 +80,17 @@ def _rebuild_alias_index(workflows: list[WorkflowDefinition]) -> None:
                     continue
                 existing = et_map.get(alias)
                 if existing is not None and existing != canon:
-                    logger.warning(
-                        "event_type alias %r claimed by both %r and %r; keeping %r",
-                        alias,
-                        existing,
-                        canon,
-                        existing,
-                    )
+                    _alias_clash("event_type", alias, existing, canon)
                     continue
                 et_map[alias] = canon
 
+        for ct_alias in wf.aliases.content_types:
+            owners = ct_map.setdefault(ct_alias, set())
+            owners.add(wf.id)
+
     _WORKFLOW_ID_ALIASES = wid_map
     _EVENT_TYPE_ALIASES = et_map
+    _CONTENT_TYPE_ALIASES = ct_map
 
 
 def canonical_workflow_id(workflow_id: str | None) -> str | None:
@@ -135,10 +139,11 @@ def _filter_event_types(wf: WorkflowDefinition) -> set[str]:
 
 # --- Cache ---
 def clear_cache() -> None:
-    global _CACHE, _WORKFLOW_ID_ALIASES, _EVENT_TYPE_ALIASES
+    global _CACHE, _WORKFLOW_ID_ALIASES, _EVENT_TYPE_ALIASES, _CONTENT_TYPE_ALIASES
     _CACHE = None
     _WORKFLOW_ID_ALIASES = {}
     _EVENT_TYPE_ALIASES = {}
+    _CONTENT_TYPE_ALIASES = {}
 
 
 def all_workflows(*, reload: bool = False) -> list[WorkflowDefinition]:
@@ -218,11 +223,15 @@ def resolve_workflow(
     ct = content_type.strip().lower()
     et = (event_type or "").strip().lower() or None
     et_canon = canonical_event_type(et) if et else None
+    # Warm alias index for content_type aliases.
+    all_workflows()
+    ct_alias_owners = _CONTENT_TYPE_ALIASES.get(ct, set())
 
     matches: list[WorkflowDefinition] = []
     for wf in workflows:
         ctypes = [c.lower() for c in wf.match.content_types]
-        if ctypes and ct not in ctypes:
+        alias_hit = wf.id in ct_alias_owners
+        if ctypes and ct not in ctypes and not alias_hit:
             continue
         accepted = _filter_event_types(wf)
         # Empty match.event_types = any event_type for this content_type.

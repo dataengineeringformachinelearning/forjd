@@ -91,10 +91,45 @@ class TestJwtClaimShaping(unittest.TestCase):
         self.assertIn("ingest:write", principal.scopes)
         self.assertTrue(principal.actor_id.startswith("svc:"))
 
+    def test_user_metadata_service_shape_ignored(self) -> None:
+        """user_metadata is user-writable — must never grant service principal."""
+        claims = {
+            "sub": "22222222-2222-2222-2222-222222222222",
+            "role": "authenticated",
+            "user_metadata": {
+                "forjd": {
+                    "principal_type": "service",
+                    "tenant_id": "33333333-3333-3333-3333-333333333333",
+                    "scopes": ["*"],
+                }
+            },
+        }
+        self.assertIsNone(_forjd_metadata(claims))
+        principal = _principal_from_claims(claims)
+        self.assertEqual(principal.kind, PrincipalKind.USER)
+
     def test_service_role_jwt_rejected(self) -> None:
         with self.assertRaises(HTTPException) as ctx:
             _principal_from_claims(
                 {"sub": "44444444-4444-4444-4444-444444444444", "role": "service_role"}
+            )
+        self.assertEqual(ctx.exception.status_code, 401)
+
+    def test_service_role_rejected_even_with_forjd_claim(self) -> None:
+        """service_role must not be salvaged by app_metadata.forjd shaping."""
+        with self.assertRaises(HTTPException) as ctx:
+            _principal_from_claims(
+                {
+                    "sub": "44444444-4444-4444-4444-444444444444",
+                    "role": "service_role",
+                    "app_metadata": {
+                        "forjd": {
+                            "principal_type": "service",
+                            "tenant_id": "33333333-3333-3333-3333-333333333333",
+                            "scopes": ["*"],
+                        }
+                    },
+                }
             )
         self.assertEqual(ctx.exception.status_code, 401)
 

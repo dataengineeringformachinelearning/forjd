@@ -127,17 +127,17 @@ def service_token_prefix(token: str) -> str | None:
     return rest.split("_", 1)[0]
 
 
-# --- Claim helpers (Supabase app_metadata.forjd) ---
+# --- Claim helpers (Supabase app_metadata.forjd only — never user_metadata) ---
 def _forjd_metadata(claims: dict[str, Any]) -> dict[str, Any] | None:
-    """Extract FORJD principal block from JWT claims (never trust alone for authz)."""
-    for container_key in ("app_metadata", "user_metadata", "forjd"):
-        if container_key == "forjd":
-            block = claims.get("forjd")
-        else:
-            meta = claims.get(container_key)
-            if not isinstance(meta, dict):
-                continue
-            block = meta.get("forjd")
+    """Extract FORJD service principal block from JWT claims.
+
+    Only ``app_metadata.forjd`` is trusted (admin-controlled). ``user_metadata``
+    is user-writable in Supabase and must never grant service shape.
+    Binding still requires a matching ``service_accounts`` row at request time.
+    """
+    meta = claims.get("app_metadata")
+    if isinstance(meta, dict):
+        block = meta.get("forjd")
         if isinstance(block, dict) and block.get("principal_type") == "service":
             return block
     return None
@@ -158,15 +158,17 @@ def verify_supabase_jwt(token: str) -> AuthUser:
     last_err: Exception | None = None
     claims: dict[str, Any] | None = None
 
+    # Never take ``alg`` from the unverified header (algorithm confusion).
+    _JWKS_ALGORITHMS = ["ES256", "RS256"]
+
     jwks = _get_jwks_client()
     if jwks is not None:
         try:
-            header = jwt.get_unverified_header(token)
             key = jwks.get_signing_key_from_jwt(token)
             claims = jwt.decode(
                 token,
                 key.key,
-                algorithms=[header.get("alg", "ES256")],
+                algorithms=_JWKS_ALGORITHMS,
                 audience=audience,
                 issuer=issuer,
                 options=options,
@@ -204,6 +206,14 @@ def _principal_from_claims(claims: dict[str, Any]) -> AuthUser:
     if not sub:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="token missing sub")
 
+    # Reject Supabase service_role before any forjd claim shaping (fail closed).
+    role = str(claims.get("role") or "authenticated")
+    if role == "service_role":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="service_role JWT is not accepted; use a tenant-scoped service account",
+        )
+
     forjd = _forjd_metadata(claims)
     if forjd is not None:
         # Provisional service shape — get_current_user binds to service_accounts.
@@ -216,20 +226,12 @@ def _principal_from_claims(claims: dict[str, Any]) -> AuthUser:
         return AuthUser(
             user_id=str(sub),
             email=(claims.get("email") if isinstance(claims.get("email"), str) else None),
-            role=str(claims.get("role") or "authenticated"),
+            role=role,
             raw_claims=claims,
             kind=PrincipalKind.SERVICE,
             tenant_id=str(tenant) if tenant else None,
             subprocessor=str(forjd.get("subprocessor") or "") or None,
             scopes=scopes,
-        )
-
-    # Reject Supabase service_role JWT on app routes (too privileged / wrong model).
-    role = str(claims.get("role") or "authenticated")
-    if role == "service_role":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="service_role JWT is not accepted; use a tenant-scoped service account",
         )
 
     return AuthUser(

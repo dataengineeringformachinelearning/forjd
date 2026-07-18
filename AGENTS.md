@@ -42,7 +42,11 @@ Backend Python is pinned to **3.12** with Pathway ≥0.31 (`beartype<0.16` via u
 - Keep dependencies minimal — add a package only when a concrete use case needs it.
 - After meaningful progress, append a `LOG.MD` entry (format in `.cursorrules`).
 
-Last updated: 2026-07-18 (universal aliases + CUTOVER.md; sql/017 service-principal cutover)
+Last updated: 2026-07-18 (Supabase is FORJD Postgres; Neon→Supabase runbook in docs/NEON_TO_SUPABASE.md)
+
+**Cutover:** root [`CUTOVER.md`](CUTOVER.md) — SQL `003`–`017`, remint `fjsvc_`, Fly
+backend/engine + Vercel frontend. Partner BFFs (e.g. DEML) own dual-write/read flags;
+FORJD stays universal YAML-configured sealed ingest.
 
 ## Cursor Cloud specific instructions
 

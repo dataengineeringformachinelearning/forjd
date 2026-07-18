@@ -34,6 +34,19 @@ Fly/Compose build: `--features server,data-plane`.
 
 Secrets when the data plane is active: `DATABASE_URL` (or `POSTGRES_DSN`), `REDIS_URL` (Dragonfly).
 
+Bus roles (`relay` / `scheduler` / `normalizer` / `all`) on Fly also require
+internode AES-256-GCM keys:
+
+```bash
+FORJD_INTERNODE_ENCRYPTION=required
+FORJD_INTERNODE_ACTIVE_KID=v1
+FORJD_INTERNODE_KEYS='{"v1":"<base64url-32-bytes>"}'
+```
+
+Use `./scripts/sync_engine_dataplane_secrets.sh` to copy DSNs from
+`forjd-backend`, mint keys, and set `FORJD_ROLE=all`. Without internode keys,
+`all` fails closed at startup (historically the Fly crash-loop cause).
+
 ## Local binary
 
 ```bash
@@ -63,10 +76,10 @@ docker run --rm -p 8080:8080 \
 ```bash
 cd engine
 fly apps create forjd-engine          # once
-fly secrets set ENGINE_API_TOKEN='…' \
-  DATABASE_URL='postgresql://…?sslmode=require' \
-  REDIS_URL='redis://:…@forjd-dragonfly.internal:6379/0'
-fly deploy
+fly secrets set ENGINE_API_TOKEN='…'  # required in prod / on Fly
+fly deploy                            # starts with FORJD_ROLE=engine (process only)
+# After SQL 009–010 and backend DSNs exist:
+./scripts/sync_engine_dataplane_secrets.sh   # DSNs + internode keys + FORJD_ROLE=all
 ```
 
 VM defaults: `shared-cpu-2x` / 2GB (process + data plane). Scale further if needed:
@@ -83,6 +96,18 @@ ENGINE_API_TOKEN=…same as engine secret…
 ```
 
 Apply `backend/sql/009`–`010` for outbox / API keys / audit before enabling `FORJD_ROLE=all`.
+
+### Role stability checklist
+
+| Role | Needs | Stable when |
+|------|-------|-------------|
+| `engine` | `ENGINE_API_TOKEN` | Process `/v1/process` + `/v1/summarize` only |
+| `ingest` | DB + Redis | Sealed edge → `outbox_events` |
+| `relay` / `scheduler` / `normalizer` | DB + Redis + internode keys | Bus encrypt/decrypt works |
+| `all` | All of the above | `/ready` reports ok; logs show `data plane role=All` |
+| `probe` | DB | Probe loop without bus |
+
+Rollback: `fly secrets set FORJD_ROLE=engine -a forjd-engine`.
 
 ## Notes
 

@@ -38,6 +38,9 @@ htmlcov/
 # Logs
 *.log
 
+# Local Neon→Supabase dump artifacts (may contain PII)
+.pg_migrate_dumps/
+
 # Rust
 **/target/
 

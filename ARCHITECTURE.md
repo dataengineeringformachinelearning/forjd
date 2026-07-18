@@ -86,10 +86,33 @@ Product names never belong in engine/API code.
 Realtime + `projection_feed` land in `015`; ML scores/runs in `016`; service-principal
 session actor + expanded default scopes in `017`.
 
+Postgres host is **Supabase** (`POSTGRES_DSN`). Partner control-plane DBs (e.g. DEML
+on Neon) may consolidate into the same project under a non-`public` schema — see
+[`docs/NEON_TO_SUPABASE.md`](docs/NEON_TO_SUPABASE.md).
+
 ## Production cutover
 
 Operator checklist (preflight, dual-write → read switch → write switch →
 decommission, rollback): [`CUTOVER.md`](CUTOVER.md).
+
+### Engine roles (post-cutover)
+
+| `FORJD_ROLE` | What runs | Required secrets |
+|--------------|-----------|------------------|
+| `engine` (default) | Arrow/Parquet process HTTP only | `ENGINE_API_TOKEN` |
+| `ingest` | Sealed edge → Postgres outbox | + `DATABASE_URL`, `REDIS_URL` |
+| `relay` / `scheduler` / `normalizer` | Bus workers | + DSNs + **internode keys** |
+| `all` | Relay + scheduler + probe + normalizer + ingest | DSNs + internode keys |
+
+On Fly, bus roles default to `FORJD_INTERNODE_ENCRYPTION=required`. Missing
+`FORJD_INTERNODE_ACTIVE_KID` / `FORJD_INTERNODE_KEYS` is the historical cause of
+the `FORJD_ROLE=all` crash loop. Enable with
+[`scripts/sync_engine_dataplane_secrets.sh`](scripts/sync_engine_dataplane_secrets.sh);
+rollback with `fly secrets set FORJD_ROLE=engine -a forjd-engine`.
+
+End-to-end partner path: partner BFF (e.g. DEML) → FORJD API (`fjsvc_`) →
+Supabase Postgres (ciphertext + projections) → optional engine sealed pipeline
+via `ENGINE_URL`.
 
 ## Explicit non-goals
 

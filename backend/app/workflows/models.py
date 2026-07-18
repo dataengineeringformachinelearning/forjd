@@ -174,6 +174,11 @@ class WorkflowAliases(BaseModel):
         default_factory=dict,
         description="Map canonical event_type → partner/legacy wire aliases",
     )
+    # Legacy MIME / content_type wire values that resolve to match.content_types.
+    content_types: list[str] = Field(
+        default_factory=list,
+        description="Alternate content_type values that match this workflow",
+    )
 
     @field_validator("workflow_ids")
     @classmethod
@@ -186,6 +191,21 @@ class WorkflowAliases(BaseModel):
                 continue
             if not all(c.isalnum() or c in "._-" for c in key):
                 raise ValueError(f"invalid workflow alias: {raw!r}")
+            seen.add(key)
+            out.append(key)
+        return out
+
+    @field_validator("content_types")
+    @classmethod
+    def _lower_content_types(cls, value: list[str]) -> list[str]:
+        out: list[str] = []
+        seen: set[str] = set()
+        for raw in value:
+            key = str(raw).strip().lower()
+            if not key or key in seen:
+                continue
+            if len(key) > 128 or any(c.isspace() for c in key):
+                raise ValueError(f"invalid content_type alias: {raw!r}")
             seen.add(key)
             out.append(key)
         return out

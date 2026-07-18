@@ -33,7 +33,7 @@ from uuid import UUID
 import asyncpg
 
 from app.core.auth import AuthUser
-from app.core.crypto import CryptoError
+from app.core.crypto import CryptoError, b64decode
 from app.models.ingest import (
     EmbeddingIngestRequest,
     IngestBatchRequest,
@@ -124,7 +124,8 @@ async def ingest_events(
 
         try:
             sealed = event.envelope.to_sealed()
-            cipher_len = len(sealed.ciphertext)
+            # Byte length of decoded ciphertext (not base64 char count).
+            cipher_len = len(b64decode(sealed.ciphertext))
         except CryptoError:
             cipher_len = 0
 

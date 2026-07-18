@@ -118,6 +118,7 @@ aliases:
   workflow_ids: [legacy_partner_wf]
   event_types:
     partner.metric: [legacy.metric]
+  content_types: [application/vnd.legacy.partner+v1]
 pipeline:
   processor: sealed_metadata
   steps: [rollup]
@@ -130,6 +131,38 @@ pipeline:
         self.assertEqual(
             loaded.aliases.event_types["partner.metric"], ["legacy.metric"]
         )
+        self.assertEqual(
+            loaded.aliases.content_types, ["application/vnd.legacy.partner+v1"]
+        )
+
+    def test_content_type_alias_resolves_workflow(self) -> None:
+        """Legacy MIME aliases map onto match.content_types families."""
+        from app.workflows import registry as wf_registry
+
+        text = """
+id: universal_ct
+name: Universal CT
+enabled: true
+match:
+  content_types: [application/forjd-partner+v1]
+aliases:
+  content_types: [application/vnd.legacy.partner+v1]
+pipeline:
+  processor: sealed_metadata
+  steps: [rollup]
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "universal_ct.yaml"
+            path.write_text(text, encoding="utf-8")
+            clear_cache()
+            original = wf_registry.workflows_dir
+            wf_registry.workflows_dir = lambda: Path(tmp)  # type: ignore[method-assign]
+            try:
+                wf = resolve_workflow(content_type="application/vnd.legacy.partner+v1")
+                self.assertEqual(wf.id, "universal_ct")
+            finally:
+                wf_registry.workflows_dir = original  # type: ignore[method-assign]
+                clear_cache()
 
     def test_unknown_workflow_id(self) -> None:
         with self.assertRaises(ValueError):

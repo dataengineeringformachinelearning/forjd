@@ -106,7 +106,7 @@ pub async fn cpe_unique(
                     "CPE index unavailable".to_string(),
                 )
             })?;
-    Ok(Json(json!({"cpe_2_3": result})))
+    Ok(Json(json!({ "cpe_2_3": result })))
 }
 
 pub fn tokenize_cpe_query(raw: &str) -> Vec<String> {

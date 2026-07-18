@@ -28,7 +28,12 @@ pub async fn spawn_background(
     }
 
     if cfg.role.needs_bus() {
-        internode::validate_configuration()?;
+        internode::validate_configuration().context(
+            "bus roles (relay/scheduler/normalizer/all) on Fly require \
+             FORJD_INTERNODE_ENCRYPTION=required, FORJD_INTERNODE_ACTIVE_KID, and \
+             FORJD_INTERNODE_KEYS as JSON {\"kid\":\"<base64url-32-bytes>\"} — \
+             run ./scripts/sync_engine_dataplane_secrets.sh",
+        )?;
     }
 
     let pool_options = PgPoolOptions::new()

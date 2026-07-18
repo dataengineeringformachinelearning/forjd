@@ -2,6 +2,13 @@
 
 ## Log
 
+- 2026-07-18: Documented Neon→Supabase consolidation — FORJD Fly already on Supabase PG17+vector; Neon holds DEML Django (PG18). Added `docs/NEON_TO_SUPABASE.md`, `scripts/pg_migrate_neon_to_supabase.sh`, and `backend/scripts/verify_supabase_post_migration.py` (RLS/vector/Realtime gates + rollback).
+- 2026-07-18: Fixed FORJD_ROLE=all crash loop — minted FORJD_INTERNODE_* via sync_engine_dataplane_secrets.sh, redeployed engine (`forjd_role=All`, health passing). Backend `/ready` reports engine metadata without failing closed on engine blips; docs/ARCHITECTURE updated for post-cutover roles.
+- 2026-07-18: Final validation hardenings — reject `service_role` before forjd claim shaping; gate global `/api/v1/anomaly` in production; require `ENGINE_API_TOKEN` on Fly/prod engine startup.
+- 2026-07-18: Cutover prep complete across FORJD + DEML — partner BFF dual-write/dual-read flags, Railway/Vercel checklists, and rollback live in `CUTOVER.md` (FORJD) and DEML `docs/CUTOVER.md`; Angular wire contracts unchanged.
+- 2026-07-18: Expanded CUTOVER.md with Fly/Vercel deployment checklist and FORJD-side rollback; partner dual-write/read remains BFF-owned so the platform stays universal.
+- 2026-07-18: Hardened E2EE/auth boundaries — JWKS alg allowlist (no header trust), `app_metadata`-only service claims, CORS DELETE for revoke, auth-gated anomaly/compliance, production pulse write gate, routing-tag metadata values, byte-accurate `cipher_len`, YAML `content_types` aliases with prod fail-closed collisions.
+- 2026-07-18: Removed first-party `deml_telemetry.yaml`; partners map legacy wire ids via YAML aliases or BFF rewrite onto `threat_telemetry`. Resolved AUTH/test merge conflicts for universal alias wording.
 - 2026-07-18: Finished DEML↔FORJD cutover ops — Railway user-plane only (backend/frontend/dragonfly); retired data-plane services deleted; volumes queued for purge. Platform account mapped to FORJD tenant; service token projections verified. Engine left on `FORJD_ROLE=engine` after `all` crash-looped (DB/Redis secrets present; sealed process path healthy).
 - 2026-07-17: Applied production SQL `003`–`016` on Supabase via forjd-backend (`SCHEMA_OK`); `/ready` now reports `schema_rls=true`. Railway deml-backend stripped legacy data-plane env; still needs `FORJD_SERVICE_TOKEN` + `FORJD_TENANT_ID` before cutover.
 - 2026-07-17: Cutover prep for DEML subprocessor — added `deml_telemetry.yaml` (deml.metric/deml.alert), engine secret sync script, and redeployed forjd-engine with current fly.toml (process-only until DB/Redis secrets are copied).

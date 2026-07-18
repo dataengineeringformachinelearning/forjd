@@ -27,9 +27,11 @@ Apply in order in the Supabase SQL editor (or `psql`).
 1. Enable extensions **vector** and **pgcrypto** (Dashboard → Database → Extensions).
 2. Run `003` → `017` in order.
 3. Realtime: `015`/`016` add `stream_results`, `telemetry_events`, `ml_scores`, `training_runs` when publication exists.
-4. Set backend env: `SUPABASE_URL`, `SUPABASE_JWT_SECRET` (or rely on JWKS), `POSTGRES_DSN`.
+4. Set backend env: `SUPABASE_URL`, `SUPABASE_JWT_SECRET` (or rely on JWKS), `POSTGRES_DSN` (Supabase only — not Neon).
 5. Add SaaS use cases as YAML under `backend/workflows/` (see that folder’s README).
 6. After `017`, remint opaque `fjsvc_` tokens so stored scopes include sessions/replay/status/analytics.
+7. Post-check: `python backend/scripts/verify_supabase_post_migration.py` (or SQL in `scripts/verify_supabase_post_migration.sql`).
+8. Neon consolidation (partner control plane): [`docs/NEON_TO_SUPABASE.md`](../../docs/NEON_TO_SUPABASE.md).
 
 ### Roles
 

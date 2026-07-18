@@ -168,7 +168,10 @@ impl Config {
             config.validate_transport_security()?;
         }
         if config.role.needs_bus() && config.redis_url.is_none() {
-            bail!("REDIS_URL (Dragonfly) is required for role {:?}", config.role);
+            bail!(
+                "REDIS_URL (Dragonfly) is required for role {:?}",
+                config.role
+            );
         }
         if config.role.enable_ingest() && config.redis_url.is_none() {
             bail!("REDIS_URL is required when FORJD_ROLE enables ingest");

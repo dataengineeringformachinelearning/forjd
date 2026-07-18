@@ -35,10 +35,11 @@ COPY --from=builder /src/target/release/forjd-engine /usr/local/bin/forjd-engine
 
 USER 1001
 
+# Default process-only; enable data plane via fly secrets / sync script (FORJD_ROLE=all).
 ENV PORT=8080 \
     RUST_LOG=info \
     RUST_BACKTRACE=0 \
-    FORJD_ROLE=all
+    FORJD_ROLE=engine
 
 EXPOSE 8080
 

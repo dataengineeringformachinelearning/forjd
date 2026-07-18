@@ -24,8 +24,10 @@ primary_region = 'iad'
   #   ./scripts/sync_engine_dataplane_secrets.sh   # sets FORJD_ROLE=all + DSNs
   FORJD_ROLE = 'engine'
   FORJD_TRANSPORT_SECURITY = 'required'
-  # Secrets: ENGINE_API_TOKEN; for FORJD_ROLE=all also DATABASE_URL/POSTGRES_DSN + REDIS_URL
-  # Optional: CPE_REDIS_URL, FORJD_INTERNODE_*, OTEL_*
+  # Secrets: ENGINE_API_TOKEN (required on Fly).
+  # FORJD_ROLE=all also needs DATABASE_URL/POSTGRES_DSN + REDIS_URL +
+  # FORJD_INTERNODE_ENCRYPTION/ACTIVE_KID/KEYS (minted by sync_engine_dataplane_secrets.sh).
+  # Optional: CPE_REDIS_URL, OTEL_*
 
 [http_service]
   internal_port = 8080

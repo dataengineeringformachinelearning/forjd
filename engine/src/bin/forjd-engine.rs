@@ -4,7 +4,7 @@
 //!   cargo build --release --no-default-features --features server,data-plane
 //!
 //! `FORJD_ROLE` selects data-plane work (unset/`engine`/`none` = process only;
-//! `all` = relay+scheduler+probe+normalizer+ingest+cpe). Process/summarize
+//! `all` = relay+scheduler+probe+normalizer+ingest; `cpe` is opt-in). Process/summarize
 //! routes always available when the `server` feature is enabled.
 
 use axum::body::Body;
@@ -36,6 +36,8 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 #[derive(Clone)]
 struct AppState {
     api_token: Option<Arc<str>>,
+    /// Resolved `FORJD_ROLE` for readiness / version (ops visibility).
+    forjd_role: &'static str,
     #[cfg(feature = "data-plane")]
     data_plane: Option<Arc<forjd_engine::data_plane::DataPlaneState>>,
 }
@@ -67,8 +69,18 @@ async fn main() {
         .filter(|s| !s.is_empty())
         .map(Arc::<str>::from);
 
+    // Fail closed on Fly / ENVIRONMENT=prod when mutate routes would be open.
+    let is_production = std::env::var("ENVIRONMENT")
+        .map(|e| {
+            let e = e.to_ascii_lowercase();
+            e == "prod" || e == "production"
+        })
+        .unwrap_or(false)
+        || std::env::var("FLY_APP_NAME").is_ok();
     if api_token.is_some() {
         tracing::info!("ENGINE_API_TOKEN set — mutate routes require auth");
+    } else if is_production {
+        panic!("ENGINE_API_TOKEN required in production (ENVIRONMENT=prod or FLY_APP_NAME)");
     } else {
         tracing::warn!(
             "ENGINE_API_TOKEN unset — /v1/process and /v1/summarize are open (dev only)"
@@ -78,19 +90,33 @@ async fn main() {
     // --- Optional data plane (FORJD_ROLE) ---
     #[cfg(feature = "data-plane")]
     let (dp_cfg, bg_tasks, dp_state) = {
-        let cfg = forjd_engine::data_plane::Config::from_env()
-            .expect("invalid data-plane configuration");
+        let cfg = match forjd_engine::data_plane::Config::from_env() {
+            Ok(cfg) => cfg,
+            Err(error) => {
+                tracing::error!(error = %error, "invalid data-plane configuration");
+                eprintln!("forjd-engine: invalid data-plane configuration: {error:#}");
+                std::process::exit(1);
+            }
+        };
         tracing::info!(role = ?cfg.role, "data plane role");
-        let (tasks, pool) = forjd_engine::data_plane::spawn_background(cfg.clone())
-            .await
-            .expect("data plane failed to start");
+        let (tasks, pool) = match forjd_engine::data_plane::spawn_background(cfg.clone()).await {
+            Ok(started) => started,
+            Err(error) => {
+                tracing::error!(error = %error, "data plane failed to start");
+                eprintln!("forjd-engine: data plane failed to start: {error:#}");
+                std::process::exit(1);
+            }
+        };
         let state = if let Some(pool) = pool {
             if cfg.role.enable_ingest() || cfg.role.enable_cpe() {
-                Some(
-                    forjd_engine::data_plane::build_state(pool, &cfg)
-                        .await
-                        .expect("data plane HTTP state"),
-                )
+                match forjd_engine::data_plane::build_state(pool, &cfg).await {
+                    Ok(state) => Some(state),
+                    Err(error) => {
+                        tracing::error!(error = %error, "data plane HTTP state failed");
+                        eprintln!("forjd-engine: data plane HTTP state failed: {error:#}");
+                        std::process::exit(1);
+                    }
+                }
             } else {
                 None
             }
@@ -103,8 +129,21 @@ async fn main() {
     #[cfg(not(feature = "data-plane"))]
     let dp_state: Option<()> = None;
 
+    let forjd_role: &'static str = {
+        #[cfg(feature = "data-plane")]
+        {
+            // Leak is fine — process-lifetime role label for /ready + /v1/version.
+            Box::leak(format!("{:?}", dp_cfg.role).into_boxed_str())
+        }
+        #[cfg(not(feature = "data-plane"))]
+        {
+            "process-only"
+        }
+    };
+
     let state = AppState {
         api_token,
+        forjd_role,
         #[cfg(feature = "data-plane")]
         data_plane: dp_state.clone(),
     };
@@ -274,12 +313,24 @@ async fn health() -> Json<StatusBody> {
 async fn ready(State(state): State<AppState>) -> Response {
     #[cfg(feature = "data-plane")]
     if let Some(ref dp) = state.data_plane {
-        let (status, body) = forjd_engine::data_plane::http::data_plane_ready(dp).await;
+        let (status, mut body) = forjd_engine::data_plane::http::data_plane_ready(dp).await;
+        if let serde_json::Value::Object(ref mut map) = body.0 {
+            map.insert(
+                "forjd_role".into(),
+                serde_json::Value::String(state.forjd_role.to_string()),
+            );
+        }
         return (status, body).into_response();
     }
-    #[cfg(not(feature = "data-plane"))]
-    let _ = state;
-    Json(StatusBody { status: "ready" }).into_response()
+    (
+        axum::http::StatusCode::OK,
+        Json(serde_json::json!({
+            "status": "ready",
+            "forjd_role": state.forjd_role,
+            "mode": "process",
+        })),
+    )
+        .into_response()
 }
 
 #[derive(Serialize)]
@@ -287,15 +338,17 @@ struct VersionBody {
     version: &'static str,
     service: &'static str,
     schema_version: u32,
+    forjd_role: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     data_plane: Option<&'static str>,
 }
 
-async fn version() -> Json<VersionBody> {
+async fn version(State(state): State<AppState>) -> Json<VersionBody> {
     Json(VersionBody {
         version: engine_version(),
         service: "forjd-engine",
         schema_version: forjd_engine::SCHEMA_VERSION,
+        forjd_role: state.forjd_role,
         data_plane: if cfg!(feature = "data-plane") {
             Some("enabled")
         } else {

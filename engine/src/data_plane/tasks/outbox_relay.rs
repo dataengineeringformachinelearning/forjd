@@ -51,12 +51,7 @@ pub async fn run(pool: PgPool, client: Client, cfg: Config) -> anyhow::Result<()
 }
 
 #[tracing::instrument(name = "outbox_relay_tick", skip_all, fields(owner = %owner))]
-async fn tick(
-    pool: &PgPool,
-    client: &Client,
-    cfg: &Config,
-    owner: Uuid,
-) -> anyhow::Result<usize> {
+async fn tick(pool: &PgPool, client: &Client, cfg: &Config, owner: Uuid) -> anyhow::Result<usize> {
     let events = db::claim_pending(pool, owner, cfg.batch_size, cfg.max_attempts).await?;
     let max_attempts = cfg.max_attempts;
 
@@ -82,14 +77,7 @@ async fn tick(
             let outcome = async {
                 let mut conn = bus::connect(&client).await?;
                 let payload = serde_json::to_vec(&event.payload)?;
-                bus::publish(
-                    &mut conn,
-                    &topic,
-                    event.key.as_deref(),
-                    &payload,
-                    &headers,
-                )
-                .await?;
+                bus::publish(&mut conn, &topic, event.key.as_deref(), &payload, &headers).await?;
                 anyhow::Ok(())
             }
             .await;

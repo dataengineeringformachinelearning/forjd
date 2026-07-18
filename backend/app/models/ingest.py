@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
@@ -28,6 +29,7 @@ _ALLOWED_METADATA_KEYS = frozenset(
         "tags",
     }
 )
+_LIST_METADATA_KEYS = frozenset({"labels", "tags"})
 _FORBIDDEN_METADATA_SUBSTR = (
     "password",
     "secret",
@@ -38,7 +40,58 @@ _FORBIDDEN_METADATA_SUBSTR = (
     "payload",
     "ssn",
     "credit",
+    "answer",
+    "lesson",
+    "email",
 )
+# Routing tags: short, non-PII tokens (no whitespace / @).
+_ROUTING_TAG_PATTERN = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}\Z")
+_MAX_METADATA_CHARS = 4096
+_MAX_METADATA_KEYS = 32
+_MAX_LIST_ITEMS = 32
+
+
+# --- Shared metadata validator (events + embeddings) ---
+def validate_routing_metadata(value: dict[str, Any]) -> dict[str, Any]:
+    """Reject plaintext-shaped metadata; allow routing tags only."""
+    if not isinstance(value, dict):
+        raise ValueError("metadata must be an object")
+    if len(str(value)) > _MAX_METADATA_CHARS:
+        raise ValueError("metadata too large")
+    if len(value) > _MAX_METADATA_KEYS:
+        raise ValueError("metadata has too many keys")
+    for key, raw in value.items():
+        if not isinstance(key, str) or not key:
+            raise ValueError("metadata keys must be non-empty strings")
+        lowered = key.lower()
+        if lowered not in _ALLOWED_METADATA_KEYS:
+            raise ValueError(
+                f"metadata key {key!r} not allowed "
+                f"(routing tags only: {sorted(_ALLOWED_METADATA_KEYS)})"
+            )
+        if any(bad in lowered for bad in _FORBIDDEN_METADATA_SUBSTR):
+            raise ValueError(f"metadata key {key!r} looks sensitive")
+
+        values: list[object]
+        if lowered in _LIST_METADATA_KEYS:
+            if not isinstance(raw, list) or not raw or len(raw) > _MAX_LIST_ITEMS:
+                raise ValueError(f"metadata.{key} must be a non-empty list of routing tags")
+            values = list(raw)
+        else:
+            values = [raw]
+
+        for item in values:
+            if not isinstance(item, str):
+                raise ValueError(f"metadata.{key} values must be strings")
+            if _ROUTING_TAG_PATTERN.fullmatch(item) is None:
+                raise ValueError(
+                    f"metadata.{key} contains a non-routing value; "
+                    "plaintext and identifiers are forbidden"
+                )
+            item_l = item.lower()
+            if any(bad in item_l for bad in _FORBIDDEN_METADATA_SUBSTR):
+                raise ValueError(f"metadata.{key} value looks sensitive")
+    return value
 
 
 # --- Encryption options (server validates policy; never opens ciphertext) ---
@@ -107,22 +160,7 @@ class IngestEventRequest(BaseModel):
     @field_validator("metadata")
     @classmethod
     def _metadata_routing_only(cls, value: dict[str, Any]) -> dict[str, Any]:
-        if len(str(value)) > 4096:
-            raise ValueError("metadata too large")
-        if len(value) > 32:
-            raise ValueError("metadata has too many keys")
-        for key in value:
-            if not isinstance(key, str) or not key:
-                raise ValueError("metadata keys must be non-empty strings")
-            lowered = key.lower()
-            if lowered not in _ALLOWED_METADATA_KEYS:
-                raise ValueError(
-                    f"metadata key {key!r} not allowed "
-                    f"(routing tags only: {sorted(_ALLOWED_METADATA_KEYS)})"
-                )
-            if any(bad in lowered for bad in _FORBIDDEN_METADATA_SUBSTR):
-                raise ValueError(f"metadata key {key!r} looks sensitive")
-        return value
+        return validate_routing_metadata(value)
 
 
 class IngestBatchRequest(BaseModel):
@@ -163,3 +201,8 @@ class EmbeddingIngestRequest(BaseModel):
     context_nonce: str | None = Field(default=None, max_length=64)
     context_key_id: str | None = Field(default=None, max_length=256)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("metadata")
+    @classmethod
+    def _metadata_routing_only(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return validate_routing_metadata(value)

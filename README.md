@@ -13,7 +13,7 @@ Data streaming pipeline platform. This repo’s **pulse PoC** wires the full sta
 | Rust **1.97** (`engine/rust-toolchain.toml`) | maturin / `forjd-engine` |
 | Node 20+ / npm | Frontend |
 | Docker (optional) | Local Dragonfly + Prefect + engine HTTP |
-| Supabase project | Postgres (`POSTGRES_DSN`) |
+| Supabase project | Postgres (`POSTGRES_DSN`) — single DB for FORJD; Neon→Supabase runbook in [`docs/NEON_TO_SUPABASE.md`](docs/NEON_TO_SUPABASE.md) |
 | [flyctl](https://fly.io/docs/hands-on/install-flyctl/) (optional) | Deploy Dragonfly / engine |
 
 Python is pinned to **3.12** in `backend/` (Pathway does not yet run on 3.14).
@@ -188,6 +188,12 @@ docker compose up --build
 ### Frontend → Vercel
 
 Domain: [https://forjd.co](https://forjd.co). `frontend/vercel.json` is set up. Production `apiBaseUrl` is `https://backend.forjd.co` — point that hostname at Fly (`forjd-backend`) and keep `https://forjd.co` in backend `CORS_ORIGINS`.
+
+Production partner cutover (SQL, remint `fjsvc_`, Fly/Vercel checklist, rollback): see [`CUTOVER.md`](CUTOVER.md).
+
+**Engine data plane:** `FORJD_ROLE=engine` is process-only; `all` needs DSNs **and** internode keys (`./scripts/sync_engine_dataplane_secrets.sh`). Missing `FORJD_INTERNODE_*` was the Fly crash-loop cause.
+
+**Postgres:** FORJD production already uses Supabase. Consolidating Neon (DEML control plane) into the same project: [`docs/NEON_TO_SUPABASE.md`](docs/NEON_TO_SUPABASE.md) + `scripts/pg_migrate_neon_to_supabase.sh`. Verify with `backend/scripts/verify_supabase_post_migration.py`.
 
 ### Storybook → Vercel (ui.forjd.co)
 

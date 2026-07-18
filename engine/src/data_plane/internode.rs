@@ -118,7 +118,11 @@ fn load_keyring() -> Result<Keyring> {
         }
     }
     if mode == Mode::Required && active_kid.is_none() {
-        bail!("required internode encryption needs FORJD_INTERNODE_ACTIVE_KID");
+        bail!(
+            "required internode encryption needs FORJD_INTERNODE_ACTIVE_KID and \
+             FORJD_INTERNODE_KEYS={{\"kid\":\"<base64url-32-bytes>\"}} \
+             (set via ./scripts/sync_engine_dataplane_secrets.sh or fly secrets set)"
+        );
     }
     Ok(Keyring {
         mode,

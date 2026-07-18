@@ -161,11 +161,7 @@ fn redis_value_as_string(value: &RedisValue) -> Result<String> {
     }
 }
 
-fn decode_message(
-    stream: &str,
-    id: &str,
-    map: &HashMap<String, RedisValue>,
-) -> Result<BusMessage> {
+fn decode_message(stream: &str, id: &str, map: &HashMap<String, RedisValue>) -> Result<BusMessage> {
     let encoded = map
         .get("payload")
         .context("stream message missing payload field")?;
