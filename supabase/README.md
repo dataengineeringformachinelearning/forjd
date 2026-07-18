@@ -4,7 +4,7 @@ FORJD uses Supabase as the sole identity + primary database plane.
 
 ## Apply SQL
 
-Run `backend/sql/003` → `015` in the SQL editor (see `backend/sql/README.md`).
+Run `backend/sql/003` → `016` in the SQL editor (see `backend/sql/README.md`).
 
 ## Realtime
 
@@ -13,6 +13,7 @@ exists (confirm under Dashboard → Database → Replication):
 
 - `stream_results` — scores / rollups (no ciphertext); preferred for UIs
 - `telemetry_events` — optional; clients decrypt locally using their keys
+- `ml_scores` / `training_runs` — ML inferences and fit history (`sql/016`)
 
 Consumer clients may also select from the `projection_feed` view (same columns
 as `stream_results`, RLS via `security_invoker`).

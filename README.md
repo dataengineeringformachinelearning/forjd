@@ -135,7 +135,7 @@ Details: [`backend/sql/README.md`](backend/sql/README.md) and [`backend/README.m
 | Prefect `forjd-anomaly` | Ack fit/score (same soft-fail pattern as pulse) |
 | UI | **Fit + score anomaly** on the pulse page |
 
-Install with `uv sync --group ml`, enable `vector` in Supabase, run `backend/sql/002_anomaly_embeddings.sql`. TFT is intentionally deferred (supervised forecasting, not unsupervised detection).
+Install with `uv sync --group ml`. Full catalog under `GET /api/v1/ml/models` (LSTM-AE, Isolation Forest, OCSVM, RF/HGB, Transformer AE, TFT-lite, NeuralSeasonal, GRU/LSTM P99, EventEncoder, NorseSSN). Optional: `ml-spiking` (norse), `ml-nlp` (sentence-transformers).
 
 ## Deploy sketches
 

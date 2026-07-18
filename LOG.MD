@@ -100,6 +100,10 @@
 
 - 2026-07-17: Scrubbed product-specific naming from docs, comments, SQL headers, PDF branding, and tests so FORJD reads as a standalone universal streaming platform; subprocessors are generic partner SaaS backends.
 
+- 2026-07-17: Shipped unified ML catalog (`GET/POST /api/v1/ml/...`) — Isolation Forest + One-Class SVM, RF + HistGradientBoosting, Transformer sequence AE, TFT-lite + NeuralSeasonal + GRU/LSTM P99, EventEncoder embeddings, and NorseSSN spiking temporal forecaster (optional `norse` via `ml-spiking`; Sentence-Transformers via `ml-nlp`). Existing LSTM-AE + threat/SLA routes kept.
+
+- 2026-07-17: Optimized ML for Supabase — `sql/016` (`ml_scores` + training_runs family + Realtime), hydrate fit/score from `stream_results` metadata (never ciphertext), persist runs/latents/scores under tenant RLS (`training_runs`, `embedding_vectors`, `ml_scores`), and `GET /api/v1/ml/scores` for polling/Realtime consumers.
+
 ## Packages
 
 Direct dependencies only. Star these on GitHub.
@@ -116,9 +120,11 @@ Direct dependencies only. Star these on GitHub.
 - [Pathway](https://github.com/pathwaycom/pathway) — streaming / incremental processing
 - [Polars](https://github.com/pola-rs/polars) — batch DataFrames
 - [pyrollbar](https://github.com/rollbar/pyrollbar) — error reporting
-- [pytorch](https://github.com/pytorch/pytorch) — LSTM-AE / threat / SLA models (`uv sync --group ml`)
+- [pytorch](https://github.com/pytorch/pytorch) — LSTM-AE / transformers / forecasting / NorseSSN fallback (`uv sync --group ml`)
 - [numpy](https://github.com/numpy/numpy) — window tensors for ML (`ml` group)
-- [scikit-learn](https://github.com/scikit-learn/scikit-learn) — SLA GridSearchCV (`ml` group)
+- [scikit-learn](https://github.com/scikit-learn/scikit-learn) — Isolation Forest, OCSVM, RF, HistGradientBoosting (`ml` group)
+- [norse](https://github.com/norse/norse) — optional LIF cells for NorseSSN (`uv sync --group ml-spiking`)
+- [sentence-transformers](https://github.com/UKPLab/sentence-transformers) — optional event similarity (`uv sync --group ml-nlp`)
 - [boto3](https://github.com/boto/boto3) — S3-compatible export/report storage (`uv sync --group storage`)
 - [pyjwt](https://github.com/jpadilla/pyjwt) — Supabase Auth JWT verification
 - [cryptography](https://github.com/pyca/cryptography) — AES-256-GCM E2EE envelopes

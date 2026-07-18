@@ -3,9 +3,8 @@
 Reconstruction MSE is the anomaly score; the bottleneck latent vector is what we
 store in Supabase pgvector for nearest-neighbor retrieval.
 
-TFT (Temporal Fusion Transformer) is supervised multi-horizon forecasting with
-known/unknown covariates — a better fit for a later labeled forecasting PoC, not
-unsupervised detection.
+Forecasting (TFT-lite, NeuralSeasonal, GRU/LSTM P99) lives in
+``app.services.ml.forecasting`` — separate supervised suite.
 """
 
 from __future__ import annotations

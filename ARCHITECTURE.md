@@ -66,9 +66,9 @@ Processors resolve via `app.workflows.processors.REGISTRY`. Detectors via
 
 ## SQL apply order
 
-`003` → `015` under `backend/sql/` (see that folder’s README). Production forces
+`003` → `016` under `backend/sql/` (see that folder’s README). Production forces
 `SOFT_MIGRATE_SCHEMA=false`, `REQUIRE_RLS=true`, `REQUIRE_CRYPTO_SESSION=true`.
-Realtime + `projection_feed` land in `015`.
+Realtime + `projection_feed` land in `015`; ML scores/runs in `016`.
 
 ## Explicit non-goals
 

@@ -38,11 +38,19 @@ dev = [
     "maturin>=1.8.0",
     "ruff>=0.12.0",
 ]
-# Optional ML (LSTM-AE + threat/SLA). Install with: uv sync --group ml
+# Optional ML suite (anomaly / threat / forecast / embeddings). Install: uv sync --group ml
 ml = [
     "numpy>=2.0.0",
     "scikit-learn>=1.5.0",
     "torch>=2.6.0",
+]
+# Optional Norse LIF for NorseSSN spiking forecaster. Install: uv sync --group ml-spiking
+ml-spiking = [
+    "norse>=1.1.0",
+]
+# Optional Sentence-Transformers for event similarity. Install: uv sync --group ml-nlp
+ml-nlp = [
+    "sentence-transformers>=3.0.0",
 ]
 # Optional S3-compatible export/report storage. Install with: uv sync --group storage
 storage = [
