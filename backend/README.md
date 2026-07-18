@@ -68,20 +68,34 @@ uv run forjd
 
 Server-minimal knowledge: Double Ratchet headers stay opaque; FastAPI never decrypts E2EE ciphertext. Self-check: `uv run python -m unittest discover -s tests -v`.
 
-### Unsupervised ML PoC (LSTM-Autoencoder)
+### ML suite (optional)
 
-Uses a small PyTorch LSTM autoencoder: reconstruction MSE = anomaly score; the latent bottleneck is stored in Supabase **pgvector** for nearest-neighbor lookup. TFT is deferred — it is supervised multi-horizon forecasting, not unsupervised detection.
+Install: `uv sync --group ml` (numpy, scikit-learn, torch CPU).
+
+| Family | Models |
+|--------|--------|
+| Anomaly | LSTM-AE, Isolation Forest, One-Class SVM |
+| Threat | Random Forest + HistGradientBoosting, Transformer sequence AE |
+| Forecasting | TFT-lite, NeuralSeasonal (Prophet-class), GRU/LSTM P99 |
+| Embeddings | EventEncoder; Sentence-Transformers via `uv sync --group ml-nlp` |
+| NorseSSN | Spiking temporal forecaster (`norse` via `ml-spiking`, else GRU/MLP) |
+
+Supabase-backed: pass `tenant_id` so fit/score hydrate from `stream_results`
+(metadata only) and persist to `training_runs`, `embedding_vectors` (pgvector),
+and `ml_scores` (RLS + Realtime via `sql/016`).
 
 ```bash
-uv sync --group ml
-# Supabase SQL editor: sql/002_anomaly_embeddings.sql (enables vector + table)
+# Catalog + fit (JWT + tenant_id → Supabase)
+curl -s http://127.0.0.1:8000/api/v1/ml/models -H "Authorization: Bearer $TOKEN"
+curl -s -X POST http://127.0.0.1:8000/api/v1/ml/classical_anomaly/fit \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"tenant_id":"'"$TENANT"'"}'
+curl -s "http://127.0.0.1:8000/api/v1/ml/scores?tenant_id=$TENANT" \
+  -H "Authorization: Bearer $TOKEN"
 
+# Legacy LSTM-AE PoC (still available)
 curl -s -X POST http://127.0.0.1:8000/api/v1/anomaly/fit \
   -H 'Content-Type: application/json' -d '{"use_synthetic":true,"epochs":20}'
-
-curl -s -X POST http://127.0.0.1:8000/api/v1/anomaly/score \
-  -H 'Content-Type: application/json' \
-  -d '{"values":[0.1,0.2,8,9,0.1,0.2,0.1,0.2,0.1,0.2,0.1,0.2,0.1,0.2,0.1,0.2]}'
 ```
 
 Torch stays in the optional `ml` dependency group so slim API images stay small; the stack check reports `ml.ok` separately from core readiness.

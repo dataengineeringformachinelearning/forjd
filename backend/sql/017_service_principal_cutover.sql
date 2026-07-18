@@ -1,7 +1,7 @@
 -- =============================================================================
 -- FORJD service-principal cutover (sessions actor id + expanded default scopes)
 -- =============================================================================
--- Apply after 015_realtime_and_consumer.sql.
+-- Apply after 016_ml_supabase.sql.
 --
 -- Goals:
 --   • crypto_sessions.user_id is an opaque actor UUID (human Auth sub OR

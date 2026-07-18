@@ -101,7 +101,7 @@ Humans use `tenant_members` roles (`owner` / `admin` / `member` / `viewer`) inst
 ### Crypto sessions and service principals
 
 - `crypto_sessions.user_id` is an **opaque actor UUID** (human Auth `sub` or
-  `service_accounts.id`). Apply `sql/016` so there is no FK to `auth.users`.
+  `service_accounts.id`). Apply `sql/017` so there is no FK to `auth.users`.
 - Service principals with `sessions:write` may create, rotate, or revoke any
   session in their bound tenant (partner backends register device `key_id`s).
 - Humans may only update/revoke sessions they own.
@@ -147,7 +147,8 @@ Humans use `tenant_members` roles (`owner` / `admin` / `member` / `viewer`) inst
 ## SQL
 
 Apply `backend/sql/014_service_accounts.sql` after `013`, then
-`015_realtime_and_consumer.sql`, then `016_service_principal_cutover.sql`
-(sessions actor id + expanded default scopes). **Remint** opaque `fjsvc_`
-tokens after `016` — existing rows keep their previously stored scopes until
-rotated. Full deploy/cutover sequence: root [`CUTOVER.md`](../../CUTOVER.md).
+`015_realtime_and_consumer.sql`, `016_ml_supabase.sql`, then
+`017_service_principal_cutover.sql` (sessions actor id + expanded default
+scopes). **Remint** opaque `fjsvc_` tokens after `017` — existing rows keep
+their previously stored scopes until rotated. Full deploy/cutover sequence:
+root [`CUTOVER.md`](../../CUTOVER.md).

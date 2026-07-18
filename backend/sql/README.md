@@ -19,15 +19,17 @@ Apply in order in the Supabase SQL editor (or `psql`).
 | `013_e2ee_hardening.sql` | Nonce uniqueness `(tenant_id,key_id,nonce)` + `crypto_sessions.revoked_at` |
 | `014_service_accounts.sql` | Tenant-scoped M2M / subprocessor principals (`fjsvc_` + Auth binding) |
 | `015_realtime_and_consumer.sql` | Realtime publication, `projection_feed` view, cursor indexes, sessions scopes |
-| `016_service_principal_cutover.sql` | Drop `crypto_sessions.user_id` → `auth.users` FK; expand default service scopes |
+| `016_ml_supabase.sql` | ML `training_runs` family columns, `ml_scores` + RLS, Realtime for ML |
+| `017_service_principal_cutover.sql` | Drop `crypto_sessions.user_id` → `auth.users` FK; expand default service scopes |
 
-## Secure path (`003`–`016`)
+## Secure path (`003`–`017`)
 
 1. Enable extensions **vector** and **pgcrypto** (Dashboard → Database → Extensions).
-2. Run `003` → `016` in order.
-3. Realtime: `015` adds `stream_results` + `telemetry_events` to `supabase_realtime` when present; confirm in Dashboard → Replication.
+2. Run `003` → `017` in order.
+3. Realtime: `015`/`016` add `stream_results`, `telemetry_events`, `ml_scores`, `training_runs` when publication exists.
 4. Set backend env: `SUPABASE_URL`, `SUPABASE_JWT_SECRET` (or rely on JWKS), `POSTGRES_DSN`.
 5. Add SaaS use cases as YAML under `backend/workflows/` (see that folder’s README).
+6. After `017`, remint opaque `fjsvc_` tokens so stored scopes include sessions/replay/status/analytics.
 
 ### Roles
 

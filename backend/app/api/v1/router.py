@@ -15,6 +15,7 @@ from app.api.v1 import (
     domain,
     exports,
     ingest,
+    ml,
     playbooks,
     projections,
     pulse,
@@ -56,4 +57,5 @@ api_router.include_router(soc.router)
 api_router.include_router(playbooks.router)
 api_router.include_router(exports.router)
 api_router.include_router(threat_ml.router)
+api_router.include_router(ml.router)
 api_router.include_router(domain.router)

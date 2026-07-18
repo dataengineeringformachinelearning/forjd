@@ -3,7 +3,7 @@
 Humans own sessions via ``user_id`` = Supabase ``sub``.
 Service principals (``fjsvc_``) register/revoke sessions for their bound
 tenant with ``sessions:write`` / ``sessions:read``; ``user_id`` stores the
-service account UUID (opaque actor id — see sql/016).
+service account UUID (opaque actor id — see sql/017).
 """
 
 from __future__ import annotations

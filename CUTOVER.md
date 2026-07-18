@@ -6,9 +6,9 @@ wire names belong only in YAML `aliases` or in the partner’s own BFF rewrite.
 
 ## Preflight
 
-1. Apply SQL in order: `003` → `016` (`backend/sql/README.md`).
+1. Apply SQL in order: `003` → `017` (`backend/sql/README.md`).
 2. Confirm production forces RLS + crypto-session binding (`ENVIRONMENT=prod`).
-3. Mint (or remint) tenant `fjsvc_` service accounts **after** `016` so scopes
+3. Mint (or remint) tenant `fjsvc_` service accounts **after** `017` so scopes
    include sessions, replay/DLQ, status, and `analytics:read`.
 4. Verify isolation gates:
    - `service_role` JWT rejected on application routes

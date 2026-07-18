@@ -119,7 +119,7 @@ cargo run --no-default-features --features server   # HTTP on :8080
 
 Production path for replacing Redpanda-style ingress with FORJD as the sealed pipe:
 
-1. Apply SQL `003`→`016` under [`backend/sql/`](backend/sql/) (tenants, RLS, sealed events, projections/DLQ, service accounts, Realtime, service-principal cutover).
+1. Apply SQL `003`→`017` under [`backend/sql/`](backend/sql/) (tenants, RLS, sealed events, projections/DLQ, service accounts, Realtime, ML, service-principal cutover).
 2. Configure `SUPABASE_URL` / `SUPABASE_JWT_SECRET` on the API (see `backend/.env.example`).
 3. Clients authenticate with Supabase Auth **or** a tenant service token (`fjsvc_…`), publish X25519 public keys (`POST /api/v1/sessions`), derive AES-256 via ECDH+HKDF, and `POST /api/v1/ingest` with envelopes + `content_type` (YAML workflow in [`backend/workflows/`](backend/workflows/); partner wire ids via YAML `aliases`).
 4. Rust sealed pipeline (Pathway fallback) processes **metadata only**; consumers poll `GET /api/v1/projections` or Realtime on `stream_results`. Partner SaaS apps call FORJD as a subprocessor — see [`backend/docs/AUTH.md`](backend/docs/AUTH.md).
@@ -135,7 +135,7 @@ Details: [`backend/sql/README.md`](backend/sql/README.md), [`backend/README.md`]
 | Prefect `forjd-anomaly` | Ack fit/score (same soft-fail pattern as pulse) |
 | UI | **Fit + score anomaly** on the pulse page |
 
-Install with `uv sync --group ml`, enable `vector` in Supabase, run `backend/sql/002_anomaly_embeddings.sql`. TFT is intentionally deferred (supervised forecasting, not unsupervised detection).
+Install with `uv sync --group ml`. Full catalog under `GET /api/v1/ml/models` (LSTM-AE, Isolation Forest, OCSVM, RF/HGB, Transformer AE, TFT-lite, NeuralSeasonal, GRU/LSTM P99, EventEncoder, NorseSSN). Optional: `ml-spiking` (norse), `ml-nlp` (sentence-transformers).
 
 ## Deploy sketches
 

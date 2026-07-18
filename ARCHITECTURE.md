@@ -81,10 +81,10 @@ Product names never belong in engine/API code.
 
 ## SQL apply order
 
-`003` → `016` under `backend/sql/` (see that folder’s README). Production forces
+`003` → `017` under `backend/sql/` (see that folder’s README). Production forces
 `SOFT_MIGRATE_SCHEMA=false`, `REQUIRE_RLS=true`, `REQUIRE_CRYPTO_SESSION=true`.
-Realtime + `projection_feed` land in `015`; service-principal session actor +
-expanded default scopes in `016`.
+Realtime + `projection_feed` land in `015`; ML scores/runs in `016`; service-principal
+session actor + expanded default scopes in `017`.
 
 ## Production cutover
 
