@@ -1,17 +1,26 @@
-"""Tenant management (JWT-gated)."""
+"""Tenant management (JWT-gated) + durable erase for partner deletion."""
 
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, Field
 
 from app.core.auth import AuthUser, get_current_user, pool_from_request, require_user_principal
 from app.models.tenant import TenantCreate
+from app.services import tenant_erase as erase_svc
 from app.services import tenants as tenant_svc
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
+
+
+class TenantEraseBody(BaseModel):
+    """Confirm erase — must match path tenant_id (fail closed)."""
+
+    confirm_tenant_id: UUID = Field(..., description="Must equal path tenant_id")
 
 
 # --- List memberships for the authenticated user ---
@@ -75,3 +84,36 @@ async def create_tenant(
             raise HTTPException(status.HTTP_409_CONFLICT, detail="slug already taken") from exc
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=msg) from exc
     return {"ok": True, "tenant": tenant}
+
+
+# --- Durable erase (partner account deletion / GDPR) ---
+@router.post("/{tenant_id}/erase")
+async def erase_tenant(
+    request: Request,
+    tenant_id: UUID,
+    body: TenantEraseBody,
+    user: AuthUser = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Idempotent tenant wipe + revoke all ``fjsvc_`` credentials for the tenant.
+
+    Allowed for human owner/admin **or** a service principal with ``tenants:erase``
+    bound to this tenant. Confirmation body must match the path id.
+    """
+    if body.confirm_tenant_id != tenant_id:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="confirm_tenant_id must match path tenant_id",
+        )
+    pool = pool_from_request(request)
+    if pool is None:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
+    try:
+        await tenant_svc.ensure_secure_schema(pool)
+        return await erase_svc.erase_tenant(pool, principal=user, tenant_id=tenant_id)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"tenant erase failed: {exc}",
+        ) from exc

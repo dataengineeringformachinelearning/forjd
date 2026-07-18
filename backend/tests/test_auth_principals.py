@@ -32,6 +32,10 @@ class TestServiceScopes(unittest.TestCase):
             "replay:write",
             "status:write",
             "analytics:read",
+            "exports:read",
+            "vulnerabilities:read",
+            "integrations:write",
+            "tenants:erase",
         }
         self.assertTrue(required.issubset(set(DEFAULT_SCOPES)))
         self.assertIn("analytics:write", ALLOWED_SCOPES)

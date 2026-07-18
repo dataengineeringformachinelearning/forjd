@@ -54,11 +54,12 @@ async def create_and_run_export(
     source_kind: str = "stream_results",
     limit: int = 10_000,
 ) -> dict[str, Any]:
-    await tenant_svc.require_member(
+    await tenant_svc.require_tenant_access(
         pool,
+        principal=user,
         tenant_id=tenant_id,
-        user_id=user.user_id,
         min_roles=frozenset({"owner", "admin", "member"}),
+        required_scopes=frozenset({"exports:write"}),
     )
     await ensure_export_schema(pool)
     job = await pool.fetchrow(
@@ -128,7 +129,12 @@ async def list_jobs(
     tenant_id: UUID,
     limit: int = 50,
 ) -> list[dict[str, Any]]:
-    await tenant_svc.require_member(pool, tenant_id=tenant_id, user_id=user.user_id)
+    await tenant_svc.require_tenant_access(
+        pool,
+        principal=user,
+        tenant_id=tenant_id,
+        required_scopes=frozenset({"exports:read"}),
+    )
     await ensure_export_schema(pool)
     rows = await pool.fetch(
         """
@@ -152,7 +158,12 @@ async def get_job(
     tenant_id: UUID,
     job_id: UUID,
 ) -> dict[str, Any] | None:
-    await tenant_svc.require_member(pool, tenant_id=tenant_id, user_id=user.user_id)
+    await tenant_svc.require_tenant_access(
+        pool,
+        principal=user,
+        tenant_id=tenant_id,
+        required_scopes=frozenset({"exports:read"}),
+    )
     row = await pool.fetchrow(
         """
         SELECT id::text, tenant_id::text, format, status, source_kind, object_key,

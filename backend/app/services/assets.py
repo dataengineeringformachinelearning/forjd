@@ -117,11 +117,12 @@ async def create_vulnerability(
     asset_id: UUID | None = None,
     telemetry_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    await tenant_svc.require_member(
+    await tenant_svc.require_tenant_access(
         pool,
+        principal=user,
         tenant_id=tenant_id,
-        user_id=user.user_id,
         min_roles=frozenset({"owner", "admin", "member"}),
+        required_scopes=frozenset({"vulnerabilities:write"}),
     )
     await ensure_asset_schema(pool)
     row = await pool.fetchrow(
@@ -150,7 +151,12 @@ async def create_vulnerability(
 async def list_vulnerabilities(
     pool: asyncpg.Pool, *, user: AuthUser, tenant_id: UUID, limit: int = 100
 ) -> list[dict[str, Any]]:
-    await tenant_svc.require_member(pool, tenant_id=tenant_id, user_id=user.user_id)
+    await tenant_svc.require_tenant_access(
+        pool,
+        principal=user,
+        tenant_id=tenant_id,
+        required_scopes=frozenset({"vulnerabilities:read"}),
+    )
     await ensure_asset_schema(pool)
     rows = await pool.fetch(
         """

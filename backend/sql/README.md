@@ -21,17 +21,20 @@ Apply in order in the Supabase SQL editor (or `psql`).
 | `015_realtime_and_consumer.sql` | Realtime publication, `projection_feed` view, cursor indexes, sessions scopes |
 | `016_ml_supabase.sql` | ML `training_runs` family columns, `ml_scores` + RLS, Realtime for ML |
 | `017_service_principal_cutover.sql` | Drop `crypto_sessions.user_id` → `auth.users` FK; expand default service scopes |
+| `018_partner_domain_scopes.sql` | Default scopes for exports/vulns/integrations/`tenants:erase` (remint required) |
 
-## Secure path (`003`–`017`)
+## Secure path (`003`–`018`)
 
 1. Enable extensions **vector** and **pgcrypto** (Dashboard → Database → Extensions).
-2. Run `003` → `017` in order.
+2. Run `003` → `018` in order.
 3. Realtime: `015`/`016` add `stream_results`, `telemetry_events`, `ml_scores`, `training_runs` when publication exists.
 4. Set backend env: `SUPABASE_URL`, `SUPABASE_JWT_SECRET` (or rely on JWKS), `POSTGRES_DSN` (Supabase only — not Neon).
 5. Add SaaS use cases as YAML under `backend/workflows/` (see that folder’s README).
-6. After `017`, remint opaque `fjsvc_` tokens so stored scopes include sessions/replay/status/analytics.
-7. Post-check: `python backend/scripts/verify_supabase_post_migration.py` (or SQL in `scripts/verify_supabase_post_migration.sql`).
-8. Neon consolidation (partner control plane): [`docs/NEON_TO_SUPABASE.md`](../../docs/NEON_TO_SUPABASE.md).
+6. After `017`/`018`, remint opaque `fjsvc_` tokens (`scripts/remint_service_account.sh`) so stored scopes include sessions/replay/status/analytics/exports/vulns/integrations/`tenants:erase`.
+7. Tenant erase: `POST /api/v1/tenants/{id}/erase` (human owner/admin or service with `tenants:erase`).
+8. Post-check: `python backend/scripts/verify_supabase_post_migration.py` (or SQL in `scripts/verify_supabase_post_migration.sql`).
+9. Neon consolidation (partner control plane): [`docs/NEON_TO_SUPABASE.md`](../../docs/NEON_TO_SUPABASE.md).
+10. Final ops checklist: [`docs/PRODUCTION_CUTOVER_CHECKLIST.md`](../../docs/PRODUCTION_CUTOVER_CHECKLIST.md).
 
 ### Roles
 

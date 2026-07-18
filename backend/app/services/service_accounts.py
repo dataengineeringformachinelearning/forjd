@@ -43,6 +43,13 @@ DEFAULT_SCOPES: tuple[str, ...] = (
     "status:read",
     "status:write",
     "analytics:read",
+    # Partner product-domain adapters (sql/018) — remint existing tokens.
+    "exports:read",
+    "exports:write",
+    "vulnerabilities:read",
+    "vulnerabilities:write",
+    "integrations:write",
+    "tenants:erase",
 )
 
 ALLOWED_SCOPES = frozenset(

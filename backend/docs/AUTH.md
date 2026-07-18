@@ -147,8 +147,11 @@ Humans use `tenant_members` roles (`owner` / `admin` / `member` / `viewer`) inst
 ## SQL
 
 Apply `backend/sql/014_service_accounts.sql` after `013`, then
-`015_realtime_and_consumer.sql`, `016_ml_supabase.sql`, then
-`017_service_principal_cutover.sql` (sessions actor id + expanded default
-scopes). **Remint** opaque `fjsvc_` tokens after `017` — existing rows keep
-their previously stored scopes until rotated. Full deploy/cutover sequence:
-root [`CUTOVER.md`](../../CUTOVER.md).
+`015_realtime_and_consumer.sql`, `016_ml_supabase.sql`,
+`017_service_principal_cutover.sql`, then
+`018_partner_domain_scopes.sql` (exports / vulns / integrations /
+`tenants:erase` defaults). **Remint** opaque `fjsvc_` tokens after `017`/`018`
+(`scripts/remint_service_account.sh`) — existing rows keep previously stored
+scopes until rotated. Durable partner deletion: `POST /api/v1/tenants/{id}/erase`.
+Full deploy/cutover sequence: root [`CUTOVER.md`](../../CUTOVER.md) and
+[`docs/PRODUCTION_CUTOVER_CHECKLIST.md`](../../docs/PRODUCTION_CUTOVER_CHECKLIST.md).

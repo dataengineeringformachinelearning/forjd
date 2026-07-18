@@ -54,11 +54,12 @@ async def ingest_security_alert(
     ip_address: str | None = None,
     raw: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    await tenant_svc.require_member(
+    await tenant_svc.require_tenant_access(
         pool,
+        principal=user,
         tenant_id=tenant_id,
-        user_id=user.user_id,
         min_roles=frozenset({"owner", "admin", "member"}),
+        required_scopes=frozenset({"integrations:write"}),
     )
     await threat_svc.ensure_threat_schema(pool)
     is_malicious = severity.lower() in {"critical", "high"}

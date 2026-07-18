@@ -10,13 +10,14 @@ platform side.
 
 ## Preflight
 
-1. Apply SQL in order: `003` → `017` (`backend/sql/README.md`).
+1. Apply SQL in order: `003` → `018` (`backend/sql/README.md`).
 2. Confirm `POSTGRES_DSN` is Supabase (not Neon). Consolidation runbook:
    [`docs/NEON_TO_SUPABASE.md`](docs/NEON_TO_SUPABASE.md); verify with
    `backend/scripts/verify_supabase_post_migration.py`.
 3. Confirm production forces RLS + crypto-session binding (`ENVIRONMENT=prod`).
-4. Mint (or remint) tenant `fjsvc_` service accounts **after** `017` so scopes
-   include sessions, replay/DLQ, status, and `analytics:read`.
+4. Mint (or remint) tenant `fjsvc_` service accounts **after** `017`/`018`
+   (`scripts/remint_service_account.sh`) so scopes include sessions, replay/DLQ,
+   status, analytics, exports, vulnerabilities, integrations, and `tenants:erase`.
 5. Verify isolation gates:
    - `service_role` JWT rejected on application routes (including JWTs that also carry `app_metadata.forjd`)
    - cross-tenant `tenant_id` → `403`
@@ -38,7 +39,7 @@ platform side.
 | API | Fly `forjd-backend` | Deploy with `POSTGRES_DSN`, `REDIS_URL`, `SUPABASE_*`, `ENVIRONMENT=prod`, CORS including `https://forjd.co` and partner origins |
 | Engine | Fly `forjd-engine` | `fly deploy` from `engine/`; set `ENGINE_URL` + `ENGINE_API_TOKEN` on API |
 | Cache | Fly Dragonfly | Volume + `DFLY_requirepass`; API `REDIS_URL` |
-| SQL | Supabase | Apply `003`–`017`; confirm `/ready` `schema_rls=true` |
+| SQL | Supabase | Apply `003`–`018`; confirm `/ready` `schema_rls=true` |
 | Web | Vercel `forjd.co` | `frontend/vercel.json`; `apiBaseUrl=https://backend.forjd.co` |
 | UI kit | Vercel `ui.forjd.co` | Optional Storybook project |
 | DNS | Vercel → Fly | Point `backend.forjd.co` A/AAAA at Fly as documented in root `README.md` |
@@ -68,7 +69,7 @@ platform side.
 |-------|--------|
 | Bad deploy | Fly release rollback to previous image; keep SQL forward-only |
 | Ingest errors | Check `/ready`, Dragonfly, crypto-session requirement, workflow YAML |
-| Scope 403s | Remint `fjsvc_` after `017` (defaults do not rewrite existing rows) |
+| Scope 403s | Remint `fjsvc_` after `017`/`018` (defaults do not rewrite existing rows) |
 | Partner freeze | Partner sets write/read `off`; FORJD keeps stored ciphertext |
 
 Do not soft-migrate schema in prod. Do not accept `service_role` JWTs.
@@ -77,7 +78,8 @@ Do not soft-migrate schema in prod. Do not accept `service_role` JWTs.
 
 - Monitor ingest 4xx/5xx, DLQ depth, projection lag, session register failures.
 - Rotate `fjsvc_` on a schedule; partners store only secret references.
-- Open ops ticket for tenant erase until an idempotent erase API ships.
+- Tenant erase: `POST /api/v1/tenants/{id}/erase` (scope `tenants:erase` or human owner/admin).
+- Full ops checklist: [`docs/PRODUCTION_CUTOVER_CHECKLIST.md`](docs/PRODUCTION_CUTOVER_CHECKLIST.md).
 - Engine: prefer `FORJD_ROLE=all` only after `./scripts/sync_engine_dataplane_secrets.sh`
   (DSNs + internode keys). Confirm `GET /ready` on `forjd-engine` includes
   `forjd_role=All`. Backend `/ready` exposes `engine` metadata (informational —

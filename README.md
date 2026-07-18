@@ -119,7 +119,7 @@ cargo run --no-default-features --features server   # HTTP on :8080
 
 Production path for replacing Redpanda-style ingress with FORJD as the sealed pipe:
 
-1. Apply SQL `003`→`017` under [`backend/sql/`](backend/sql/) (tenants, RLS, sealed events, projections/DLQ, service accounts, Realtime, ML, service-principal cutover).
+1. Apply SQL `003`→`018` under [`backend/sql/`](backend/sql/) (tenants, RLS, sealed events, projections/DLQ, service accounts, Realtime, ML, service-principal cutover, partner domain scopes).
 2. Configure `SUPABASE_URL` / `SUPABASE_JWT_SECRET` on the API (see `backend/.env.example`).
 3. Clients authenticate with Supabase Auth **or** a tenant service token (`fjsvc_…`), publish X25519 public keys (`POST /api/v1/sessions`), derive AES-256 via ECDH+HKDF, and `POST /api/v1/ingest` with envelopes + `content_type` (YAML workflow in [`backend/workflows/`](backend/workflows/); partner wire ids via YAML `aliases`).
 4. Rust sealed pipeline (Pathway fallback) processes **metadata only**; consumers poll `GET /api/v1/projections` or Realtime on `stream_results`. Partner SaaS apps call FORJD as a subprocessor — see [`backend/docs/AUTH.md`](backend/docs/AUTH.md).
@@ -189,7 +189,7 @@ docker compose up --build
 
 Domain: [https://forjd.co](https://forjd.co). `frontend/vercel.json` is set up. Production `apiBaseUrl` is `https://backend.forjd.co` — point that hostname at Fly (`forjd-backend`) and keep `https://forjd.co` in backend `CORS_ORIGINS`.
 
-Production partner cutover (SQL, remint `fjsvc_`, Fly/Vercel checklist, rollback): see [`CUTOVER.md`](CUTOVER.md).
+Production partner cutover (SQL, remint `fjsvc_`, Fly/Vercel checklist, rollback): see [`CUTOVER.md`](CUTOVER.md) and [`docs/PRODUCTION_CUTOVER_CHECKLIST.md`](docs/PRODUCTION_CUTOVER_CHECKLIST.md).
 
 **Engine data plane:** `FORJD_ROLE=engine` is process-only; `all` needs DSNs **and** internode keys (`./scripts/sync_engine_dataplane_secrets.sh`). Missing `FORJD_INTERNODE_*` was the Fly crash-loop cause.
 
