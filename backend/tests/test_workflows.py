@@ -46,12 +46,20 @@ class TestWorkflowRegistry(unittest.TestCase):
         ids = {w.id for w in workflows}
         self.assertIn("default_sealed", ids)
         self.assertIn("threat_telemetry", ids)
+        self.assertIn("deml_telemetry", ids)
 
         default = resolve_workflow(content_type="application/forjd-event+v1")
         self.assertEqual(default.id, "default_sealed")
 
+        # content_type-only still hits the generic telemetry example
         threat = resolve_workflow(content_type="application/forjd-telemetry+v1")
         self.assertEqual(threat.id, "threat_telemetry")
+
+        deml = resolve_workflow(
+            content_type="application/forjd-telemetry+v1",
+            event_type="deml.metric",
+        )
+        self.assertEqual(deml.id, "deml_telemetry")
 
         analytics = resolve_workflow(content_type="application/forjd-analytics+v1")
         self.assertEqual(analytics.id, "analytics_events")
@@ -62,6 +70,12 @@ class TestWorkflowRegistry(unittest.TestCase):
             workflow_id="analytics_events",
         )
         self.assertEqual(wf.id, "analytics_events")
+
+        deml = resolve_workflow(
+            content_type="application/forjd-telemetry+v1",
+            workflow_id="deml_telemetry",
+        )
+        self.assertEqual(deml.id, "deml_telemetry")
 
     def test_unknown_workflow_id(self) -> None:
         with self.assertRaises(ValueError):

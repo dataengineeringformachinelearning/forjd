@@ -73,5 +73,6 @@ Apply SQL `006`–`010` for routing, projections/DLQ, status, daemon plane, audi
 | `default_sealed.yaml` | Generic fallback (`application/forjd-event+v1`) |
 | `analytics_events.yaml` | Product analytics |
 | `threat_telemetry.yaml` | Example threat/telemetry vertical (not platform core; used via service token + this content_type) |
+| `deml_telemetry.yaml` | DEML subprocessor (`deml.metric` / `deml.alert`, `workflow_id=deml_telemetry`) |
 
 Platform surfaces (ingest, projections, replay/DLQ, status) stay use-case agnostic.

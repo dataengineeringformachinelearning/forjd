@@ -20,11 +20,11 @@ primary_region = 'iad'
 [env]
   RUST_LOG = 'info'
   PORT = '8080'
-  # Full data plane in one process (relay/scheduler/probe/normalizer/ingest).
-  # Override with FORJD_ROLE=engine for process/summarize only.
-  FORJD_ROLE = 'all'
+  # Process/summarize by default. Enable full data plane only after DB/Redis secrets:
+  #   ./scripts/sync_engine_dataplane_secrets.sh   # sets FORJD_ROLE=all + DSNs
+  FORJD_ROLE = 'engine'
   FORJD_TRANSPORT_SECURITY = 'required'
-  # Secrets: ENGINE_API_TOKEN, DATABASE_URL (or POSTGRES_DSN), REDIS_URL
+  # Secrets: ENGINE_API_TOKEN; for FORJD_ROLE=all also DATABASE_URL/POSTGRES_DSN + REDIS_URL
   # Optional: CPE_REDIS_URL, FORJD_INTERNODE_*, OTEL_*
 
 [http_service]

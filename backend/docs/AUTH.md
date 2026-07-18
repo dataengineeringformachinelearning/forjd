@@ -72,7 +72,7 @@ Authorization: Bearer fjsvc_…
 ```
 
 Workflow routing is config-only: send `content_type` /
-`application/forjd-telemetry+v1` (example `threat_telemetry` YAML) or an
+`application/forjd-telemetry+v1` (e.g. `threat_telemetry` / DEML `deml_telemetry`) or an
 explicit `workflow_id`. Do not fork FORJD ingest per product.
 
 ## Scopes
