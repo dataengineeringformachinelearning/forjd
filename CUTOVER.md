@@ -30,7 +30,7 @@ platform side.
    enabled partner-local overlay under `workflows/` — never hardcode product
    names in `app/` or `engine/`.
 7. Staging smoke: register session → sealed ingest → projections list →
-   replay/DLQ read (service token only).
+   replay/DLQ read → status page CRUD (service token only).
 
 ## Deployment checklist (Fly + Vercel)
 

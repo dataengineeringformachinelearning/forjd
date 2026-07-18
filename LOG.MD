@@ -2,6 +2,7 @@
 
 ## Log
 
+- 2026-07-18: Status CRUD for partners — PATCH/DELETE pages, list/update/delete services & incidents with `status:*` scopes; `apply_sql_migrations.py` now includes sql/018.
 - 2026-07-18: Final partner cutover — `sql/018` default scopes (exports/vulns/integrations/`tenants:erase`), remint script, durable `POST /api/v1/tenants/{id}/erase`, and `docs/PRODUCTION_CUTOVER_CHECKLIST.md`. Existing `fjsvc_` tokens must be reminted after 017/018.
 - 2026-07-18: Documented Neon→Supabase consolidation — FORJD Fly already on Supabase PG17+vector; Neon holds DEML Django (PG18). Added `docs/NEON_TO_SUPABASE.md`, `scripts/pg_migrate_neon_to_supabase.sh`, and `backend/scripts/verify_supabase_post_migration.py` (RLS/vector/Realtime gates + rollback).
 - 2026-07-18: Fixed FORJD_ROLE=all crash loop — minted FORJD_INTERNODE_* via sync_engine_dataplane_secrets.sh, redeployed engine (`forjd_role=All`, health passing). Backend `/ready` reports engine metadata without failing closed on engine blips; docs/ARCHITECTURE updated for post-cutover roles.

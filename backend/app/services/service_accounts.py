@@ -79,7 +79,11 @@ async def ensure_schema(pool: asyncpg.Pool) -> None:
                 'sessions:write', 'sessions:read',
                 'replay:read', 'replay:write',
                 'status:read', 'status:write',
-                'analytics:read'
+                'analytics:read',
+                'exports:read', 'exports:write',
+                'vulnerabilities:read', 'vulnerabilities:write',
+                'integrations:write',
+                'tenants:erase'
             ]::text[],
             is_active BOOLEAN NOT NULL DEFAULT TRUE,
             revoked_at TIMESTAMPTZ,

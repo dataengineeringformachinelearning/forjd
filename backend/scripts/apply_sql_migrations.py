@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Apply backend/sql/003–017 in order (idempotent-ish; prints status, never the DSN)."""
+"""Apply backend/sql/003–018 in order (idempotent-ish; prints status, never the DSN)."""
 
 from __future__ import annotations
 
@@ -35,6 +35,7 @@ FILES = [
     "015_realtime_and_consumer.sql",
     "016_ml_supabase.sql",
     "017_service_principal_cutover.sql",
+    "018_partner_domain_scopes.sql",
 ]
 
 NEEDED = [

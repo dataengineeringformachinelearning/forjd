@@ -25,7 +25,8 @@ Single ops checklist for the final DEML → FORJD cutover. No overlapping data p
 3. `fly secrets set` on `forjd-backend`: `DATABASE_URL`/`POSTGRES_DSN`, `REDIS_URL`, `SUPABASE_*`, `ENGINE_URL`, `ENGINE_API_TOKEN`, …
 4. `fly deploy -a forjd-backend` and `fly deploy` from `engine/` (`FORJD_ROLE` as documented).
 5. Verify: `curl -fsS https://backend.forjd.co/ready` and `/health`.
-6. Smoke: mint service account → sealed ingest → projections → analytics overview → erase in staging.
+6. Smoke: mint service account → sealed ingest → projections → analytics overview → status page CRUD → erase in staging.
+7. Confirm `backend/scripts/apply_sql_migrations.py` includes `018` (or apply `018_partner_domain_scopes.sql` manually).
 
 ## B. DEML Fly + Vercel
 
