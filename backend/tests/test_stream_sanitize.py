@@ -24,9 +24,9 @@ class TestStreamSanitize(unittest.TestCase):
         self.assertEqual(rows[0]["cipher_len"], 42)
         self.assertNotIn("ciphertext", rows[0])
 
-    def test_rust_processor_registered(self) -> None:
+    def test_sealed_processor_registered(self) -> None:
         self.assertIn("sealed_metadata", REGISTRY)
-        self.assertIn("rust_sealed_metadata", REGISTRY)
+        self.assertEqual(list(REGISTRY), ["sealed_metadata"])
 
 
 if __name__ == "__main__":

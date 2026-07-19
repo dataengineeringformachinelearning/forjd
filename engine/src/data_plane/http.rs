@@ -402,15 +402,28 @@ mod tests {
 
     #[test]
     fn validates_batch_contract() {
+        // Ciphertext-only ingest: each record needs a sealed envelope shape.
+        let sealed = json!({
+            "ciphertext": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYX",
+            "nonce": "AAECAwQFBgcICQoL",
+            "key_id": "sess-1",
+        });
         let valid = IngestPayload {
+            batch_id: "batch-1234".to_string(),
+            records: vec![sealed.clone()],
+        };
+        assert!(validate_payload(&valid).is_ok());
+
+        let bad_batch_id = IngestPayload {
+            batch_id: "bad key".to_string(),
+            records: vec![sealed.clone()],
+        };
+        assert!(validate_payload(&bad_batch_id).is_err());
+
+        let plaintext_shaped = IngestPayload {
             batch_id: "batch-1234".to_string(),
             records: vec![json!({"x": 1})],
         };
-        assert!(validate_payload(&valid).is_ok());
-        let invalid = IngestPayload {
-            batch_id: "bad key".to_string(),
-            records: vec![json!({"x": 1})],
-        };
-        assert!(validate_payload(&invalid).is_err());
+        assert!(validate_payload(&plaintext_shaped).is_err());
     }
 }

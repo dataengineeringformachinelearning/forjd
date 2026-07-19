@@ -1,4 +1,4 @@
-//! Dragonfly Streams bus — FORJD internode messaging (Streams, not Kafka).
+//! Dragonfly Streams bus — FORJD internode messaging.
 
 use anyhow::{bail, Context, Result};
 use base64::{engine::general_purpose::STANDARD, Engine as _};

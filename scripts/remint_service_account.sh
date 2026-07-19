@@ -18,7 +18,7 @@ set -euo pipefail
 API="${FORJD_API_URL:?set FORJD_API_URL}"
 JWT="${FORJD_HUMAN_JWT:?set FORJD_HUMAN_JWT (human owner/admin)}"
 TENANT="${FORJD_TENANT_ID:?set FORJD_TENANT_ID}"
-NAME="${1:-partner-cutover-$(date +%Y%m%d)}"
+NAME="${1:-partner-$(date +%Y%m%d)}"
 INCLUDE_ERASE="${FORJD_INCLUDE_ERASE:-1}"
 
 SCOPES='[

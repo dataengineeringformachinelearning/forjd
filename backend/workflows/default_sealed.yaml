@@ -18,7 +18,7 @@ encryption:
   algos: [aes-256-gcm]
 
 pipeline:
-  # sealed_metadata prefers Rust; use rust_sealed_metadata for an explicit alias.
+  # sealed_metadata prefers Rust with Pathway/Python soft-fallback.
   processor: sealed_metadata
   projection:
     name: sealed.default

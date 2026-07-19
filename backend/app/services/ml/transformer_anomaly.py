@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-
 from app.services.ml import common as mlc
 from app.services.ml.lstm_autoencoder import (
     synthetic_normal_windows,

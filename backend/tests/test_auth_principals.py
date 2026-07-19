@@ -25,7 +25,7 @@ from app.services.tenants import require_tenant_access
 
 
 class TestServiceScopes(unittest.TestCase):
-    def test_default_scopes_cover_cutover_surfaces(self) -> None:
+    def test_default_scopes_cover_partner_surfaces(self) -> None:
         required = {
             "ingest:write",
             "sessions:write",

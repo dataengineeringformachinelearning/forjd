@@ -1,4 +1,4 @@
-//! Postgres maintenance for FORJD data-plane tables (no ClickHouse).
+//! Postgres maintenance for FORJD data-plane tables.
 
 use anyhow::{Context, Result};
 use chrono::Utc;

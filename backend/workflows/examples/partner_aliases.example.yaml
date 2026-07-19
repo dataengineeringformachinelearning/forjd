@@ -1,7 +1,7 @@
 # Example only — not loaded by the registry (lives under examples/).
 # Copy these aliases into a partner-local workflow YAML or merge into an
-# enabled workflow under backend/workflows/ when a subprocessor still sends
-# legacy wire ids. FORJD core never hardcodes partner product names.
+# enabled workflow under backend/workflows/ when a subprocessor sends
+# product-local wire ids. FORJD core never hardcodes partner product names.
 #
 # Target family: threat_telemetry (id / event types below must match that file).
 
@@ -12,13 +12,13 @@ version: 1
 
 aliases:
   workflow_ids:
-    - partner_legacy_telemetry
+    - partner_telemetry
   event_types:
     threat.metric:
       - partner.metric
     threat.alert:
       - partner.alert
-  # Optional legacy MIME values (resolved before match.content_types).
+  # Optional alternate MIME values (resolved before match.content_types).
   content_types:
     - application/vnd.partner.telemetry+v1
 

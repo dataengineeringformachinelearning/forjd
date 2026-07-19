@@ -52,7 +52,7 @@ aliases:
 Clients may send the alias `workflow_id` / `event_type`; FORJD resolves to the
 canonical family before persistence and projection filters. First-party example
 YAML (`threat_telemetry.yaml`) ships **without** product-specific aliases.
-Copy `examples/partner_legacy_aliases.example.yaml` into an enabled
+Copy `examples/partner_aliases.example.yaml` into an enabled
 partner-local file under this directory when a subprocessor sends alternate
 wire ids (`examples/` is not loaded by the registry).
 
@@ -100,7 +100,7 @@ Apply SQL `006`–`010` for routing, projections/DLQ, status, daemon plane, audi
 | `default_sealed.yaml` | Generic fallback (`application/forjd-event+v1`) |
 | `analytics_events.yaml` | Product analytics |
 | `threat_telemetry.yaml` | Example threat/telemetry vertical (not platform core; used via service token + this content_type) |
-| `examples/partner_legacy_aliases.example.yaml` | Template for partner-local wire-id aliases onto a canonical family (not loaded) |
+| `examples/partner_aliases.example.yaml` | Template for partner-local wire-id aliases onto a canonical family (not loaded) |
 
 Platform surfaces (ingest, projections, replay/DLQ, status) stay use-case agnostic.
 Partner product names belong only in deploy-time alias overlays or the partner BFF —

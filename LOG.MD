@@ -2,6 +2,10 @@
 
 ## Log
 
+- 2026-07-18: Engine test fix — `validates_batch_contract` now asserts ciphertext-only ingest shape; `cargo test --features server,data-plane` green (22). Prefer that over `--all-features` locally (PyO3 link needs maturin/Python).
+- 2026-07-18: Production verification — redeployed `forjd-backend` (exports/vulns service auth), applied SQL `017`–`019` (dropped crypto_sessions→auth.users FK), expanded `deml-railway` scopes; E2EE session→ingest→projections smoke passed (`scripts/e2e_sealed_ingest_smoke.py`).
+- 2026-07-18: Dead-code cleanup — dropped unused `pathway_sealed_rollup` and `rust_sealed_metadata` alias, unused IP enrichment helpers, and `MIGRATE_MODE=deml` back-compat; wiped local ETL `.run/` secrets.
+- 2026-07-18: Code polish pass — removed anti-legacy framing from engine/bus/vulnerability comments, remint default names, and partner alias examples (`partner_aliases.example.yaml`); kept SQL filenames stable.
 - 2026-07-18: Final documentation cleanup — presented FORJD as the universal secure streaming engine (no migration/lineage framing). Replaced cutover checklists with `docs/PRODUCTION_CHECKLIST.md`; removed `CUTOVER.md` / `CLEANUP_2026-07-18.md`; refreshed `AGENTS.md`, `ARCHITECTURE.md`, and README deploy links.
 - 2026-07-18: Added production Neon→Supabase controlled ETL (`scripts/neon_supabase_etl/`) — YAML mappings/transforms, pgvector-aware schema, PK upserts, resumable watermarks, full/incremental modes, verify CLI; docs in `docs/NEON_TO_SUPABASE_ETL.md`. Optional `uv sync --group etl` (psycopg).
 - 2026-07-18: Production deploy runbook — `docs/PRODUCTION_DEPLOY.md` + `docs/PRODUCTION_CHECKLIST.md` (live health/ready/engine All verified). Remaining: apply `sql/019`, redeploy security/perf to Fly, partner remint if erase needed.

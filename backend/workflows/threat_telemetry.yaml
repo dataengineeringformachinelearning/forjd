@@ -20,11 +20,11 @@ event_types:
     content_type: application/forjd-telemetry+v1
     description: Alert / finding envelope
 
-# Partner / legacy wire aliases are config-only. Do not put product-specific
-# names in this first-party example — see workflows/examples/ for overlays.
-# Example (partner-local YAML or examples/partner_legacy_aliases.example.yaml):
+# Partner wire aliases are config-only. Keep product-specific names out of this
+# first-party example — see workflows/examples/ for overlays.
+# Example (partner-local YAML or examples/partner_aliases.example.yaml):
 #   aliases:
-#     workflow_ids: [partner_legacy_telemetry]
+#     workflow_ids: [partner_telemetry]
 #     event_types:
 #       threat.metric: [partner.metric]
 #       threat.alert: [partner.alert]

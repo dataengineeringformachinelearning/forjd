@@ -63,39 +63,38 @@ async def erase_tenant(
     )
 
     deleted: dict[str, int] = {}
-    async with pool.acquire() as conn:
-        async with conn.transaction():
-            for table in _ERASE_TABLES:
-                try:
-                    status = await conn.execute(
-                        f"DELETE FROM public.{table} WHERE tenant_id = $1::uuid",
-                        str(tenant_id),
-                    )
-                    # asyncpg returns e.g. "DELETE 3"
-                    count = int(str(status).rsplit(" ", 1)[-1])
-                    if count:
-                        deleted[table] = count
-                except asyncpg.UndefinedTableError:
-                    continue
-                except asyncpg.PostgresError as exc:
-                    logger.warning("erase skip %s: %s", table, exc)
-                    continue
+    async with pool.acquire() as conn, conn.transaction():
+        for table in _ERASE_TABLES:
+            try:
+                status = await conn.execute(
+                    f"DELETE FROM public.{table} WHERE tenant_id = $1::uuid",
+                    str(tenant_id),
+                )
+                # asyncpg returns e.g. "DELETE 3"
+                count = int(str(status).rsplit(" ", 1)[-1])
+                if count:
+                    deleted[table] = count
+            except asyncpg.UndefinedTableError:
+                continue
+            except asyncpg.PostgresError as exc:
+                logger.warning("erase skip %s: %s", table, exc)
+                continue
 
-            # Drop credentials + memberships + tenant (CASCADE covers leftovers).
-            sa = await conn.execute(
-                "DELETE FROM public.service_accounts WHERE tenant_id = $1::uuid",
-                str(tenant_id),
-            )
-            deleted["service_accounts"] = int(str(sa).rsplit(" ", 1)[-1])
-            await conn.execute(
-                "DELETE FROM public.tenant_members WHERE tenant_id = $1::uuid",
-                str(tenant_id),
-            )
-            tenant_del = await conn.execute(
-                "DELETE FROM public.tenants WHERE id = $1::uuid",
-                str(tenant_id),
-            )
-            deleted["tenants"] = int(str(tenant_del).rsplit(" ", 1)[-1])
+        # Drop credentials + memberships + tenant (CASCADE covers leftovers).
+        sa = await conn.execute(
+            "DELETE FROM public.service_accounts WHERE tenant_id = $1::uuid",
+            str(tenant_id),
+        )
+        deleted["service_accounts"] = int(str(sa).rsplit(" ", 1)[-1])
+        await conn.execute(
+            "DELETE FROM public.tenant_members WHERE tenant_id = $1::uuid",
+            str(tenant_id),
+        )
+        tenant_del = await conn.execute(
+            "DELETE FROM public.tenants WHERE id = $1::uuid",
+            str(tenant_id),
+        )
+        deleted["tenants"] = int(str(tenant_del).rsplit(" ", 1)[-1])
 
     logger.info("tenant erase complete tenant_id=%s deleted=%s", tenant_id, deleted)
     return {"ok": True, "tenant_id": str(tenant_id), "deleted": deleted}

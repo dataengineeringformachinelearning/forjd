@@ -7,11 +7,10 @@ import inspect
 import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from app.services import sessions as session_svc
 from app.services.service_accounts import authenticate_opaque
-
 
 ROOT = Path(__file__).resolve().parents[1]
 

@@ -10,9 +10,6 @@ import json
 import math
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from datetime import (
-  timezone as datetime_timezone,
-)
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Final, cast
@@ -777,7 +774,7 @@ def _page_streams(
   status_text = (
     f"Showing {shown:,} of {len(rows):,} records" if shown < len(rows) else f"{len(rows):,} records"
   )
-  generated_label = generated_at.astimezone(datetime_timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+  generated_label = generated_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
   summary_items = [
     ("Records", f"{len(rows):,}"),
     ("Reporting window", metadata.get("Reporting window", "Selected range")),
@@ -916,7 +913,7 @@ def render_pdf_report(
         f"{info_id} 0 obj<< /Title ({_escape_pdf_text(title)}) "
         "/Author (FORJD) "
         "/Subject (FORJD operational data export) /Creator (FORJD Platform) "
-        f"/CreationDate (D:{generated_at.astimezone(datetime_timezone.utc).strftime('%Y%m%d%H%M%SZ')}) "
+        f"/CreationDate (D:{generated_at.astimezone(UTC).strftime('%Y%m%d%H%M%SZ')}) "
         ">>endobj\n"
       ).encode("cp1252", errors="replace"),
     ]

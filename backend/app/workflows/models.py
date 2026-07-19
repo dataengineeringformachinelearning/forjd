@@ -156,7 +156,7 @@ class EncryptionPolicy(BaseModel):
     algos: list[str] = Field(default_factory=lambda: ["aes-256-gcm"])
 
 
-# --- Partner / legacy wire aliases (config only — never product forks in code) ---
+# --- Partner wire aliases (config only — never product forks in code) ---
 class WorkflowAliases(BaseModel):
     """Map partner wire ids onto this workflow's canonical id / event types.
 

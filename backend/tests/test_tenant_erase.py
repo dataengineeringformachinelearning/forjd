@@ -28,9 +28,8 @@ class TenantEraseTests(unittest.IsolatedAsyncioTestCase):
             erase_svc.tenant_svc,
             "require_tenant_access",
             new=AsyncMock(side_effect=HTTPException(status_code=403, detail="insufficient")),
-        ):
-            with self.assertRaises(HTTPException):
-                await erase_svc.erase_tenant(pool, principal=principal, tenant_id=uuid4())
+        ), self.assertRaises(HTTPException):
+            await erase_svc.erase_tenant(pool, principal=principal, tenant_id=uuid4())
 
     async def test_erase_deletes_in_transaction(self) -> None:
         tenant_id = uuid4()

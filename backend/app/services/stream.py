@@ -103,21 +103,6 @@ def pathway_sealed_process(
     }
 
 
-def pathway_sealed_rollup(
-    events: list[dict[str, Any]],
-) -> dict[str, Any]:
-    """Backward-compatible alias — prefer pathway_sealed_process."""
-    out = pathway_sealed_process(events)
-    return {
-        "ok": out.get("ok", False),
-        "engine": out.get("engine"),
-        "count": out.get("count", 0),
-        "tenants": out.get("tenants", 0),
-        "by_tenant": out.get("by_tenant", {}),
-        "error": out.get("error"),
-    }
-
-
 # --- Column sanitize (reject anything that looks like ciphertext) ---
 def _sanitize(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []

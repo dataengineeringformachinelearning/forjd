@@ -50,7 +50,7 @@ Dragonfly                   Streams bus · rate limits · cache
 
 ```yaml
 pipeline:
-  processor: sealed_metadata   # or rust_sealed_metadata
+  processor: sealed_metadata
   steps: [rollup, size_anomaly, rate_anomaly]
 ```
 

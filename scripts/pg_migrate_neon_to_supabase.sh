@@ -24,11 +24,6 @@
 set -euo pipefail
 
 MIGRATE_MODE="${MIGRATE_MODE:-partner}"
-# Back-compat: older docs used MIGRATE_MODE=deml
-if [[ "${MIGRATE_MODE}" == "deml" ]]; then
-  MIGRATE_MODE="partner"
-  TARGET_SCHEMA="${TARGET_SCHEMA:-deml}"
-fi
 TARGET_SCHEMA="${TARGET_SCHEMA:-}"
 DUMP_DIR="${DUMP_DIR:-./.pg_migrate_dumps}"
 DRY_RUN="${DRY_RUN:-0}"

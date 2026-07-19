@@ -77,7 +77,7 @@ enabled: true
 match:
   content_types: [application/forjd-partner+v1]
 aliases:
-  workflow_ids: [partner_legacy_telemetry]
+  workflow_ids: [partner_telemetry]
   event_types:
     threat.metric: [partner.metric]
     threat.alert: [partner.alert]
@@ -95,11 +95,11 @@ pipeline:
             try:
                 wf = resolve_workflow(
                     content_type="application/forjd-partner+v1",
-                    workflow_id="partner_legacy_telemetry",
+                    workflow_id="partner_telemetry",
                 )
                 self.assertEqual(wf.id, "universal_family")
                 self.assertEqual(
-                    canonical_workflow_id("partner_legacy_telemetry"),
+                    canonical_workflow_id("partner_telemetry"),
                     "universal_family",
                 )
                 self.assertEqual(canonical_event_type("partner.metric"), "threat.metric")
@@ -115,10 +115,10 @@ name: Partner family
 match:
   content_types: [application/forjd-partner+v1]
 aliases:
-  workflow_ids: [legacy_partner_wf]
+  workflow_ids: [partner_alias_wf]
   event_types:
-    partner.metric: [legacy.metric]
-  content_types: [application/vnd.legacy.partner+v1]
+    partner.metric: [alias.metric]
+  content_types: [application/vnd.partner.alias+v1]
 pipeline:
   processor: sealed_metadata
   steps: [rollup]
@@ -127,16 +127,16 @@ pipeline:
             path = Path(tmp) / "partner.yaml"
             path.write_text(text, encoding="utf-8")
             loaded = load_workflow_file(path)
-        self.assertEqual(loaded.aliases.workflow_ids, ["legacy_partner_wf"])
+        self.assertEqual(loaded.aliases.workflow_ids, ["partner_alias_wf"])
         self.assertEqual(
-            loaded.aliases.event_types["partner.metric"], ["legacy.metric"]
+            loaded.aliases.event_types["partner.metric"], ["alias.metric"]
         )
         self.assertEqual(
-            loaded.aliases.content_types, ["application/vnd.legacy.partner+v1"]
+            loaded.aliases.content_types, ["application/vnd.partner.alias+v1"]
         )
 
     def test_content_type_alias_resolves_workflow(self) -> None:
-        """Legacy MIME aliases map onto match.content_types families."""
+        """Partner MIME aliases map onto match.content_types families."""
         from app.workflows import registry as wf_registry
 
         text = """
