@@ -1,5 +1,4 @@
--- FORJD pulse PoC table (run in Supabase SQL editor or psql)
--- Soft-create also happens on first POST /api/v1/pulse when the API can write.
+-- Historical legacy table (unused by the API; kept for existing databases).
 
 CREATE TABLE IF NOT EXISTS pulses (
   id UUID PRIMARY KEY,

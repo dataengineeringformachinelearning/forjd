@@ -1,9 +1,8 @@
 # FORJD
 
-Universal secure streaming engine. This repo’s **pulse PoC** wires the full stack end to end:
+Universal secure streaming engine for sealed partner ingest, YAML workflows, and durable projections.
 
-**Angular → FastAPI → Rust engine (HTTP or PyO3) + Polars + Pathway + Prefect + Supabase Postgres/pgvector + Dragonfly**  
-(+ optional PyTorch LSTM-autoencoder anomaly PoC)
+**Angular (static product UI) → FastAPI control plane → Rust engine (HTTP or PyO3) + Polars + Pathway + Prefect + Supabase Postgres/pgvector + Dragonfly**
 
 ## Prerequisites
 
@@ -35,7 +34,7 @@ Edit `backend/.env`:
 - **`REDIS_URL`** — leave `redis://:forjd-dev-local@localhost:6379/0` for local Compose Dragonfly
 - Optional harden: set **`API_KEY`** / **`ENGINE_API_TOKEN`** (Compose wires the latter into API + engine)
 
-Optional: run `backend/sql/001_pulses.sql` in the Supabase SQL editor (the API can also create the table on first pulse).
+Apply production SQL from `003` onward (see [`backend/sql/README.md`](backend/sql/README.md)).
 
 ### 2. Cache + Prefect + engine (Docker)
 
@@ -65,25 +64,13 @@ Check:
 
 ```bash
 curl -s http://127.0.0.1:8000/health
-curl -s http://127.0.0.1:8000/api/v1/stack
-curl -s -X POST http://127.0.0.1:8000/api/v1/pulse \
-  -H 'Content-Type: application/json' \
-  -d '{"values":[1,2,3,5,8]}'
-
-# Optional unsupervised ML PoC (LSTM-AE + pgvector)
-uv sync --group ml
-# then run backend/sql/002_anomaly_embeddings.sql in Supabase
-curl -s -X POST http://127.0.0.1:8000/api/v1/anomaly/fit \
-  -H 'Content-Type: application/json' -d '{"use_synthetic":true,"epochs":20}'
-curl -s -X POST http://127.0.0.1:8000/api/v1/anomaly/score \
-  -H 'Content-Type: application/json' \
-  -d '{"values":[0.1,0.2,8,9,0.1,0.2,0.1,0.2,0.1,0.2,0.1,0.2,0.1,0.2,0.1,0.2]}'
+curl -s http://127.0.0.1:8000/ready
+curl -s http://127.0.0.1:8000/api/v1/capabilities
 ```
 
 - `/health` — process up  
-- `/ready` — Postgres + Dragonfly both reachable  
-- `/api/v1/stack` — per-layer status for the UI (includes optional `ml`)  
-- `/api/v1/anomaly/*` — LSTM-AE fit/score + pgvector embeddings  
+- `/ready` — Postgres + Dragonfly (+ supervised workers) reachable  
+- `/api/v1/capabilities` — machine-readable product contract  
 
 ### 4. Frontend
 
@@ -93,7 +80,7 @@ npm install
 npm start
 ```
 
-Open [http://localhost:4200](http://localhost:4200). Use **Run pulse** / **Refresh stack**. Dev builds point at `http://127.0.0.1:8000` via `src/environments/environment.development.ts`.
+Open [http://localhost:4200](http://localhost:4200) for the static product landing (docs links only — nothing runnable in the UI). Dev builds point at `http://127.0.0.1:8000` via `src/environments/environment.development.ts`.
 
 ### 5. Engine only (optional)
 
@@ -103,17 +90,6 @@ cargo test
 cargo run --no-default-features --features server   # HTTP on :8080
 # or rebuild Python bindings from backend/: uv sync
 ```
-
-## What “Run pulse” touches
-
-| Layer | What happens |
-|-------|----------------|
-| Rust `forjd-engine` | Validate/enrich event + Arrow/Parquet summarize (HTTP or PyO3) |
-| Polars | Batch aggregate |
-| Pathway | Finite stream reduce |
-| Prefect | `forjd-pulse` flow (local fallback if server down) |
-| Postgres | Insert into `pulses` |
-| Dragonfly | Cache last pulse (`forjd:pulse:last`) |
 
 ## Secure streaming (Supabase Auth + E2EE)
 
@@ -129,16 +105,9 @@ Production path for sealed partner ingress:
 
 Details: [`backend/sql/README.md`](backend/sql/README.md), [`backend/README.md`](backend/README.md), and [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md).
 
-## Unsupervised anomaly PoC (optional)
+## Optional ML catalog
 
-| Piece | Role |
-|-------|------|
-| PyTorch LSTM-AE | Train on normal windows; reconstruction MSE = anomaly score |
-| Latent vector (16-d) | Stored in Supabase **pgvector** (`anomaly_embeddings`) |
-| Prefect `forjd-anomaly` | Ack fit/score (same soft-fail pattern as pulse) |
-| UI | **Fit + score anomaly** on the pulse page |
-
-Install with `uv sync --group ml`. Full catalog under `GET /api/v1/ml/models` (LSTM-AE, Isolation Forest, OCSVM, RF/HGB, Transformer AE, TFT-lite, NeuralSeasonal, GRU/LSTM P99, EventEncoder, NorseSSN). Optional: `ml-spiking` (norse), `ml-nlp` (sentence-transformers).
+Install with `uv sync --group ml`. Tenant-scoped fit/score under `GET /api/v1/ml/models` (LSTM-AE, Isolation Forest, OCSVM, RF/HGB, Transformer AE, TFT-lite, NeuralSeasonal, GRU/LSTM P99, EventEncoder, NorseSSN). Optional: `ml-spiking` (norse), `ml-nlp` (sentence-transformers).
 
 ## Deploy sketches
 

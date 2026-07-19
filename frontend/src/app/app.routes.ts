@@ -9,10 +9,5 @@ export const routes: Routes = [
     component: Landing,
     title: 'FORJD — Universal secure streaming engine',
   },
-  {
-    path: 'console',
-    loadComponent: () => import('./console/console').then(({ Console }) => Console),
-    title: 'FORJD Console',
-  },
   { path: '**', redirectTo: '' },
 ];

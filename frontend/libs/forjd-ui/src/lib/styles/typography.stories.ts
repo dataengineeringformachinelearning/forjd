@@ -14,7 +14,7 @@ const meta: Meta = {
     template: `
       <div style="display: grid; gap: 1.5rem; max-width: 36rem; text-align: left;">
         <p class="fj-brand">FORJD</p>
-        <h1 class="fj-headline">Connected stack pulse</h1>
+        <h1 class="fj-headline">Universal secure streaming</h1>
         <p class="fj-lede">
           Supporting sentence under a headline — muted, readable, capped width.
         </p>

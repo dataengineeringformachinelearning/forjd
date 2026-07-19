@@ -1,6 +1,5 @@
--- FORJD unsupervised anomaly PoC — LSTM-AE latent vectors in Supabase pgvector.
--- Run in the Supabase SQL editor (Database → Extensions: enable "vector" if needed).
--- Soft-create also happens on first POST /api/v1/anomaly when the API can write.
+-- Historical global embeddings table (unused by the API; prefer tenant-scoped /api/v1/ml).
+-- Enable the vector extension before applying on fresh databases.
 
 CREATE EXTENSION IF NOT EXISTS vector;
 

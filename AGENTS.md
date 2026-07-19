@@ -86,12 +86,12 @@ in for Dragonfly (wire-compatible); the app reports it as `dragonfly`.
 ### Running the stack
 
 - API: `cd backend && uv run uvicorn app.main:app --host 127.0.0.1 --port 8000`
-- Web: `cd frontend && npm start` (http://localhost:4200, dev build targets :8000)
-- A pulse (`POST /api/v1/pulse` or the UI "Run pulse") reports all core layers ok:
-  `engine`, `polars`, `postgres`, `dragonfly`; `prefect` ok via local-fallback
-  (no Prefect server needed). Backend pins Python 3.12 (`requires-python <3.14`),
-  so `uv run` uses a Pathway-compatible interpreter; a `pathway` failure only
-  appears if the API runs on the system CPython 3.14 instead of the uv-managed 3.12.
+- Web: `cd frontend && npm start` (http://localhost:4200 — static landing; docs links only)
+- Ops probes: `GET /health`, `GET /ready`, `GET /api/v1/capabilities`. Partner
+  traffic uses sealed ingest + tenant service tokens — not a browser console.
+  Backend pins Python 3.12 (`requires-python <3.14`), so `uv run` uses a
+  Pathway-compatible interpreter; a `pathway` failure only appears if the API
+  runs on the system CPython 3.14 instead of the uv-managed 3.12.
 
 ### Frontend install scripts
 

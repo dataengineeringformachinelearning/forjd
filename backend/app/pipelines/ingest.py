@@ -6,7 +6,7 @@ and returns result rows for Supabase ``stream_results``.
 
 Use-case agnostic: any SaaS select a workflow via ``content_type`` /
 ``workflow_id`` — they do not get a forked Prefect flow.
-Soft-fails when Prefect API is offline (same pattern as pulse).
+Soft-fails when Prefect API is offline (local ack fallback).
 """
 
 from __future__ import annotations

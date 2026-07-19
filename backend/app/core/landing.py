@@ -97,10 +97,8 @@ _LANDING_HTML = """<!doctype html>
       hot-path and FastAPI control plane.
     </p>
     <div class="actions">
-      <a class="btn btn--primary" href="/docs">API docs (Swagger)</a>
+      <a class="btn btn--primary" href="/docs">API docs</a>
       <a class="btn btn--ghost" href="/redoc">ReDoc</a>
-      <a class="btn btn--ghost" href="/health">Health</a>
-      <a class="btn btn--ghost" href="/ready">Readiness</a>
     </div>
     <div class="meta">
       <div><span>version</span><code>{version}</code></div>

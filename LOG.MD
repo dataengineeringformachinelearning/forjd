@@ -2,6 +2,7 @@
 
 ## Log
 
+- 2026-07-19: Removed the pulse/stack/anomaly PoC layer and the runnable `/console` UI. Frontend and backend landings are static product pages (docs links only); deleted pulse/stack/anomaly APIs, unused batch helpers, browser seal/Supabase console clients, and `@supabase/supabase-js`. Product path remains sealed ingest + YAML workflows via authenticated APIs.
 - 2026-07-19: Removed service-account remint scope drift by adding an API `include_tenant_erase` flag over canonical defaults; remint now excludes erase by default, safely encodes its request, and runbooks reflect current `003`–`025` migrations and `ml:read` defaults.
 - 2026-07-19: Final polish pass — advertised `report_documents` in the public `/api/v1/capabilities` headless contract, added HTTP-level end-to-end tests for the reports lane (routing → auth → validation → SQL shape, PII rejection before DB), and cleared residual format drift. Gates green: full backend suite, engine 24 tests, frontend prod build + 4 UI tests.
 - 2026-07-19: Added tenant-scoped report documents for partner user reports (DEML issue reports off Firebase) — `sql/022` (`report_documents` + RLS + `reports:read`/`reports:write` default scopes), strict pydantic contract reusing the SIEM PII-minimized metadata validator, `POST/GET /api/v1/reports/documents`, tenant-erase coverage, and 9 new tests. 164 backend tests green; remint partner tokens after applying `022`.

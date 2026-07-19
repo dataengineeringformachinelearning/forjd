@@ -2,14 +2,8 @@
 
 FORJD Angular app + `libs/forjd-ui` component library.
 
-The public product landing stays at `/`. The lazy-loaded operational console is
-available at `/console`; it contains stack/pulse controls plus Supabase user auth,
-tenant/session management, browser-only X25519/HKDF + AES-GCM sealing, ciphertext
-ingest receipts, Realtime metadata, and the development anomaly control.
-
-To enable console Auth and Realtime, set only the public Supabase anon/publishable
-key in `src/environments/environment*.ts` before building. Never place a Supabase
-service-role key or a tenant `fjsvc_` token in browser configuration.
+The public product landing at `/` is static: brand, product summary, and links to
+API documentation. There is no runnable console or in-app stack control surface.
 
 ## App
 
@@ -18,6 +12,8 @@ npm start          # http://localhost:4200
 npm run build
 npm test
 ```
+
+Dev builds point at `http://127.0.0.1:8000` via `src/environments/environment.development.ts`.
 
 ## forjd-ui (Storybook + Chromatic)
 

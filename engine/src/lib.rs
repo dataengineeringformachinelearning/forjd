@@ -25,7 +25,7 @@ use thiserror::Error;
 pub const SCHEMA_VERSION: u32 = 1;
 /// Maximum accepted event id length.
 pub const MAX_EVENT_ID_LEN: usize = 128;
-/// Maximum values in a summarize batch (PoC + DoS bound).
+/// Maximum values in a summarize batch (DoS bound).
 pub const MAX_VALUES: usize = 10_000;
 /// Maximum JSON payload depth when scanning nested numbers (defense in depth).
 pub const MAX_PAYLOAD_DEPTH: usize = 8;

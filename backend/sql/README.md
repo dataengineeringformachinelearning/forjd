@@ -9,8 +9,8 @@ idempotent migrations are reapplied to backfill the ledger.
 
 | File | Purpose |
 |------|---------|
-| `001_pulses.sql` | Stack pulse PoC |
-| `002_anomaly_embeddings.sql` | Original pulse ML PoC embeddings |
+| `001_pulses.sql` | Historical — unused (legacy stack smoke table) |
+| `002_anomaly_embeddings.sql` | Historical — unused (prefer tenant-scoped `/api/v1/ml`) |
 | `003_secure_tenancy.sql` | **Production path** — tenants, RLS, E2EE telemetry, vector embeddings |
 | `004_crypto_sessions.sql` | X25519 public-key session directory (private keys never stored) |
 | `005_stream_results.sql` | Pathway/Prefect outputs (metadata scores; RLS) |

@@ -18,15 +18,15 @@ describe('App', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
-  it('should host routed pages without coupling the landing to the console', async () => {
+  it('should host routed pages via a router outlet', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('router-outlet')).toBeTruthy();
   });
 
-  it('should render the landing eagerly and isolate the console behind a lazy route', () => {
+  it('should render only the static landing at the root', () => {
     expect(routes.find(({ path }) => path === '')?.component).toBe(Landing);
-    expect(routes.find(({ path }) => path === 'console')?.loadComponent).toBeTypeOf('function');
+    expect(routes.find(({ path }) => path === 'console')).toBeUndefined();
   });
 });

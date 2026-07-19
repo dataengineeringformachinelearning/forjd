@@ -12,7 +12,7 @@
 --   • FastAPI uses the service role for ingestion after JWT verification;
 --     browser/Realtime clients use the anon key + user JWT (RLS enforced).
 --
--- PoC tables (001_pulses, 002_anomaly_embeddings) remain for stack demos;
+-- Historical tables (001_pulses, 002_anomaly_embeddings) are unused by the API;
 -- production streaming uses the tables below.
 -- =============================================================================
 
@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS public.embedding_vectors (
   model_version TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-  -- Dim must match ML_LATENT_DIM (default 16) for the LSTM-AE PoC.
+  -- Dim must match ML_LATENT_DIM (default 16) for optional ML latents.
   embedding vector(16),
   reconstruction_error DOUBLE PRECISION,
   is_anomaly BOOLEAN NOT NULL DEFAULT FALSE,

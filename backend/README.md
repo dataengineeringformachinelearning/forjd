@@ -1,8 +1,10 @@
 # FORJD backend
 
-FastAPI API that ties the stack together for the pulse PoC:
+FastAPI control plane for the universal secure streaming engine:
 
-`Angular → FastAPI → Rust (PyO3) + Polars + Pathway + Prefect + Supabase Postgres + Dragonfly`
+`Partners / UI docs → FastAPI → Rust (PyO3 or HTTP) + Polars + Pathway + Prefect + Supabase Postgres + Dragonfly`
+
+The API root (`GET /`) is a static landing with docs links only. Product work happens through authenticated `/api/v1/*` routes (service tokens / JWTs) — not through an in-browser run console.
 
 ## Local (uv)
 
@@ -22,21 +24,17 @@ uv run forjd
 
 1. Create a project and copy the connection string (prefer pooler for serverless; direct is fine for this API).
 2. Set `POSTGRES_DSN=postgresql+asyncpg://…` in `.env` (keep the `+asyncpg` form — clients normalize it).
-3. Run `sql/001_pulses.sql` in the SQL editor (or let `POST /api/v1/pulse` auto-create the table).
-4. For the unsupervised ML PoC: enable the **vector** extension, run `sql/002_anomaly_embeddings.sql`, and install torch with `uv sync --group ml`.
+3. Apply SQL `003`→`025` (see [`sql/README.md`](sql/README.md)). Enable the **vector** extension for optional ML.
+4. For the ML catalog: install torch with `uv sync --group ml`.
 
 ### Endpoints
 
 | Method | Path | Purpose |
 |--------|------|---------|
+| GET | `/` | Static API landing (docs links) |
 | GET | `/health` | Liveness |
 | GET | `/ready` | Postgres + Dragonfly + supervised workers (+ object storage in production) |
-| GET | `/api/v1/stack` | Layer status for the UI |
-| POST | `/api/v1/pulse` | Run one connected pulse |
-| GET | `/api/v1/pulse` | Cached last pulse + recent rows |
-| POST | `/api/v1/anomaly/fit` | Train LSTM-AE (synthetic normals by default) |
-| POST | `/api/v1/anomaly/score` | Score a window + store latent in pgvector |
-| GET | `/api/v1/anomaly` | ML status + recent embeddings |
+| GET | `/api/v1/capabilities` | Machine-readable product contract |
 | GET/POST | `/api/v1/tenants` | List / create tenants (enterprise user JWT) |
 | GET/POST/DELETE | `/api/v1/service-accounts` | Mint / list / revoke tenant-scoped M2M tokens |
 | POST | `/api/v1/ingest` | Sealed event ingest (user JWT or service token) |
@@ -135,12 +133,9 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/ml/classical_anomaly/fit \
 curl -s "http://127.0.0.1:8000/api/v1/ml/scores?tenant_id=$TENANT" \
   -H "Authorization: Bearer $TOKEN"
 
-# Original LSTM-AE PoC endpoint (still available)
-curl -s -X POST http://127.0.0.1:8000/api/v1/anomaly/fit \
-  -H 'Content-Type: application/json' -d '{"use_synthetic":true,"epochs":20}'
 ```
 
-Torch stays in the optional `ml` dependency group so slim API images stay small; the stack check reports `ml.ok` separately from core readiness.
+Torch stays in the optional `ml` dependency group so slim API images stay small.
 
 ## Docker image
 

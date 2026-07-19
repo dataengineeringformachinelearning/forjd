@@ -1,6 +1,6 @@
-"""Aggregate v1 routers (pulse PoC + secure E2EE path).
+"""Aggregate v1 routers for the universal secure streaming API.
 
-Universal streaming core (use these from any SaaS / subprocessor):
+Core (use these from any SaaS / subprocessor):
   tenants, service-accounts, sessions, ingest, workflows, projections, replay
 
 Optional domain APIs (threat/SOC/…) are not required for sealed streaming.
@@ -12,7 +12,6 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     addons,
-    anomaly,
     capabilities,
     domain,
     exports,
@@ -20,14 +19,12 @@ from app.api.v1 import (
     ml,
     playbooks,
     projections,
-    pulse,
     replay,
     reports,
     service_accounts,
     sessions,
     siem,
     soc,
-    stack,
     status,
     tenants,
     threat_intel,
@@ -39,11 +36,6 @@ api_router = APIRouter()
 
 # --- Public compatibility contract (DEML probes before cutover) ---
 api_router.include_router(capabilities.router)
-
-# --- Stack PoC ---
-api_router.include_router(pulse.router)
-api_router.include_router(stack.router)
-api_router.include_router(anomaly.router)
 
 # --- Universal secure streaming (Auth + E2EE + YAML workflows) ---
 # Subprocessors (partner SaaS): service-accounts → sessions → ingest → projections.
