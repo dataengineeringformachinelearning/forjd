@@ -2,8 +2,9 @@
 
 FORJD Angular app + `libs/forjd-ui` component library.
 
-The public product landing at `/` is static: brand, product summary, and links to
-API documentation. There is no runnable console or in-app stack control surface.
+The public product landing at `/` is static forjd-ui composition: brand, product
+summary, capability panels, and links to the API Swagger/ReDoc. There is no
+runnable console or in-app stack control surface.
 
 ## App
 

@@ -14,8 +14,9 @@ Universal secure streaming engine. Stability and E2EE over novelty.
 ## Layers
 
 ```
-Angular (forjd.co)          Supabase Auth user JWT + WebCrypto seal
+Static landing (forjd.co)   Docs / product surface only (no browser seal console)
 Partner SaaS (subprocessor)  Tenant-scoped service token (fjsvc_… / M2M JWT)
+Enterprise operators         Supabase Auth user JWT (API / admin paths)
         │
         ▼
 FastAPI (forjd-backend)     Principal verify (user vs service), tenancy, Prefect
@@ -41,7 +42,7 @@ Dragonfly                   Streams bus · rate limits · cache
 | Normalized SIEM signals / cases | FastAPI + `security_signals` / `incident_cases`; strict tenant scopes |
 | Durable SOAR | Versioned playbooks + idempotent runs/action receipts; control-plane actions await acknowledgement |
 | Batch analytics / ML | Python (Polars / Prefect / optional torch) |
-| Realtime UI | Supabase Realtime on `stream_results` / `telemetry_events` metadata |
+| Realtime (consumers) | Supabase Realtime publication on `stream_results` / `telemetry_events` metadata for partner/consumer clients — not a FORJD product console |
 
 ## E2EE invariants
 
@@ -141,9 +142,9 @@ Checklist: [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md).
 | `FORJD_ROLE` | What runs | Required secrets |
 |--------------|-----------|------------------|
 | `engine` (default) | Arrow/Parquet process HTTP only | `ENGINE_API_TOKEN` |
-| `ingest` | Sealed edge → Postgres outbox | + `DATABASE_URL`, `REDIS_URL` |
+| `ingest` | **Retired** — sealed edge returns `410 Gone`; do not deploy as an active ingest path | (historical) |
 | `relay` / `scheduler` / `normalizer` | Bus workers | + DSNs + **internode keys** |
-| `all` | Relay + scheduler + probe + normalizer + ingest | DSNs + internode keys |
+| `all` | Relay + scheduler + probe + normalizer (canonical sealed ingest remains FastAPI) | DSNs + internode keys |
 
 On Fly, bus roles default to `FORJD_INTERNODE_ENCRYPTION=required`. Set
 `FORJD_INTERNODE_ACTIVE_KID` / `FORJD_INTERNODE_KEYS` with

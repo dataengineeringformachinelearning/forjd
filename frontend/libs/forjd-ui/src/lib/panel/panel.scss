@@ -1,9 +1,25 @@
 :host {
   display: block;
+}
+
+:host([data-variant='section']) {
   border-top: 1px solid var(--fj-border);
   padding-top: var(--fj-space-6);
 }
 
+:host([data-variant='card']) {
+  background: var(--fj-surface);
+  border: 1px solid var(--fj-border);
+  border-radius: var(--fj-radius);
+  padding: var(--fj-space-4);
+}
+
 .fj-panel-title {
   margin: 0 0 var(--fj-space-3);
+  font-family: var(--fj-font-mono);
+  font-size: var(--fj-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--fj-tracking-wide);
+  text-transform: uppercase;
+  color: var(--fj-primary);
 }

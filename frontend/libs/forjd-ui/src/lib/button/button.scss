@@ -2,7 +2,11 @@
   display: inline-block;
 }
 
-button {
+button,
+a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-family: var(--fj-font-sans);
   font-size: 0.875rem;
   font-weight: 500;
@@ -12,35 +16,41 @@ button {
   padding: var(--fj-space-2) var(--fj-space-4);
   border: 1px solid transparent;
   cursor: pointer;
+  text-decoration: none;
   transition:
     background-color 120ms ease,
     border-color 120ms ease,
     color 120ms ease;
 }
 
-button:focus-visible {
+button:focus-visible,
+a:focus-visible {
   outline: 2px solid var(--fj-focus);
   outline-offset: 2px;
 }
 
-button[data-variant='primary'] {
+button[data-variant='primary'],
+a[data-variant='primary'] {
   background: var(--fj-primary);
   color: var(--fj-text-on-primary);
   border-color: var(--fj-primary);
 }
 
-button[data-variant='primary']:hover {
+button[data-variant='primary']:hover,
+a[data-variant='primary']:hover {
   background: var(--fj-primary-hover);
   border-color: var(--fj-primary-hover);
 }
 
-button[data-variant='ghost'] {
+button[data-variant='ghost'],
+a[data-variant='ghost'] {
   background: transparent;
   color: var(--fj-text);
   border-color: var(--fj-border);
 }
 
-button[data-variant='ghost']:hover {
+button[data-variant='ghost']:hover,
+a[data-variant='ghost']:hover {
   background: var(--fj-surface);
   border-color: var(--fj-surface-2);
 }

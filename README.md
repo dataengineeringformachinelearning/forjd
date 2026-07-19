@@ -2,7 +2,7 @@
 
 Universal secure streaming engine for sealed partner ingest, YAML workflows, and durable projections.
 
-**Angular (static product UI) → FastAPI control plane → Rust engine (HTTP or PyO3) + Polars + Pathway + Prefect + Supabase Postgres/pgvector + Dragonfly**
+**Static Angular landing → FastAPI control plane → Rust engine (HTTP or PyO3) + Polars + Pathway + Prefect + Supabase Postgres/pgvector + Dragonfly.** Partners integrate with tenant-bound `fjsvc_` tokens (headless); there is no operational browser console.
 
 ## Prerequisites
 

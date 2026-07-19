@@ -38,8 +38,8 @@ async def _require_tenant(
 ) -> None:
     required_scope = frozenset({"ml:write" if write else "ml:read"})
     if tenant_id is None:
-        # Retain the human-only PoC while preventing a service principal from
-        # escaping its tenant binding by omitting tenant_id.
+        # Optional ML surfaces allow human JWTs without tenant_id (in-memory /
+        # local fit); service principals must stay tenant-bound.
         if user.is_service:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,

@@ -24,9 +24,11 @@ logger = logging.getLogger("forjd.tenant_erase")
 _ERASE_TABLES: tuple[str, ...] = (
     "playbook_runs",  # cascades playbook_action_results
     "security_signals",
+    "correlation_receipts",  # incident_cases.source_correlation_id ON DELETE SET NULL
     "ml_scores",
     "embedding_vectors",
     "training_runs",
+    "threat_reports",
     "export_jobs",
     "vulnerabilities",
     "assets",

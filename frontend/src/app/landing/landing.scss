@@ -3,7 +3,7 @@
   min-height: 100dvh;
 }
 
-// --- Page shell ---
+// --- Page shell (layout only; visuals from forjd-ui tokens) ---
 .landing {
   min-height: 100dvh;
   display: flex;
@@ -32,40 +32,6 @@
   margin-top: var(--fj-space-2);
 }
 
-// --- Link actions ---
-.landing__link {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--fj-space-2) var(--fj-space-4);
-  border: 1px solid var(--fj-border);
-  border-radius: var(--fj-radius);
-  color: var(--fj-text);
-  font-size: var(--fj-text-sm);
-  font-weight: 600;
-  text-decoration: none;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease;
-}
-
-.landing__link:hover {
-  border-color: var(--fj-primary);
-  color: var(--fj-primary);
-}
-
-.landing__link--primary {
-  background: var(--fj-primary);
-  border-color: var(--fj-primary);
-  color: var(--fj-text-on-primary);
-}
-
-.landing__link--primary:hover {
-  background: var(--fj-primary-hover);
-  border-color: var(--fj-primary-hover);
-  color: var(--fj-text-on-primary);
-}
-
 // --- Capability grid ---
 .landing__grid {
   display: grid;
@@ -74,20 +40,8 @@
 }
 
 .landing__feature {
-  background: var(--fj-surface);
-  border: 1px solid var(--fj-border);
-  border-radius: var(--fj-radius);
-  padding: var(--fj-space-4);
-}
-
-.landing__feature h2 {
-  margin: 0 0 var(--fj-space-1);
-  font-family: var(--fj-font-mono);
-  font-size: var(--fj-text-xs);
-  font-weight: 600;
-  letter-spacing: var(--fj-tracking-wide);
-  text-transform: uppercase;
-  color: var(--fj-primary);
+  display: block;
+  min-height: 100%;
 }
 
 .landing__feature p {

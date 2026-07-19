@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from typing import Any
@@ -16,6 +17,13 @@ from app.services import tenants as tenant_svc
 from app.services import threat_intel as threat_svc
 
 logger = logging.getLogger("forjd.osint")
+
+
+# --- PII helpers (store digests, never raw emails) ---
+def _email_location_digest(account_email: str) -> str:
+    normalized = account_email.strip().lower()
+    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+    return f"sha256:{digest}"
 
 
 # --- Soft schema for discovered endpoints ---
@@ -126,8 +134,8 @@ async def check_hibp_breaches(
             VALUES ($1::uuid, FALSE, 'HIBP', $2, TRUE, $3::jsonb)
             """,
             str(tenant_id),
-            account_email,
-            json.dumps({"breaches": breaches}),
+            _email_location_digest(account_email),
+            json.dumps({"breaches": breaches, "account_digest": _email_location_digest(account_email)}),
         )
     return {"ok": True, "breaches": breaches, "count": len(breaches)}
 

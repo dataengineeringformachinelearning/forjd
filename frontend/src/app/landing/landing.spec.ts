@@ -14,7 +14,7 @@ describe('Landing', () => {
     await fixture.whenStable();
     const element = fixture.nativeElement as HTMLElement;
     expect(element.querySelector('.fj-brand')?.textContent).toContain('FORJD');
-    expect(element.querySelectorAll('.landing__feature')).toHaveLength(4);
+    expect(element.querySelectorAll('forjd-panel.landing__feature')).toHaveLength(4);
   });
 
   it('links to API documentation only — no runnable console', async () => {

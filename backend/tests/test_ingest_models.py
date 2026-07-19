@@ -73,6 +73,19 @@ class TestProductionDefaults(unittest.TestCase):
         self.assertFalse(s.REQUIRE_RLS)
         self.assertFalse(s.REQUIRE_CRYPTO_SESSION)
 
+    def test_staging_forces_zero_trust_flags(self) -> None:
+        s = Settings(
+            ENVIRONMENT="staging",
+            DEBUG=True,
+            SOFT_MIGRATE_SCHEMA=True,
+            REQUIRE_RLS=False,
+            REQUIRE_CRYPTO_SESSION=False,
+        )
+        self.assertFalse(s.DEBUG)
+        self.assertFalse(s.SOFT_MIGRATE_SCHEMA)
+        self.assertTrue(s.REQUIRE_RLS)
+        self.assertTrue(s.REQUIRE_CRYPTO_SESSION)
+
 
 if __name__ == "__main__":
     unittest.main()

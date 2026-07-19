@@ -9,8 +9,8 @@ idempotent migrations are reapplied to backfill the ledger.
 
 | File | Purpose |
 |------|---------|
-| `001_pulses.sql` | Historical — unused (legacy stack smoke table) |
-| `002_anomaly_embeddings.sql` | Historical — unused (prefer tenant-scoped `/api/v1/ml`) |
+| `historical/001_pulses.sql` | Archived — unused legacy stack smoke table |
+| `historical/002_anomaly_embeddings.sql` | Archived — unused; prefer tenant-scoped `/api/v1/ml` + `016` |
 | `003_secure_tenancy.sql` | **Production path** — tenants, RLS, E2EE telemetry, vector embeddings |
 | `004_crypto_sessions.sql` | X25519 public-key session directory (private keys never stored) |
 | `005_stream_results.sql` | Pathway/Prefect outputs (metadata scores; RLS) |
@@ -53,9 +53,9 @@ idempotent migrations are reapplied to backfill the ledger.
 
 | Client | How |
 |--------|-----|
-| Browser / Realtime | Supabase anon key + user JWT → RLS via `auth.uid()` |
+| Partner / subprocessor | Opaque `fjsvc_…` → `service_accounts` tenant + scopes (primary integration path) |
 | FastAPI (enterprise user) | Verify Supabase JWT → service-role DSN → `tenant_members` |
-| FastAPI (subprocessor) | Opaque `fjsvc_…` or service-shaped JWT → `service_accounts` tenant + scopes |
+| Realtime consumers | Supabase anon key + user JWT → RLS via `auth.uid()` (partner UIs; not a FORJD console) |
 | Auth details | [`backend/docs/AUTH.md`](../docs/AUTH.md) |
 
 ### E2EE (Signal-inspired)

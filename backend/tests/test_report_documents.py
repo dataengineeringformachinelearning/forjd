@@ -89,6 +89,8 @@ class TestScopesAndErase(unittest.TestCase):
 
     def test_tenant_erase_covers_report_documents(self) -> None:
         self.assertIn("report_documents", _ERASE_TABLES)
+        self.assertIn("correlation_receipts", _ERASE_TABLES)
+        self.assertIn("threat_reports", _ERASE_TABLES)
 
 
 class TestTenantIsolation(unittest.IsolatedAsyncioTestCase):

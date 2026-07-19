@@ -122,7 +122,7 @@ async def get_published_page(
     )
     overall = _overall_status([s["status"] for s in services])
     return {
-        **_page_dict(page),
+        **_public_page_dict(page),
         "overall_status": overall,
         "services": [
             {
@@ -564,6 +564,13 @@ def _page_dict(row: Any) -> dict[str, Any]:
         "created_at": row["created_at"].isoformat(),
         "updated_at": row["updated_at"].isoformat(),
     }
+
+
+def _public_page_dict(row: Any) -> dict[str, Any]:
+    """Public slug DTO — omit tenant_id to avoid tenant enumeration."""
+    page = _page_dict(row)
+    page.pop("tenant_id", None)
+    return page
 
 
 def _overall_status(statuses: list[str]) -> str:

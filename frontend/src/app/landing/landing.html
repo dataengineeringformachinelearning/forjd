@@ -7,19 +7,16 @@
       and replay/DLQ — driven by a Rust hot-path and FastAPI control plane.
     </p>
     <div class="landing__actions">
-      <a class="landing__link landing__link--primary" [href]="docsUrl" target="_blank" rel="noopener">
-        API docs
-      </a>
-      <a class="landing__link" [href]="redocUrl" target="_blank" rel="noopener">ReDoc</a>
+      <forjd-button variant="primary" [href]="docsUrl" target="_blank">API docs</forjd-button>
+      <forjd-button variant="ghost" [href]="redocUrl" target="_blank">ReDoc</forjd-button>
     </div>
   </section>
 
   <section class="landing__grid" aria-label="Capabilities">
     @for (f of features; track f.name) {
-      <article class="landing__feature">
-        <h2>{{ f.name }}</h2>
+      <forjd-panel variant="card" [title]="f.name" class="landing__feature">
         <p>{{ f.detail }}</p>
-      </article>
+      </forjd-panel>
     }
   </section>
 

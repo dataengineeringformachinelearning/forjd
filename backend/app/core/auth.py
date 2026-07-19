@@ -34,7 +34,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWKClient
 
 from app.core.config import settings
-from app.core.rate_limit import enforce_principal_rate_limit
+from app.core.rate_limit import enforce_ip_rate_limit, enforce_principal_rate_limit
 from app.core.request_context import bind_principal_context
 
 logger = logging.getLogger("forjd.auth")
@@ -421,7 +421,21 @@ async def get_current_user(
             )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="auth not configured")
 
-    token = creds.credentials
+    try:
+        return await _authenticate_bearer(request, creds.credentials)
+    except HTTPException as exc:
+        # Bearer present but verification failed — slow anonymous brute force.
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            await enforce_ip_rate_limit(
+                request,
+                bucket="auth-failure",
+                limit=int(getattr(settings, "AUTH_FAILURE_RATE_LIMIT_RPM", 60)),
+            )
+        raise
+
+
+async def _authenticate_bearer(request: Request, token: str) -> AuthUser:
+    """Verify opaque service token or Supabase JWT, then finalize principal."""
     pool = pool_from_request(request)
 
     # Opaque M2M token (subprocessors) — does not need JWKS.

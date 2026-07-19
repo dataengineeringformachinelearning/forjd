@@ -1,10 +1,12 @@
 import { Component, signal } from '@angular/core';
+import { FjButton, FjPanel } from 'forjd-ui';
 
 import { environment } from '../../environments/environment';
 
-// --- Public product landing (static; no run controls) ---
+// --- Public product landing (static; forjd-ui primitives) ---
 @Component({
   selector: 'app-landing',
+  imports: [FjButton, FjPanel],
   templateUrl: './landing.html',
   styleUrl: './landing.scss',
 })

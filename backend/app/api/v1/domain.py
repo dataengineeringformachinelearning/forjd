@@ -43,6 +43,17 @@ class HibpRequest(BaseModel):
     tenant_id: UUID
     email: str = Field(..., min_length=3, max_length=320)
 
+    @field_validator("email")
+    @classmethod
+    def _validate_email(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if "@" not in normalized or normalized.startswith("@") or normalized.endswith("@"):
+            raise ValueError("invalid email")
+        local, _, domain = normalized.partition("@")
+        if not local or "." not in domain:
+            raise ValueError("invalid email")
+        return normalized
+
 
 class AhmiaRequest(BaseModel):
     keyword: str = Field(..., min_length=2, max_length=128)
@@ -204,7 +215,13 @@ async def osint_hibp(
     body: HibpRequest,
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
-    await tenant_svc.require_member(_pool(request), tenant_id=body.tenant_id, user_id=user.user_id)
+    # Persist path writes threat_intelligence — service principals need threat-intel:write.
+    await tenant_svc.require_tenant_access(
+        _pool(request),
+        principal=user,
+        tenant_id=body.tenant_id,
+        required_scopes=frozenset({"threat-intel:write"}),
+    )
     return await osint_svc.check_hibp_breaches(
         _pool(request), account_email=body.email, tenant_id=body.tenant_id
     )
@@ -389,8 +406,8 @@ async def honeypot_hit(
     request: Request,
     body: HoneypotHitRequest,
 ) -> dict[str, Any]:
-    # Unauthenticated decoy hit path (tenant_id required in body; treat as trap).
-    hit = await honeypot_svc.log_interaction(
+    # Unauthenticated decoy hit — always ok to avoid honeypot/tenant enumeration.
+    await honeypot_svc.log_interaction(
         _pool(request),
         tenant_id=body.tenant_id,
         path=body.path if body.path.startswith("/") else f"/{body.path}",
@@ -399,9 +416,7 @@ async def honeypot_hit(
         user_agent=body.user_agent,
         payload=body.payload,
     )
-    if hit is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="honeypot not found")
-    return {"ok": True, "interaction": hit}
+    return {"ok": True}
 
 
 @router.get("/honeypots/analyze")
@@ -450,11 +465,12 @@ async def sla_train(
     body: SlaTrainRequest,
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
-    await tenant_svc.require_member(
+    await tenant_svc.require_tenant_access(
         _pool(request),
+        principal=user,
         tenant_id=body.tenant_id,
-        user_id=user.user_id,
         min_roles=frozenset({"owner", "admin"}),
+        required_scopes=frozenset({"ml:write"}),
     )
     try:
         return await sla_ml.train_tenant_sla(_pool(request), tenant_id=body.tenant_id)
@@ -490,7 +506,12 @@ async def list_discovered(
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
     pool = _pool(request)
-    await tenant_svc.require_member(pool, tenant_id=tenant_id, user_id=user.user_id)
+    await tenant_svc.require_tenant_access(
+        pool,
+        principal=user,
+        tenant_id=tenant_id,
+        required_scopes=frozenset({"threat-intel:read"}),
+    )
     await osint_svc.ensure_osint_schema(pool)
     rows = await pool.fetch(
         """

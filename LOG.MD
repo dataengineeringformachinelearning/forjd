@@ -2,6 +2,10 @@
 
 ## Log
 
+- 2026-07-19: Regression pass — backend 270 tests OK, engine `server,data-plane` 24 tests OK, frontend unit tests OK; live `/ready` green (postgres/redis/workers/engine). Pending deploy still required for Swagger-at-root and public status `tenant_id` omission.
+- 2026-07-19: Landing polish — API root (`/` and `/docs`) serves FJORD-themed Swagger UI; Angular product landing uses forjd-ui `FjButton` (href) + `FjPanel` (card) primitives; removed the separate backend HTML marketing card.
+- 2026-07-19: Security hardening follow-up — domain HIBP/SLA/discovered-endpoints use `require_tenant_access` (service principals + scopes); HIBP persists SHA-256 email digests only; public status slug DTO omits `tenant_id`; anonymous IP rate limits on public status/capabilities/addons/honeypot-hit routes plus auth-failure bucket; honeypot hit always returns `{ok: true}` (no 404 enumeration); tenant erase covers `correlation_receipts` and `threat_reports`; staging/stage get the same fail-closed schema defaults as production.
+- 2026-07-19: Cleanup/optimization pass — aligned AGENTS/ARCHITECTURE/.cursorrules/READMEs with headless partner product (no console; rate limiting implemented; SQL through `025`); archived unused `sql/001`–`002` under `sql/historical/`; dropped unused `@angular/forms`; softened optional-ML “PoC” framing.
 - 2026-07-19: Removed the pulse/stack/anomaly PoC layer and the runnable `/console` UI. Frontend and backend landings are static product pages (docs links only); deleted pulse/stack/anomaly APIs, unused batch helpers, browser seal/Supabase console clients, and `@supabase/supabase-js`. Product path remains sealed ingest + YAML workflows via authenticated APIs.
 - 2026-07-19: Removed service-account remint scope drift by adding an API `include_tenant_erase` flag over canonical defaults; remint now excludes erase by default, safely encodes its request, and runbooks reflect current `003`–`025` migrations and `ml:read` defaults.
 - 2026-07-19: Final polish pass — advertised `report_documents` in the public `/api/v1/capabilities` headless contract, added HTTP-level end-to-end tests for the reports lane (routing → auth → validation → SQL shape, PII rejection before DB), and cleared residual format drift. Gates green: full backend suite, engine 24 tests, frontend prod build + 4 UI tests.
@@ -306,16 +310,16 @@ Direct dependencies only. Star these on GitHub.
 
 ## 2026-07-19 — Public landing plus restored secure console
 
-- Preserved the static product landing at `/` and restored the functional Angular
-  operational surface as a lazy `/console` route, keeping Supabase and console
-  code out of the public route chunk.
-- Restored user auth, tenant/session management, stack/pulse/anomaly controls,
-  ciphertext-only Realtime updates, and sealed ingest. The browser demo now uses
-  ephemeral X25519/HKDF-derived AES-GCM keys, unique session IDs, AAD binding,
-  prompt credential/key cleanup, and never renders plaintext or credentials.
-- Added focused routing, landing, console, auth-header, sealed-request, AES-GCM,
-  and X25519 tests; `npm test -- --watch=false`, production build, Prettier, and
-  production dependency audit pass.
+> **Superseded:** the `/console` operational surface was removed. Product UI is
+> the static landing only; partners integrate via `fjsvc_` APIs. Realtime
+> publication remains for consumers/partners — not a FORJD browser console.
+> See the later 2026-07-19 entry on removing the runnable `/console` UI.
+
+- ~~Preserved the static product landing at `/` and restored the functional Angular
+  operational surface as a lazy `/console` route~~ (console removed; landing only).
+- Historical note: that short-lived console briefly restored auth/session/Realtime
+  demo controls; those paths no longer ship.
+- Landing/routing tests and static product pages remain the frontend surface.
 
 ## 2026-07-19 — Replay-safe SIEM/SOAR completion and webhook authenticity
 

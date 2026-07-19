@@ -1,7 +1,7 @@
-"""FJORD-themed Swagger UI page served at ``GET /docs``.
+"""FJORD-themed Swagger UI page served at ``GET /`` and ``GET /docs``.
 
 Embeds swagger-ui-dist with dark FJORD palette overrides so the interactive
-docs match the landing page instead of the stock light Swagger theme.
+API docs match the forjd-ui token system instead of the stock light theme.
 """
 
 # ruff: noqa: E501 -- CSS overrides read better as one-line rules.
@@ -116,8 +116,9 @@ _DOCS_HTML = """<!doctype html>
   <header class="fj-topbar">
     <a href="/"><span class="fj-brand">{project}</span></a>
     <nav>
-      <a href="/">landing</a>
+      <a href="https://forjd.co">product</a>
       <a href="/redoc">redoc</a>
+      <a href="/openapi.json">openapi</a>
       <a href="/health">health</a>
     </nav>
   </header>

@@ -4,7 +4,7 @@ FastAPI control plane for the universal secure streaming engine:
 
 `Partners / UI docs → FastAPI → Rust (PyO3 or HTTP) + Polars + Pathway + Prefect + Supabase Postgres + Dragonfly`
 
-The API root (`GET /`) is a static landing with docs links only. Product work happens through authenticated `/api/v1/*` routes (service tokens / JWTs) — not through an in-browser run console.
+The API root (`GET /` and `GET /docs`) serves a FJORD-themed Swagger UI. Product work happens through authenticated `/api/v1/*` routes (service tokens / JWTs) — not through an in-browser run console. The public product page lives at forjd.co.
 
 ## Local (uv)
 
@@ -31,7 +31,8 @@ uv run forjd
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/` | Static API landing (docs links) |
+| GET | `/` | FJORD-themed Swagger UI |
+| GET | `/docs` | Same Swagger UI (alias) |
 | GET | `/health` | Liveness |
 | GET | `/ready` | Postgres + Dragonfly + supervised workers (+ object storage in production) |
 | GET | `/api/v1/capabilities` | Machine-readable product contract |
@@ -173,7 +174,7 @@ fly secrets set POSTGRES_DSN='…' REDIS_URL='redis://:…@forjd-dragonfly.inter
 fly deploy --config fly.api.toml --ha=false
 ```
 
-Set matching `ENGINE_URL=http://forjd-engine.internal:8080` (already in `fly.api.toml`) and the same `ENGINE_API_TOKEN` on `forjd-engine`. Enable Supabase **vector** and run `sql/002_anomaly_embeddings.sql` once before scoring in prod.
+Set matching `ENGINE_URL=http://forjd-engine.internal:8080` (already in `fly.api.toml`) and the same `ENGINE_API_TOKEN` on `forjd-engine`. For optional ML scoring in prod: enable Supabase **vector**, apply `sql/016` (with the rest of `003`–`025`), install `uv sync --group ml`, and use `/api/v1/ml` (`sql/002_anomaly_embeddings.sql` is historical/unused).
 
 ## Notes
 

@@ -1,12 +1,13 @@
 import { Component, input } from '@angular/core';
 
 /**
- * Labeled content section with a top rule — use for status blocks and similar.
+ * Labeled content section — use for status blocks and landing capability cards.
  */
 @Component({
   selector: 'forjd-panel',
   host: {
     role: 'region',
+    '[attr.data-variant]': 'variant()',
   },
   template: `
     @if (title()) {
@@ -18,4 +19,5 @@ import { Component, input } from '@angular/core';
 })
 export class FjPanel {
   readonly title = input<string>();
+  readonly variant = input<'section' | 'card'>('section');
 }

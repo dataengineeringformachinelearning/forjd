@@ -1,4 +1,4 @@
-"""Distributed per-principal API rate limiting backed by Dragonfly/Redis."""
+"""Distributed API rate limiting backed by Dragonfly/Redis."""
 
 from __future__ import annotations
 
@@ -6,10 +6,13 @@ import hashlib
 import logging
 import math
 import time
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import settings
 
@@ -40,12 +43,41 @@ end
 return {1, count + 1, reset}
 """
 
+# --- Anonymous public routes (IP sliding window) ---
+_PUBLIC_RATE_LIMIT_ROUTES: tuple[tuple[str, str], ...] = (
+    ("GET", "/status/pages/slug/"),
+    ("GET", "/capabilities"),
+    ("GET", "/addons"),
+    ("POST", "/honeypots/hit"),
+)
+
 
 async def enforce_principal_rate_limit(request: Request, principal: AuthUser) -> None:
     """Enforce one bounded sliding-window limit after principal authentication."""
     if not getattr(settings, "RATE_LIMIT_ENABLED", True):
         return
 
+    bucket, limit = _request_limit(request)
+    actor_digest = hashlib.sha256(
+        f"{principal.kind.value}:{principal.user_id}".encode()
+    ).hexdigest()[:32]
+    key = f"forjd:rate-limit:{actor_digest}:{bucket}"
+    await _enforce_sliding_window(request, key=key, limit=limit)
+
+
+async def enforce_ip_rate_limit(request: Request, *, bucket: str, limit: int) -> None:
+    """Enforce a sliding-window limit keyed by hashed client IP + bucket."""
+    if not getattr(settings, "RATE_LIMIT_ENABLED", True):
+        return
+
+    bound = max(1, int(limit))
+    ip_digest = hashlib.sha256(_client_ip(request).encode()).hexdigest()[:32]
+    key = f"forjd:rate-limit:ip:{ip_digest}:{bucket}"
+    await _enforce_sliding_window(request, key=key, limit=bound)
+
+
+# --- Shared Redis sliding window ---
+async def _enforce_sliding_window(request: Request, *, key: str, limit: int) -> None:
     redis: Any | None = getattr(request.app.state, "redis", None)
     if redis is None:
         if settings.is_production:
@@ -56,11 +88,6 @@ async def enforce_principal_rate_limit(request: Request, principal: AuthUser) ->
             )
         return
 
-    bucket, limit = _request_limit(request)
-    actor_digest = hashlib.sha256(
-        f"{principal.kind.value}:{principal.user_id}".encode()
-    ).hexdigest()[:32]
-    key = f"forjd:rate-limit:{actor_digest}:{bucket}"
     now_ms = int(time.time() * 1000)
     member = f"{now_ms}:{uuid4().hex}"
     try:
@@ -98,6 +125,16 @@ async def enforce_principal_rate_limit(request: Request, principal: AuthUser) ->
         )
 
 
+def _client_ip(request: Request) -> str:
+    """First X-Forwarded-For hop, else request.client.host (never log raw)."""
+    forwarded = (request.headers.get("x-forwarded-for") or "").strip()
+    if forwarded:
+        return forwarded.split(",")[0].strip() or "unknown"
+    client = getattr(request, "client", None)
+    host = getattr(client, "host", None) if client is not None else None
+    return str(host) if host else "unknown"
+
+
 def _request_limit(request: Request) -> tuple[str, int]:
     method = request.method.upper()
     path = request.url.path
@@ -106,3 +143,47 @@ def _request_limit(request: Request) -> tuple[str, int]:
     if method in {"POST", "PUT", "PATCH", "DELETE"}:
         return "write", max(1, int(getattr(settings, "WRITE_RATE_LIMIT_RPM", 300)))
     return "read", max(1, int(getattr(settings, "READ_RATE_LIMIT_RPM", 1_200)))
+
+
+def _matches_public_rate_limit(request: Request) -> bool:
+    method = request.method.upper()
+    path = request.url.path.rstrip("/") or "/"
+    prefix = settings.API_V1_STR.rstrip("/")
+    for route_method, suffix in _PUBLIC_RATE_LIMIT_ROUTES:
+        if method != route_method:
+            continue
+        target = f"{prefix}{suffix}".rstrip("/")
+        if suffix.endswith("/"):
+            # Prefix match for slug and similar path params.
+            if path.startswith(f"{prefix}{suffix}") or path.startswith(target + "/"):
+                return True
+            continue
+        if path == target:
+            return True
+    return False
+
+
+# --- Middleware for anonymous public endpoints ---
+class PublicRateLimitMiddleware(BaseHTTPMiddleware):
+    """IP rate limit on selected unauthenticated public API routes."""
+
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        if not getattr(settings, "RATE_LIMIT_ENABLED", True):
+            return await call_next(request)
+        if not _matches_public_rate_limit(request):
+            return await call_next(request)
+        try:
+            await enforce_ip_rate_limit(
+                request,
+                bucket="public",
+                limit=int(getattr(settings, "PUBLIC_RATE_LIMIT_RPM", 120)),
+            )
+        except HTTPException as exc:
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": exc.detail},
+                headers=dict(exc.headers or {}),
+            )
+        return await call_next(request)

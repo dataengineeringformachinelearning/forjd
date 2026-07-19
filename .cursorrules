@@ -35,7 +35,7 @@ Follow these unless the user explicitly overrides them.
 - Standalone components + Signals by default.
 - Build UI in `libs/forjd-ui/` (generate with `ng generate library`); consume from `frontend`.
 - No heavy component libraries for core primitives (avoid Angular Material there).
-- Dark-first operational UI; FJORD tokens via `--fj-*` CSS variables.
+- Product frontend is a static FJORD landing; optional forjd-ui library uses FJORD tokens via `--fj-*` CSS variables (no full operational console).
 - Accessibility: aim for WCAG AA on new UI.
 - Storybook: add `*.stories.ts` next to each forjd-ui component; publish visuals with Chromatic.
 - Precision and density over flashy design.
@@ -51,13 +51,13 @@ Follow these unless the user explicitly overrides them.
 - CORS from settings; secrets never committed.
 - Structured logging to stdout.
 - Liveness: `/health`. Readiness: `/ready` (dependency checks).
-- Rate limiting: **planned**, not required yet — do not invent a limiter unless asked.
+- Rate limiting: implemented via `app/core/rate_limit.py` (config-gated: `RATE_LIMIT_ENABLED`, per-bucket RPM settings). Do not invent a second limiter.
 - Upgrade deps cautiously (`uv lock --upgrade`); one major component at a time; test after updates.
 
 ## Secrets map
 - Backend: `backend/.env` (from `backend/.env.example`) — `ROLLBAR_ACCESS_TOKEN`, `POSTGRES_DSN` (Supabase), `REDIS_URL` (Dragonfly local or Fly `.internal`), `PREFECT_API_URL`, optional `API_KEY`, CORS, etc.
 - Dragonfly on Fly: `DFLY_requirepass` via `fly secrets` (`infra/dragonfly/`).
-- Engine on Fly: deploy from `engine/` (`fly.toml` + `Dockerfile`); `ENGINE_URL=http://forjd-engine.internal:8080` + `ENGINE_API_TOKEN`; data plane via `FORJD_ROLE=all`, `DATABASE_URL`/`POSTGRES_DSN`, `REDIS_URL`, optional `FORJD_INTERNODE_*`; apply `sql/009`–`010`.
+- Engine on Fly: deploy from `engine/` (`fly.toml` + `Dockerfile`); `ENGINE_URL=http://forjd-engine.internal:8080` + `ENGINE_API_TOKEN`; data plane via `FORJD_ROLE=all`, `DATABASE_URL`/`POSTGRES_DSN`, `REDIS_URL`, optional `FORJD_INTERNODE_*`; apply schema through `sql/025` (production path `003`–`025`; see `backend/sql/README.md`).
 - Chromatic / frontend CI: `CHROMATIC_PROJECT_TOKEN` (root `.env` or CI secrets).
 - Never commit real tokens. Empty optional tokens disable those integrations.
 

@@ -22,16 +22,18 @@ Agents: read this briefing first, then enforce constraints in `.cursorrules`.
 | Batch tables | Polars |
 | Engine | Rust (`engine/`) — one `forjd-engine` binary: Arrow/Parquet **59** + PyO3 + axum process HTTP + data plane (`FORJD_ROLE`, Postgres outbox, Dragonfly Streams) |
 | Cache / DB | Dragonfly (Fly.io) + Postgres (Supabase) |
-| UI | Angular + forjd-ui (Storybook / Chromatic) |
+| UI | Angular static FJORD landing + optional forjd-ui (Storybook / Chromatic); no product console |
 | Observability | Rollbar (API) + optional Sentry (`SENTRY_DSN`, `uv sync --group sentry`); Vercel Analytics + Speed Insights (frontend) |
+| Rate limiting | Config-gated Dragonfly/Redis limiter (`app/core/rate_limit.py`; `RATE_LIMIT_ENABLED` + per-bucket RPM) |
 | Add-ons (optional) | Config-gated integrations under `app/addons/` — disabled by default, `FORJD_ADDONS=<slug,…>` or `all`; catalog at `GET /api/v1/addons` (OSV/nuclei/HoneyDB/CVE + ML/testing descriptors) |
 | ML (optional) | `/api/v1/ml` catalog + Supabase `training_runs` / `embedding_vectors` / `ml_scores` (`sql/016`); hydrate from `stream_results` metadata only (`uv sync --group ml`) |
-| Auth / E2EE | Supabase Auth **user** JWTs + tenant-scoped **service accounts** (`sql/014`–`015`, `017`–`018`, `backend/docs/AUTH.md`); X25519/HKDF + AES-256-GCM sealed ingest (`sql/003`–`008`, `013`); partner erase `POST /api/v1/tenants/{id}/erase` |
+| Auth / E2EE | Supabase Auth **user** JWTs + tenant-scoped **service accounts** (`sql/014`–`015`, `017`–`018`, `backend/docs/AUTH.md`); X25519/HKDF + AES-256-GCM sealed ingest (`sql/003`–`008`, `013`); partner erase `POST /api/v1/tenants/{id}/erase`; headless SIEM/SOAR (`sql/020`, `025`) |
 | Workflows | YAML under `backend/workflows/` → Prefect + **Rust sealed pipeline** (Pathway fallback) + pluggable detectors |
 | Projections | Checkpointed durable `stream_results` + replay/DLQ (`/api/v1/projections`, `/api/v1/replay`) |
+| Reports / exports / ingest durability | Report documents (`sql/022`); durable exports (`sql/023`); durable ingest-processing receipts (`sql/024`) |
 | Status | Tenant status pages (`/api/v1/status`) — public when published |
 | Audit | Metadata-only `audit_events` (`sql/010`) — never ciphertext/keys |
-| Domain security | Threat intel, SOC, playbooks, exports, ML, scanners (`sql/011`–`012`) — tenant-scoped |
+| Domain security | Threat intel, SOC, playbooks, exports, ML, scanners (`sql/011`–`012`); headless SIEM/SOAR signals/cases/playbook runs (`sql/020`, `025`) — tenant-scoped |
 | Edge | Supabase Edge Functions under `supabase/functions/` (e.g. `peer-sessions`) |
 
 **Architecture:** see root `ARCHITECTURE.md`. Supabase provides Auth, Postgres, pgvector, and Realtime.

@@ -19,8 +19,8 @@ from app.core.config import settings
 from app.core.docs_page import render_docs
 from app.core.ingest_body_limit import IngestBodyLimitMiddleware
 from app.core.ingest_limits import ingest_write_paths
-from app.core.landing import render_landing
 from app.core.logging import configure_logging
+from app.core.rate_limit import PublicRateLimitMiddleware
 from app.core.request_context import RequestContextMiddleware
 from app.core.rollbar import configure_rollbar
 from app.core.security import ApiKeyMiddleware, SecurityHeadersMiddleware
@@ -240,7 +240,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 # --- App + middleware stack ---
-# Default Swagger UI disabled — a FJORD-themed /docs is served below.
+# Default Swagger UI disabled — FJORD-themed Swagger is served at / and /docs.
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.PROJECT_VERSION,
@@ -257,6 +257,7 @@ app.add_middleware(
 )
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(ApiKeyMiddleware)
+app.add_middleware(PublicRateLimitMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -284,17 +285,11 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-# --- Landing page ---
+# --- Root + docs: clean FJORD Swagger UI ---
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
-async def landing() -> HTMLResponse:
-    """FJORD-styled API landing page with links to the interactive docs."""
-    return HTMLResponse(content=render_landing())
-
-
-# --- FJORD-themed Swagger UI ---
 @app.get("/docs", response_class=HTMLResponse, include_in_schema=False)
 async def docs() -> HTMLResponse:
-    """Interactive Swagger docs restyled with the FJORD dark palette."""
+    """Interactive Swagger docs at the API root, restyled with the FJORD palette."""
     return HTMLResponse(content=render_docs())
 
 

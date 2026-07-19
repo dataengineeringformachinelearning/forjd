@@ -34,7 +34,7 @@ from app.api.v1 import (
 
 api_router = APIRouter()
 
-# --- Public compatibility contract (DEML probes before cutover) ---
+# --- Public headless capabilities probe ---
 api_router.include_router(capabilities.router)
 
 # --- Universal secure streaming (Auth + E2EE + YAML workflows) ---

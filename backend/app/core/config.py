@@ -68,11 +68,13 @@ class Settings(BaseSettings):
     SENTRY_DSN: str = ""
     SENTRY_TRACES_SAMPLE_RATE: float = 0.0
     SENTRY_ENVIRONMENT: str = ""
-    # Distributed per-principal sliding-window limits (Dragonfly/Redis).
+    # Distributed sliding-window limits (Dragonfly/Redis).
     RATE_LIMIT_ENABLED: bool = True
     READ_RATE_LIMIT_RPM: int = Field(default=1_200, ge=1, le=100_000)
     WRITE_RATE_LIMIT_RPM: int = Field(default=300, ge=1, le=100_000)
     INGEST_RATE_LIMIT_RPM: int = Field(default=120, ge=1, le=100_000)
+    PUBLIC_RATE_LIMIT_RPM: int = Field(default=120, ge=1, le=100_000)
+    AUTH_FAILURE_RATE_LIMIT_RPM: int = Field(default=60, ge=1, le=100_000)
 
     # --- Add-ons (optional integrations; disabled by default) ---
     # Comma-separated slugs, or "all" to enable the whole catalog (partners).
@@ -106,7 +108,7 @@ class Settings(BaseSettings):
     STREAM_ANOMALY_ZSCORE: float = 2.5
     STREAM_ANOMALY_MAX_CIPHER_LEN: int = 262_144
 
-    # --- Unsupervised ML PoC (optional: uv sync --group ml) ---
+    # --- Optional production ML surfaces (uv sync --group ml) ---
     ML_SEQ_LEN: int = 16
     ML_LATENT_DIM: int = 16
     ML_HIDDEN_DIM: int = 32
@@ -158,17 +160,19 @@ class Settings(BaseSettings):
 
     @property
     def is_production(self) -> bool:
-        """True for ENVIRONMENT=prod|production or Fly-hosted processes."""
+        """True for prod/staging environments or Fly-hosted processes."""
         import os
 
         env = self.ENVIRONMENT.lower().strip()
-        return env in {"production", "prod"} or bool(os.environ.get("FLY_APP_NAME"))
+        return env in {"production", "prod", "staging", "stage"} or bool(
+            os.environ.get("FLY_APP_NAME")
+        )
 
     @model_validator(mode="after")
     def _secure_production_defaults(self) -> Settings:
-        # Align with daemon: ENVIRONMENT=prod|production OR Fly (FLY_APP_NAME).
+        # Align with daemon: prod|staging OR Fly (FLY_APP_NAME) fail closed.
         if self.is_production and self.DEBUG:
-            # Prefer explicit DEBUG=false in prod; coerce if someone left the example default.
+            # Prefer explicit DEBUG=false in prod/staging; coerce example defaults.
             object.__setattr__(self, "DEBUG", False)
         if self.is_production:
             # Fail closed: no soft-migrate; require RLS + crypto session binding.
