@@ -2,9 +2,11 @@
 
 ## Log
 
-- 2026-07-18: Production deploy runbook — `docs/PRODUCTION_DEPLOY.md` + status-bearing cutover checklist (live health/ready/engine All verified). Remaining: apply `sql/019`, redeploy security/perf to Fly, partner remint if erase needed.
+- 2026-07-18: Final documentation cleanup — presented FORJD as the universal secure streaming engine (no migration/lineage framing). Replaced cutover checklists with `docs/PRODUCTION_CHECKLIST.md`; removed `CUTOVER.md` / `CLEANUP_2026-07-18.md`; refreshed `AGENTS.md`, `ARCHITECTURE.md`, and README deploy links.
+- 2026-07-18: Added production Neon→Supabase controlled ETL (`scripts/neon_supabase_etl/`) — YAML mappings/transforms, pgvector-aware schema, PK upserts, resumable watermarks, full/incremental modes, verify CLI; docs in `docs/NEON_TO_SUPABASE_ETL.md`. Optional `uv sync --group etl` (psycopg).
+- 2026-07-18: Production deploy runbook — `docs/PRODUCTION_DEPLOY.md` + `docs/PRODUCTION_CHECKLIST.md` (live health/ready/engine All verified). Remaining: apply `sql/019`, redeploy security/perf to Fly, partner remint if erase needed.
 - 2026-07-18: Security/perf pass — sticky session revoke; batch crypto-session checks; tenant-bound cursors; auth hot path skips DDL + debounces `last_used_at`; shared engine HTTP clients; `tenants:erase` opt-in (`sql/019`); rate-limited auth-failure logs; larger DB pool. Tests in `test_security_perf_pass.py`.
-- 2026-07-18: Final cleanup pass — FORJD checklist is platform-only; Neon migrate/verify scripts generalized (`partner` + `TARGET_SCHEMA` / `PARTNER_CONTROL_SCHEMA`); removed hardcoded DEML schema probes. See `docs/CLEANUP_2026-07-18.md`.
+- 2026-07-18: Final cleanup pass — FORJD checklist is platform-only; Neon migrate/verify scripts generalized (`partner` + `TARGET_SCHEMA` / `PARTNER_CONTROL_SCHEMA`); removed hardcoded DEML schema probes.
 - 2026-07-18: Status CRUD for partners — PATCH/DELETE pages, list/update/delete services & incidents with `status:*` scopes; `apply_sql_migrations.py` now includes sql/018.
 - 2026-07-18: Final partner cutover — `sql/018` default scopes (exports/vulns/integrations/`tenants:erase`), remint script, durable `POST /api/v1/tenants/{id}/erase`, and `docs/PRODUCTION_CUTOVER_CHECKLIST.md`. Existing `fjsvc_` tokens must be reminted after 017/018.
 - 2026-07-18: Documented Neon→Supabase consolidation — FORJD Fly already on Supabase PG17+vector; Neon holds DEML Django (PG18). Added `docs/NEON_TO_SUPABASE.md`, `scripts/pg_migrate_neon_to_supabase.sh`, and `backend/scripts/verify_supabase_post_migration.py` (RLS/vector/Realtime gates + rollback).
@@ -134,6 +136,7 @@ Direct dependencies only. Star these on GitHub.
 - [python-dotenv](https://github.com/theskumar/python-dotenv) — `.env` loading
 - [redis-py](https://github.com/redis/redis-py) — Redis / Dragonfly client
 - [asyncpg](https://github.com/MagicStack/asyncpg) — async Postgres (Supabase)
+- [psycopg](https://github.com/psycopg/psycopg) — sync Postgres for Neon→Supabase ETL (`uv sync --group etl`)
 - [httpx](https://github.com/encode/httpx) — HTTP client (engine + probes)
 - [Prefect](https://github.com/PrefectHQ/prefect) — workflow orchestration
 - [Pathway](https://github.com/pathwaycom/pathway) — streaming / incremental processing

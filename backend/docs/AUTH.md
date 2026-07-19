@@ -73,7 +73,7 @@ Authorization: Bearer fjsvc_…
 
 Workflow routing is config-only: send `content_type` /
 `application/forjd-telemetry+v1` (example `threat_telemetry` YAML) or an
-explicit `workflow_id`. Partner / legacy wire ids can be declared as
+explicit `workflow_id`. Partner wire ids can be declared as
 `aliases` on a workflow YAML (see `backend/workflows/README.md`) — do not
 fork FORJD ingest per product.
 
@@ -151,8 +151,8 @@ Apply `backend/sql/014_service_accounts.sql` after `013`, then
 `017_service_principal_cutover.sql`, then
 `018_partner_domain_scopes.sql` (exports / vulns / integrations /
 domain scopes). `tenants:erase` is **allowlisted but opt-in** (`sql/019` /
-`DEFAULT_SCOPES`). **Remint** opaque `fjsvc_` tokens after `017`–`019`
+`DEFAULT_SCOPES`). Mint or rotate opaque `fjsvc_` tokens after `017`–`019`
 (`scripts/remint_service_account.sh`, includes erase by default) — existing rows keep previously stored
 scopes until rotated. Durable partner deletion: `POST /api/v1/tenants/{id}/erase`.
-Full deploy/cutover sequence: root [`CUTOVER.md`](../../CUTOVER.md) and
-[`docs/PRODUCTION_CUTOVER_CHECKLIST.md`](../../docs/PRODUCTION_CUTOVER_CHECKLIST.md).
+Full deploy sequence: [`docs/PRODUCTION_DEPLOY.md`](../../docs/PRODUCTION_DEPLOY.md) and
+[`docs/PRODUCTION_CHECKLIST.md`](../../docs/PRODUCTION_CHECKLIST.md).

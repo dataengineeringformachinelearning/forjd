@@ -1,0 +1,91 @@
+# Neon → Supabase controlled ETL config (FORJD)
+#
+# Never commit real DSNs. Pass them via env:
+#   NEON_DATABASE_URL / SOURCE_DATABASE_URL
+#   SUPABASE_DATABASE_URL / TARGET_DATABASE_URL  (direct :5432, not pooler :6543)
+#
+# Copy to config.local.yaml (gitignored) and edit table mappings.
+
+version: 1
+
+source:
+  # Override with NEON_DATABASE_URL
+  schema: public
+
+target:
+  # Partner control-plane co-location — NEVER use public (FORJD RLS lives there)
+  schema: partner_control
+  create_schema: true
+  # Checkpoint / watermark table (created in target schema)
+  state_table: _etl_checkpoints
+
+extensions:
+  - pgcrypto
+  - vector
+  - uuid-ossp
+
+options:
+  batch_size: 1000
+  max_retries: 5
+  retry_backoff_seconds: 2.0
+  # full | incremental
+  mode: full
+  dry_run: false
+  # Stop after N errors on a table (0 = never stop for row errors; batch retries still apply)
+  max_table_errors: 0
+  # When true, CREATE TABLE IF NOT EXISTS from source column metadata
+  ensure_tables: true
+  # When true, add missing columns on target (additive only; never drops)
+  ensure_columns: true
+
+# Global bind params for filter SQL (CLI can override --since / --until / --tenant-id)
+params:
+  # since: "2026-01-01T00:00:00+00:00"
+  # until: "2026-07-18T00:00:00+00:00"
+  # tenant_id: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+tables:
+  # --- Example: identity table with rename + transform ---
+  - source: auth_user
+    target: auth_user
+    enabled: true
+    primary_key: [id]
+    incremental:
+      column: updated_at
+    # Optional SQL WHERE fragment (params from options.params / CLI)
+    filter: null
+    # null = all columns except exclude_columns
+    columns: null
+    exclude_columns: []
+    transforms: []
+
+  # --- Example: tenant-filtered rows + column map ---
+  - source: monitor_tenant
+    target: monitor_tenant
+    enabled: false
+    primary_key: [id]
+    incremental:
+      column: updated_at
+    filter: "id = %(tenant_id)s::uuid"
+    columns:
+      id: id
+      name: name
+      created_at: created_at
+      updated_at: updated_at
+    transforms:
+      - column: name
+        op: strip
+
+  # --- Example: pgvector embeddings ---
+  - source: embedding_vectors
+    target: embedding_vectors
+    enabled: false
+    primary_key: [id]
+    incremental:
+      column: created_at
+    vector_columns:
+      - name: embedding
+        # Optional dimension check (skip row if mismatch when set)
+        dimensions: 1536
+    columns: null
+    transforms: []

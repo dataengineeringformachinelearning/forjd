@@ -4,6 +4,11 @@ Goal: keep FORJD data plane on Supabase `public`, and optionally co-locate a
 **partner control-plane** database into the same Supabase project under a
 non-`public` schema.
 
+**Preferred path (controlled ETL):** schema + mapped data + transforms, idempotent
+and resumable — see [`docs/NEON_TO_SUPABASE_ETL.md`](NEON_TO_SUPABASE_ETL.md)
+(`scripts/neon_supabase_etl/`). Use the dump/restore script below only as a
+fallback when a full physical restore is acceptable.
+
 ## Current state
 
 | System | Database | Notes |
@@ -91,5 +96,4 @@ PARTNER_CONTROL_SCHEMA=partner_control POSTGRES_DSN='postgresql://…' \
 Keep the source database read-only for ≥ 7 days before delete. Rollback is
 repointing the partner `DATABASE_URL` at the original host.
 
-Partner-specific cutover steps (BFF flags, DNS, Railway retirement) live in the
-partner repository — not here.
+Partner-specific deploy and DNS steps live in the partner repository — not here.

@@ -45,7 +45,7 @@ FORJD_INTERNODE_KEYS='{"v1":"<base64url-32-bytes>"}'
 
 Use `./scripts/sync_engine_dataplane_secrets.sh` to copy DSNs from
 `forjd-backend`, mint keys, and set `FORJD_ROLE=all`. Without internode keys,
-`all` fails closed at startup (historically the Fly crash-loop cause).
+`all` fails closed at startup.
 
 ## Local binary
 

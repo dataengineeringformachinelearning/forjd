@@ -118,6 +118,5 @@ Do not soft-migrate schema in prod. Do not accept `service_role` JWTs.
 | Universal (no DEML hardcoding) | **Yes** |
 | sql/019 + remint | **Apply/remint on next deploy** |
 
-**Verdict:** FORJD is production-ready. Apply `sql/019`, deploy latest `main`
-(security/perf pass), remint partner tokens as needed, then partner BFFs stay on
-phase-2 FORJD-only cutover.
+**Verdict:** FORJD is production-ready. Apply `sql/019`, deploy latest `main`,
+and mint or rotate partner tokens as needed.

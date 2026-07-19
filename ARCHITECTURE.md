@@ -1,13 +1,13 @@
 # FORJD Architecture
 
-Universal secure streaming platform. Stability and E2EE over novelty.
+Universal secure streaming engine. Stability and E2EE over novelty.
 
 ## Principles
 
-1. **Supabase-first** — Postgres + pgvector + Auth + Realtime. No ClickHouse. No Firebase.
-2. **Rust-max hot path** — ingestion edge, sealed-metadata pipeline, outbox/relay, probes, scheduling live in `forjd-engine`.
-3. **Ciphertext-blind server** — Signal-inspired: AES-256-GCM envelopes, X25519/HKDF session keys client-side; server stores ciphertext + opaque ratchet headers only.
-4. **Config over forks** — YAML/JSON workflows under `backend/workflows/` select processors, detectors, and projections per SaaS use case.
+1. **Supabase-first** — Postgres + pgvector + Auth + Realtime for platform identity and durable storage.
+2. **Rust-max hot path** — ingestion edge, sealed-metadata pipeline, outbox/relay, probes, and scheduling live in `forjd-engine`.
+3. **Ciphertext-blind server** — AES-256-GCM envelopes with X25519/HKDF session keys derived client-side; server stores ciphertext and opaque ratchet headers only.
+4. **Config over forks** — YAML/JSON workflows under `backend/workflows/` select processors, detectors, and projections per use case.
 
 ## Layers
 
@@ -55,13 +55,13 @@ pipeline:
 ```
 
 Processors resolve via `app.workflows.processors.REGISTRY`. Detectors via
-`app.workflows.detectors.REGISTRY`. Add a SaaS vertical by dropping YAML — do not fork ingest.
+`app.workflows.detectors.REGISTRY`. Add a vertical by dropping YAML — do not fork ingest.
 
-Partner / legacy wire ids are also config-only:
+Partner wire ids map through config only:
 
 ```yaml
 aliases:
-  workflow_ids: [partner_legacy_id]
+  workflow_ids: [partner_workflow_id]
   event_types:
     threat.metric: [partner.metric]
 ```
@@ -81,21 +81,22 @@ Product names never belong in engine/API code.
 
 ## SQL apply order
 
-`003` → `018` under `backend/sql/` (see that folder’s README). Production forces
+`003` → `019` under `backend/sql/` (see that folder’s README). Production forces
 `SOFT_MIGRATE_SCHEMA=false`, `REQUIRE_RLS=true`, `REQUIRE_CRYPTO_SESSION=true`.
 Realtime + `projection_feed` land in `015`; ML scores/runs in `016`; service-principal
-session actor + expanded default scopes in `017`; partner domain scopes + erase in `018`.
+session actor + expanded default scopes in `017`; partner domain scopes + erase in `018`;
+erase opt-in defaults in `019`.
 
 Postgres host is **Supabase** (`POSTGRES_DSN`). Partner control-plane databases may
 optionally co-locate in the same project under a non-`public` schema — see
 [`docs/NEON_TO_SUPABASE.md`](docs/NEON_TO_SUPABASE.md).
 
-## Production cutover
+## Production deploy
 
-Operator checklist (preflight, dual-write → read switch → write switch →
-decommission, rollback): [`CUTOVER.md`](CUTOVER.md).
+Operator runbook: [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md).
+Checklist: [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md).
 
-### Engine roles (post-cutover)
+### Engine roles
 
 | `FORJD_ROLE` | What runs | Required secrets |
 |--------------|-----------|------------------|
@@ -104,19 +105,17 @@ decommission, rollback): [`CUTOVER.md`](CUTOVER.md).
 | `relay` / `scheduler` / `normalizer` | Bus workers | + DSNs + **internode keys** |
 | `all` | Relay + scheduler + probe + normalizer + ingest | DSNs + internode keys |
 
-On Fly, bus roles default to `FORJD_INTERNODE_ENCRYPTION=required`. Missing
-`FORJD_INTERNODE_ACTIVE_KID` / `FORJD_INTERNODE_KEYS` is the historical cause of
-the `FORJD_ROLE=all` crash loop. Enable with
-[`scripts/sync_engine_dataplane_secrets.sh`](scripts/sync_engine_dataplane_secrets.sh);
-rollback with `fly secrets set FORJD_ROLE=engine -a forjd-engine`.
+On Fly, bus roles default to `FORJD_INTERNODE_ENCRYPTION=required`. Set
+`FORJD_INTERNODE_ACTIVE_KID` / `FORJD_INTERNODE_KEYS` with
+[`scripts/sync_engine_dataplane_secrets.sh`](scripts/sync_engine_dataplane_secrets.sh).
+Process-only mode: `fly secrets set FORJD_ROLE=engine -a forjd-engine`.
 
-End-to-end partner path: partner BFF (e.g. DEML) → FORJD API (`fjsvc_`) →
+End-to-end partner path: partner BFF → FORJD API (`fjsvc_`) →
 Supabase Postgres (ciphertext + projections) → optional engine sealed pipeline
 via `ENGINE_URL`.
 
 ## Explicit non-goals
 
-- ClickHouse / Redpanda / Firebase / Firestore **as FORJD identity or OLAP**
 - Accepting partner SaaS end-user tokens at the FORJD edge
 - Server-side plaintext ML on sealed payloads
 - Python reimplementation of Rust relay / probe / normalizer / scheduler

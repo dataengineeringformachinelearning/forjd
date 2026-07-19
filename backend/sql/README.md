@@ -35,7 +35,7 @@ Apply in order in the Supabase SQL editor (or `psql`).
 7. Tenant erase: `POST /api/v1/tenants/{id}/erase` (human owner/admin or service with `tenants:erase`).
 8. Post-check: `python backend/scripts/verify_supabase_post_migration.py` (or SQL in `scripts/verify_supabase_post_migration.sql`).
 9. Neon consolidation (partner control plane): [`docs/NEON_TO_SUPABASE.md`](../../docs/NEON_TO_SUPABASE.md).
-10. Final ops checklist: [`docs/PRODUCTION_CUTOVER_CHECKLIST.md`](../../docs/PRODUCTION_CUTOVER_CHECKLIST.md).
+10. Final ops checklist: [`docs/PRODUCTION_CHECKLIST.md`](../../docs/PRODUCTION_CHECKLIST.md).
 
 ### Roles
 

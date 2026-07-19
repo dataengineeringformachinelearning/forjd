@@ -56,6 +56,10 @@ ml-nlp = [
 storage = [
     "boto3>=1.35.0",
 ]
+# Neon → Supabase controlled ETL (scripts/neon_supabase_etl). Install: uv sync --group etl
+etl = [
+    "psycopg[binary]>=3.2.0",
+]
 
 # CPU wheels for Fly/Linux (avoids multi‑GB CUDA deps). macOS uses the same index.
 [[tool.uv.index]]
@@ -79,6 +83,8 @@ ignore = ["B008"]
 # PDF renderer keeps its original 2-space layout.
 [tool.ruff.lint.per-file-ignores]
 "app/services/pdf_report.py" = ["E501"]
+# ETL tests prepend sys.path before package imports.
+"tests/test_neon_supabase_etl.py" = ["E402"]
 
 [tool.uv]
 package = true

@@ -1,6 +1,6 @@
 # FORJD
 
-Data streaming pipeline platform. This repo’s **pulse PoC** wires the full stack end to end:
+Universal secure streaming engine. This repo’s **pulse PoC** wires the full stack end to end:
 
 **Angular → FastAPI → Rust engine (HTTP or PyO3) + Polars + Pathway + Prefect + Supabase Postgres/pgvector + Dragonfly**  
 (+ optional PyTorch LSTM-autoencoder anomaly PoC)
@@ -117,14 +117,14 @@ cargo run --no-default-features --features server   # HTTP on :8080
 
 ## Secure streaming (Supabase Auth + E2EE)
 
-Production path for sealed partner ingress (FORJD as the exclusive sealed pipe):
+Production path for sealed partner ingress:
 
-1. Apply SQL `003`→`018` under [`backend/sql/`](backend/sql/) (tenants, RLS, sealed events, projections/DLQ, service accounts, Realtime, ML, service-principal cutover, partner domain scopes).
+1. Apply SQL `003`→`019` under [`backend/sql/`](backend/sql/) (tenants, RLS, sealed events, projections/DLQ, service accounts, Realtime, ML, partner domain scopes).
 2. Configure `SUPABASE_URL` / `SUPABASE_JWT_SECRET` on the API (see `backend/.env.example`).
 3. Clients authenticate with Supabase Auth **or** a tenant service token (`fjsvc_…`), publish X25519 public keys (`POST /api/v1/sessions`), derive AES-256 via ECDH+HKDF, and `POST /api/v1/ingest` with envelopes + `content_type` (YAML workflow in [`backend/workflows/`](backend/workflows/); partner wire ids via YAML `aliases`).
 4. Rust sealed pipeline (Pathway fallback) processes **metadata only**; consumers poll `GET /api/v1/projections` or Realtime on `stream_results`. Partner SaaS apps call FORJD as a subprocessor — see [`backend/docs/AUTH.md`](backend/docs/AUTH.md).
 
-Details: [`backend/sql/README.md`](backend/sql/README.md), [`backend/README.md`](backend/README.md), and production cutover [`CUTOVER.md`](CUTOVER.md).
+Details: [`backend/sql/README.md`](backend/sql/README.md), [`backend/README.md`](backend/README.md), and [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md).
 
 ## Unsupervised anomaly PoC (optional)
 
@@ -189,11 +189,11 @@ docker compose up --build
 
 Domain: [https://forjd.co](https://forjd.co). `frontend/vercel.json` is set up. Production `apiBaseUrl` is `https://backend.forjd.co` — point that hostname at Fly (`forjd-backend`) and keep `https://forjd.co` in backend `CORS_ORIGINS`.
 
-Production partner cutover (SQL, remint `fjsvc_`, Fly/Vercel checklist, rollback): see [`CUTOVER.md`](CUTOVER.md) and [`docs/PRODUCTION_CUTOVER_CHECKLIST.md`](docs/PRODUCTION_CUTOVER_CHECKLIST.md).
+Production deploy (SQL, mint `fjsvc_`, Fly/Vercel checklist): see [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md) and [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md).
 
-**Engine data plane:** `FORJD_ROLE=engine` is process-only; `all` needs DSNs **and** internode keys (`./scripts/sync_engine_dataplane_secrets.sh`). Missing `FORJD_INTERNODE_*` was the Fly crash-loop cause.
+**Engine data plane:** `FORJD_ROLE=engine` is process-only; `all` needs DSNs **and** internode keys (`./scripts/sync_engine_dataplane_secrets.sh`).
 
-**Postgres:** FORJD production already uses Supabase. Optional partner control-plane co-location into a non-`public` schema: [`docs/NEON_TO_SUPABASE.md`](docs/NEON_TO_SUPABASE.md) + `scripts/pg_migrate_neon_to_supabase.sh`. Verify with `backend/scripts/verify_supabase_post_migration.py`.
+**Postgres:** Production uses Supabase. Optional partner control-plane co-location into a non-`public` schema: controlled ETL [`docs/NEON_TO_SUPABASE_ETL.md`](docs/NEON_TO_SUPABASE_ETL.md) (preferred) or dump/restore [`docs/NEON_TO_SUPABASE.md`](docs/NEON_TO_SUPABASE.md). Verify with `scripts/neon_supabase_etl/verify_etl.py` + `backend/scripts/verify_supabase_post_migration.py`.
 
 ### Storybook → Vercel (ui.forjd.co)
 

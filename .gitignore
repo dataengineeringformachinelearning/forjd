@@ -41,6 +41,10 @@ htmlcov/
 # Local Neon→Supabase dump artifacts (may contain PII)
 .pg_migrate_dumps/
 
+# Local ETL config (may reference tenant filters / ops notes)
+scripts/neon_supabase_etl/config.local.yaml
+scripts/neon_supabase_etl/config.*.local.yaml
+
 # Rust
 **/target/
 
@@ -49,3 +53,4 @@ backend/data/models/*.pt
 
 # Vercel CLI metadata
 .vercel/
+scripts/neon_supabase_etl/.run/
