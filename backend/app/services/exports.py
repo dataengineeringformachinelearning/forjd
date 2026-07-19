@@ -558,7 +558,7 @@ async def tick_export_jobs(
                       job.object_key
             """,
             str(owner),
-            _EXPORT_LEASE_SECONDS,
+            str(_EXPORT_LEASE_SECONDS),
         )
         if not rows:
             break
@@ -757,7 +757,7 @@ async def _renew_export_lease(pool: asyncpg.Pool, *, job_id: str, owner: UUID) -
         """,
         job_id,
         str(owner),
-        _EXPORT_LEASE_SECONDS,
+        str(_EXPORT_LEASE_SECONDS),
     )
     return str(result).endswith(" 1")
 

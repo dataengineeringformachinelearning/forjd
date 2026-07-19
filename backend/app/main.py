@@ -398,14 +398,17 @@ async def readiness(request: Request) -> JSONResponse:
     if settings.is_production:
         from app.core import object_storage
 
-        checks["object_storage"] = False
-        try:
-            checks["object_storage"] = await asyncio.wait_for(
-                asyncio.to_thread(object_storage.probe_bucket),
-                timeout=2.0,
-            )
-        except Exception:
+        # Only require object storage when S3/RustFS credentials are configured.
+        # Unconfigured export storage must not take the public API offline.
+        if object_storage.is_configured():
             checks["object_storage"] = False
+            try:
+                checks["object_storage"] = await asyncio.wait_for(
+                    asyncio.to_thread(object_storage.probe_bucket),
+                    timeout=2.0,
+                )
+            except Exception:
+                checks["object_storage"] = False
 
     # Engine probe is informational — sealed API stays ready if Postgres/Redis/RLS ok.
     # (HTTP engine may restart independently; Pathway/PyO3 remain soft-fallbacks.)

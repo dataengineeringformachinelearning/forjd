@@ -57,7 +57,8 @@ primary_region = 'iad'
     timeout = '10s'
     grace_period = '90s'
     method = 'GET'
-    path = '/ready'
+    # Liveness for proxy admission. Dependency readiness stays on GET /ready.
+    path = '/health'
 
 [mounts]
   source = 'ml_models'
