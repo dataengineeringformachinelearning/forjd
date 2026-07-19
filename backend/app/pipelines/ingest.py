@@ -15,6 +15,7 @@ from typing import Any
 
 from prefect import flow, task
 
+from app.addons.hooks import HookPoint, run_hooks, run_hooks_task
 from app.pipelines.soft_fail import run_with_local_fallback
 from app.workflows.processors import get_processor
 from app.workflows.registry import resolve_workflow
@@ -36,7 +37,19 @@ def process_with_workflow(
         workflow_id=workflow_id,
     )
     processor = get_processor(workflow.pipeline.processor)
-    out = processor(events, workflow)
+    try:
+        out = processor(events, workflow)
+    except Exception as exc:
+        run_hooks(
+            HookPoint.WORKFLOW_ERROR,
+            {
+                "workflow_id": workflow.id,
+                "processor": workflow.pipeline.processor,
+                "event_count": len(events),
+                "error": str(exc),
+            },
+        )
+        raise
     out["workflow_id"] = workflow.id
     out["processor"] = workflow.pipeline.processor
     return out
@@ -84,11 +97,23 @@ def ingest_flow(
     event_type: str | None = None,
     workflow_id: str | None = None,
 ) -> dict[str, Any]:
+    hook_context = {
+        "workflow_id": workflow_id,
+        "content_type": content_type,
+        "event_type": event_type,
+        "event_count": len(events or []),
+        "tenant_ids": tenant_ids,
+    }
+    before_hooks = run_hooks_task(HookPoint.BEFORE_WORKFLOW.value, hook_context)
     pathway = process_with_workflow(
         events or [],
         content_type=content_type,
         event_type=event_type,
         workflow_id=workflow_id,
+    )
+    after_hooks = run_hooks_task(
+        HookPoint.AFTER_WORKFLOW.value,
+        {**hook_context, "resolved_workflow_id": pathway.get("workflow_id"), "pathway": pathway},
     )
     ack = ack_ingest(
         user_id,
@@ -103,6 +128,7 @@ def ingest_flow(
         **ack,
         "pathway": pathway,
         "stream_results": pathway.get("results") or [],
+        "addon_hooks": {"before": before_hooks, "after": after_hooks},
     }
 
 
@@ -119,11 +145,27 @@ def run_ingest_flow(
     workflow_id: str | None = None,
 ) -> dict[str, Any]:
     def _local(exc: Exception) -> dict[str, Any]:
+        hook_context = {
+            "workflow_id": workflow_id,
+            "content_type": content_type,
+            "event_type": event_type,
+            "event_count": len(events or []),
+            "tenant_ids": tenant_ids,
+        }
+        before_hooks = run_hooks_task.fn(HookPoint.BEFORE_WORKFLOW.value, hook_context)
         pathway = process_with_workflow.fn(
             events or [],
             content_type=content_type,
             event_type=event_type,
             workflow_id=workflow_id,
+        )
+        after_hooks = run_hooks_task.fn(
+            HookPoint.AFTER_WORKFLOW.value,
+            {
+                **hook_context,
+                "resolved_workflow_id": pathway.get("workflow_id"),
+                "pathway": pathway,
+            },
         )
         body = ack_ingest.fn(
             user_id,
@@ -139,6 +181,7 @@ def run_ingest_flow(
             **body,
             "pathway": pathway,
             "stream_results": pathway.get("results") or [],
+            "addon_hooks": {"before": before_hooks, "after": after_hooks},
         }
 
     return run_with_local_fallback(

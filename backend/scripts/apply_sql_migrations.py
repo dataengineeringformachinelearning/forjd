@@ -17,7 +17,10 @@ _CANDIDATES = (
     Path(__file__).resolve().parents[1] / "sql",
     Path.cwd() / "sql",
 )
-SQL_DIR = next((p for p in _CANDIDATES if p and (p / "003_secure_tenancy.sql").is_file()), Path("/app/sql"))
+SQL_DIR = next(
+    (p for p in _CANDIDATES if p and (p / "003_secure_tenancy.sql").is_file()),
+    Path("/app/sql"),
+)
 
 FILES = [
     "003_secure_tenancy.sql",

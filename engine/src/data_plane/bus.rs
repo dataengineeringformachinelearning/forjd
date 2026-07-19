@@ -1,7 +1,7 @@
 //! Dragonfly Streams bus — FORJD internode messaging.
 
-use anyhow::{bail, Context, Result};
-use base64::{engine::general_purpose::STANDARD, Engine as _};
+use anyhow::{Context, Result, bail};
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use redis::aio::MultiplexedConnection;
 use redis::streams::{StreamId, StreamKey, StreamReadOptions, StreamReadReply};
 use redis::{AsyncCommands, Client, Value as RedisValue};

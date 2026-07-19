@@ -11,6 +11,7 @@ token — see ``backend/docs/AUTH.md``.
 from fastapi import APIRouter
 
 from app.api.v1 import (
+    addons,
     anomaly,
     domain,
     exports,
@@ -59,3 +60,6 @@ api_router.include_router(exports.router)
 api_router.include_router(threat_ml.router)
 api_router.include_router(ml.router)
 api_router.include_router(domain.router)
+
+# --- Add-on catalog (optional integrations; disabled by default) ---
+api_router.include_router(addons.router)

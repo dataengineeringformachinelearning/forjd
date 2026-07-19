@@ -30,6 +30,4 @@ def run_analytics_aggregate(pool: Any, tenant_id: str) -> dict[str, Any]:
         result = aggregate_hour_task.fn(pool, tenant_id)
         return {**result, "mode": "local-fallback", "prefect_error": str(exc)}
 
-    return run_with_local_fallback(
-        analytics_aggregate_flow, pool, tenant_id, fallback=_local
-    )
+    return run_with_local_fallback(analytics_aggregate_flow, pool, tenant_id, fallback=_local)

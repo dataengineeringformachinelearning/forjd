@@ -60,6 +60,10 @@ storage = [
 etl = [
     "psycopg[binary]>=3.2.0",
 ]
+# Optional Sentry error tracking (SENTRY_DSN). Install: uv sync --group sentry
+sentry = [
+    "sentry-sdk[fastapi]>=2.20.0",
+]
 
 # CPU wheels for Fly/Linux (avoids multi‑GB CUDA deps). macOS uses the same index.
 [[tool.uv.index]]

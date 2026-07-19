@@ -33,9 +33,9 @@ class UpdatePageRequest(BaseModel):
 class CreateServiceRequest(BaseModel):
     tenant_id: UUID
     name: str = Field(..., min_length=1, max_length=128)
-    status: Literal[
-        "operational", "degraded", "partial_outage", "major_outage", "maintenance"
-    ] = "operational"
+    status: Literal["operational", "degraded", "partial_outage", "major_outage", "maintenance"] = (
+        "operational"
+    )
     description: str = ""
     sort_order: int = 0
 
@@ -44,10 +44,7 @@ class UpdateServiceRequest(BaseModel):
     tenant_id: UUID
     name: str | None = Field(default=None, min_length=1, max_length=128)
     status: (
-        Literal[
-            "operational", "degraded", "partial_outage", "major_outage", "maintenance"
-        ]
-        | None
+        Literal["operational", "degraded", "partial_outage", "major_outage", "maintenance"] | None
     ) = None
     description: str | None = None
     sort_order: int | None = None
@@ -56,9 +53,7 @@ class UpdateServiceRequest(BaseModel):
 class CreateIncidentRequest(BaseModel):
     tenant_id: UUID
     title: str = Field(..., min_length=1, max_length=200)
-    status: Literal["investigating", "identified", "monitoring", "resolved"] = (
-        "investigating"
-    )
+    status: Literal["investigating", "identified", "monitoring", "resolved"] = "investigating"
     severity: Literal["minor", "major", "critical"] = "minor"
     body: str = ""
 
@@ -66,9 +61,7 @@ class CreateIncidentRequest(BaseModel):
 class UpdateIncidentRequest(BaseModel):
     tenant_id: UUID
     title: str | None = Field(default=None, min_length=1, max_length=200)
-    status: Literal["investigating", "identified", "monitoring", "resolved"] | None = (
-        None
-    )
+    status: Literal["investigating", "identified", "monitoring", "resolved"] | None = None
     severity: Literal["minor", "major", "critical"] | None = None
     body: str | None = None
 

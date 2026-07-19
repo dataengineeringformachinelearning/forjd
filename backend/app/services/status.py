@@ -513,9 +513,7 @@ async def delete_incident(
 
 
 # --- Helpers ---
-async def _require_page(
-    pool: asyncpg.Pool, *, tenant_id: UUID, page_id: UUID
-) -> dict[str, Any]:
+async def _require_page(pool: asyncpg.Pool, *, tenant_id: UUID, page_id: UUID) -> dict[str, Any]:
     row = await pool.fetchrow(
         """
         SELECT id::text FROM status_pages
@@ -553,6 +551,7 @@ def _incident_dict(row: Any) -> dict[str, Any]:
         "resolved_at": resolved.isoformat() if resolved else None,
         "page_id": row["page_id"],
     }
+
 
 def _page_dict(row: Any) -> dict[str, Any]:
     return {

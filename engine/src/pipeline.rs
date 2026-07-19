@@ -4,7 +4,7 @@
 //! content_type, event_type, workflow_id. Used by PyO3 and HTTP `/v1/sealed/pipeline`.
 
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::collections::{HashMap, HashSet};
 
 /// Maximum events per sealed pipeline batch (DoS bound).
@@ -58,9 +58,7 @@ pub struct SealedMeta {
 // --- Sanitize: strip anything that looks like ciphertext ---
 pub fn sanitize_events(events: &[Value]) -> Result<Vec<SealedMeta>, String> {
     if events.len() > MAX_SEALED_EVENTS {
-        return Err(format!(
-            "events exceed max length of {MAX_SEALED_EVENTS}"
-        ));
+        return Err(format!("events exceed max length of {MAX_SEALED_EVENTS}"));
     }
     let mut out = Vec::with_capacity(events.len());
     for e in events {
@@ -104,9 +102,7 @@ fn int_field(obj: &Map<String, Value>, key: &str) -> i64 {
 pub fn rollup(events: &[SealedMeta]) -> Value {
     let mut by_tenant: HashMap<String, (i64, i64, i64)> = HashMap::new();
     for e in events {
-        let slot = by_tenant
-            .entry(e.tenant_id.clone())
-            .or_insert((0, 0, 0));
+        let slot = by_tenant.entry(e.tenant_id.clone()).or_insert((0, 0, 0));
         slot.0 += 1;
         slot.1 += e.cipher_len;
         slot.2 = slot.2.max(e.cipher_len);
@@ -290,7 +286,11 @@ pub fn run_sealed_pipeline(req: SealedPipelineRequest) -> Result<Value, String> 
     );
     let anomaly_count = anomalies
         .iter()
-        .filter(|a| a.get("is_anomaly").and_then(|v| v.as_bool()).unwrap_or(false))
+        .filter(|a| {
+            a.get("is_anomaly")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+        })
         .count();
 
     Ok(json!({
@@ -322,27 +322,27 @@ fn to_stream_result_rows(
         base_meta.insert(k.clone(), v.clone());
     }
 
-    if steps.contains("rollup") {
-        if let Some(by_tenant) = rollup.get("by_tenant").and_then(|v| v.as_object()) {
-            for (tid, stats) in by_tenant {
-                rows.push(json!({
-                    "tenant_id": tid,
-                    "telemetry_event_id": null,
-                    "source_event_id": null,
-                    "kind": "rollup",
-                    "engine": engine,
-                    "score": null,
-                    "is_anomaly": false,
-                    "projection_name": projection_name,
-                    "features": {
-                        "count": stats.get("count"),
-                        "bytes": stats.get("bytes"),
-                        "max_cipher_len": stats.get("max_cipher_len"),
-                    },
-                    "metadata": base_meta.clone(),
-                    "workflow_id": tags.get("workflow_id"),
-                }));
-            }
+    if steps.contains("rollup")
+        && let Some(by_tenant) = rollup.get("by_tenant").and_then(|v| v.as_object())
+    {
+        for (tid, stats) in by_tenant {
+            rows.push(json!({
+                "tenant_id": tid,
+                "telemetry_event_id": null,
+                "source_event_id": null,
+                "kind": "rollup",
+                "engine": engine,
+                "score": null,
+                "is_anomaly": false,
+                "projection_name": projection_name,
+                "features": {
+                    "count": stats.get("count"),
+                    "bytes": stats.get("bytes"),
+                    "max_cipher_len": stats.get("max_cipher_len"),
+                },
+                "metadata": base_meta.clone(),
+                "workflow_id": tags.get("workflow_id"),
+            }));
         }
     }
 
@@ -452,6 +452,6 @@ mod tests {
         let out = run_sealed_pipeline(req).unwrap();
         assert_eq!(out["engine"], "forjd-engine");
         assert_eq!(out["count"], 1);
-        assert!(out["results"].as_array().unwrap().len() >= 1);
+        assert!(!out["results"].as_array().unwrap().is_empty());
     }
 }

@@ -3,14 +3,14 @@
 use std::sync::Arc;
 
 use axum::{
+    Json, Router,
     extract::{DefaultBodyLimit, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::post,
-    Json, Router,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use subtle::ConstantTimeEq;
@@ -397,7 +397,7 @@ async fn enforce_rate_limit(
 
 #[cfg(test)]
 mod tests {
-    use super::{validate_payload, IngestPayload};
+    use super::{IngestPayload, validate_payload};
     use serde_json::json;
 
     #[test]

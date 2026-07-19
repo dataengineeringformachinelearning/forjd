@@ -23,7 +23,8 @@ Agents: read this briefing first, then enforce constraints in `.cursorrules`.
 | Engine | Rust (`engine/`) — one `forjd-engine` binary: Arrow/Parquet **59** + PyO3 + axum process HTTP + data plane (`FORJD_ROLE`, Postgres outbox, Dragonfly Streams) |
 | Cache / DB | Dragonfly (Fly.io) + Postgres (Supabase) |
 | UI | Angular + forjd-ui (Storybook / Chromatic) |
-| Observability | Rollbar (API); Vercel Analytics + Speed Insights (frontend) |
+| Observability | Rollbar (API) + optional Sentry (`SENTRY_DSN`, `uv sync --group sentry`); Vercel Analytics + Speed Insights (frontend) |
+| Add-ons (optional) | Config-gated integrations under `app/addons/` — disabled by default, `FORJD_ADDONS=<slug,…>` or `all`; catalog at `GET /api/v1/addons` (OSV/nuclei/HoneyDB/CVE + ML/testing descriptors) |
 | ML (optional) | `/api/v1/ml` catalog + Supabase `training_runs` / `embedding_vectors` / `ml_scores` (`sql/016`); hydrate from `stream_results` metadata only (`uv sync --group ml`) |
 | Auth / E2EE | Supabase Auth **user** JWTs + tenant-scoped **service accounts** (`sql/014`–`015`, `017`–`018`, `backend/docs/AUTH.md`); X25519/HKDF + AES-256-GCM sealed ingest (`sql/003`–`008`, `013`); partner erase `POST /api/v1/tenants/{id}/erase` |
 | Workflows | YAML under `backend/workflows/` → Prefect + **Rust sealed pipeline** (Pathway fallback) + pluggable detectors |
@@ -47,7 +48,7 @@ Backend Python is pinned to **3.12** with Pathway ≥0.31 (`beartype<0.16` via u
 - Keep dependencies minimal — add a package only when a concrete use case needs it.
 - After meaningful progress, append a `LOG.MD` entry (format in `.cursorrules`).
 
-Last updated: 2026-07-18
+Last updated: 2026-07-19
 
 **Deploy:** [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md) + [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md) — SQL `003`–`019`, mint `fjsvc_`, Fly backend/engine + Vercel frontend. Partners integrate via YAML workflows and tenant-bound service tokens.
 
@@ -86,10 +87,11 @@ in for Dragonfly (wire-compatible); the app reports it as `dragonfly`.
 
 - API: `cd backend && uv run uvicorn app.main:app --host 127.0.0.1 --port 8000`
 - Web: `cd frontend && npm start` (http://localhost:4200, dev build targets :8000)
-- A pulse (`POST /api/v1/pulse` or the UI "Run pulse") reports **5/6 layers ok**:
-  `engine`, `polars`, `postgres`, `dragonfly` ok; `prefect` ok via local-fallback
-  (no Prefect server needed); `pathway` fails on CPython 3.14 (expected — see note
-  above). This is the healthy steady state, not a regression.
+- A pulse (`POST /api/v1/pulse` or the UI "Run pulse") reports all core layers ok:
+  `engine`, `polars`, `postgres`, `dragonfly`; `prefect` ok via local-fallback
+  (no Prefect server needed). Backend pins Python 3.12 (`requires-python <3.14`),
+  so `uv run` uses a Pathway-compatible interpreter; a `pathway` failure only
+  appears if the API runs on the system CPython 3.14 instead of the uv-managed 3.12.
 
 ### Frontend install scripts
 
@@ -100,6 +102,6 @@ scripts approved.
 
 ### Tests / lint (no scripted aliases)
 
-- Backend lint: `uv run ruff check .` / `uv run ruff format --check .` (no pytest suite).
-- Engine: `cargo test`, `cargo clippy --all-targets --all-features` (`cargo fmt --check` currently reports a pre-existing diff).
+- Backend lint: `uv run ruff check .` / `uv run ruff format --check .`; tests: `uv run python -m unittest discover -s tests`.
+- Engine: `cargo test`, `cargo clippy --all-targets --all-features`, `cargo fmt --check`.
 - Frontend: `npx ng test --no-watch` (Vitest + jsdom); no ESLint target, Prettier only.

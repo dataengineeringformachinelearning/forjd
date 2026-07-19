@@ -5,7 +5,7 @@
 
 use std::time::Duration;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use chrono::{DateTime, Utc};
 use redis::Client;
 use serde::Serialize;
@@ -329,7 +329,7 @@ async fn execute_native_task(pool: &PgPool, task_name: &str) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{scheduled_for_timestamp, CronTask, TaskTrigger, CRON_TASKS, HOUR};
+    use super::{CRON_TASKS, CronTask, HOUR, TaskTrigger, scheduled_for_timestamp};
     use chrono::{DateTime, Utc};
     use uuid::Uuid;
 

@@ -89,9 +89,7 @@ async def generate_stream_report(
         object_key = object_storage.export_object_key(
             tenant_id=str(tenant_id), job_id=digest[:12], filename=filename
         )
-        object_storage.put_bytes(
-            key=object_key, body=pdf_bytes, content_type="application/pdf"
-        )
+        object_storage.put_bytes(key=object_key, body=pdf_bytes, content_type="application/pdf")
     else:
         out_dir = Path(settings.ML_MODEL_DIR).parent / "reports" / str(tenant_id)
         out_dir.mkdir(parents=True, exist_ok=True)

@@ -17,6 +17,27 @@
   margin-top: var(--fj-space-4);
 }
 
+.shell__docs-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fj-space-1);
+  padding: var(--fj-space-2) var(--fj-space-4);
+  border: 1px solid var(--fj-border);
+  border-radius: var(--fj-radius);
+  color: var(--fj-text);
+  font-size: var(--fj-text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.shell__docs-link:hover {
+  border-color: var(--fj-primary, var(--fj-accent));
+  color: var(--fj-primary, var(--fj-accent));
+}
+
 .shell__actions {
   display: flex;
   flex-wrap: wrap;

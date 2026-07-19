@@ -20,9 +20,7 @@ class TestDetectors(unittest.TestCase):
             {"event_id": f"e{i}", "tenant_id": tid, "key_id": "k", "cipher_len": 50}
             for i in range(6)
         ]
-        events.append(
-            {"event_id": "big", "tenant_id": tid, "key_id": "k", "cipher_len": 40_000}
-        )
+        events.append({"event_id": "big", "tenant_id": tid, "key_id": "k", "cipher_len": 40_000})
         out = size_detect(events, {"zscore": 2.0, "max_cipher_len": 100_000})
         flagged = [r for r in out if r["event_id"] == "big"]
         self.assertTrue(flagged[0]["is_anomaly"])
@@ -38,9 +36,7 @@ class TestDetectors(unittest.TestCase):
 
     def test_run_detectors_merges(self) -> None:
         tid = "cccccccc-cccc-cccc-cccc-cccccccccccc"
-        events = [
-            {"event_id": "1", "tenant_id": tid, "key_id": "k", "cipher_len": 300_000}
-        ]
+        events = [{"event_id": "1", "tenant_id": tid, "key_id": "k", "cipher_len": 300_000}]
         out = run_detectors(
             events,
             steps=["size_anomaly", "rate_anomaly"],

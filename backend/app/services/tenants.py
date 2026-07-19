@@ -49,8 +49,7 @@ async def assert_secure_schema(pool: asyncpg.Pool) -> None:
             missing.append(table)
     if missing:
         raise RuntimeError(
-            "secure schema incomplete — apply backend/sql/003–008; missing: "
-            + ", ".join(missing)
+            "secure schema incomplete — apply backend/sql/003–019; missing: " + ", ".join(missing)
         )
 
     if not settings.REQUIRE_RLS:
@@ -69,12 +68,10 @@ async def assert_secure_schema(pool: asyncpg.Pool) -> None:
         if not enabled:
             no_rls.append(table)
     if no_rls:
-        raise RuntimeError(
-            "RLS required but disabled on: " + ", ".join(no_rls)
-        )
+        raise RuntimeError("RLS required but disabled on: " + ", ".join(no_rls))
 
 
-# --- Local soft-migrate (shapes only; full RLS needs sql/003–008) ---
+# --- Local soft-migrate (shapes only; full RLS needs sql/003–019) ---
 async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
     """Ensure schema for local/dev; production asserts migrations + RLS.
 
@@ -142,12 +139,8 @@ async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
         """
     )
     # Additive columns when an older soft-migrate shape already exists.
-    await pool.execute(
-        "ALTER TABLE telemetry_events ADD COLUMN IF NOT EXISTS event_type TEXT"
-    )
-    await pool.execute(
-        "ALTER TABLE telemetry_events ADD COLUMN IF NOT EXISTS workflow_id TEXT"
-    )
+    await pool.execute("ALTER TABLE telemetry_events ADD COLUMN IF NOT EXISTS event_type TEXT")
+    await pool.execute("ALTER TABLE telemetry_events ADD COLUMN IF NOT EXISTS workflow_id TEXT")
     await pool.execute(
         """
         CREATE TABLE IF NOT EXISTS embedding_vectors (
@@ -185,15 +178,9 @@ async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
         )
         """
     )
-    await pool.execute(
-        "ALTER TABLE stream_results ADD COLUMN IF NOT EXISTS workflow_id TEXT"
-    )
-    await pool.execute(
-        "ALTER TABLE stream_results ADD COLUMN IF NOT EXISTS projection_name TEXT"
-    )
-    await pool.execute(
-        "ALTER TABLE stream_results ADD COLUMN IF NOT EXISTS source_event_id UUID"
-    )
+    await pool.execute("ALTER TABLE stream_results ADD COLUMN IF NOT EXISTS workflow_id TEXT")
+    await pool.execute("ALTER TABLE stream_results ADD COLUMN IF NOT EXISTS projection_name TEXT")
+    await pool.execute("ALTER TABLE stream_results ADD COLUMN IF NOT EXISTS source_event_id UUID")
     await pool.execute(
         """
         ALTER TABLE stream_results
@@ -460,9 +447,7 @@ async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
 
 
 # --- Membership checks ---
-async def user_role_in_tenant(
-    pool: asyncpg.Pool, *, tenant_id: UUID, user_id: str
-) -> str | None:
+async def user_role_in_tenant(pool: asyncpg.Pool, *, tenant_id: UUID, user_id: str) -> str | None:
     row = await pool.fetchrow(
         """
         SELECT role FROM tenant_members

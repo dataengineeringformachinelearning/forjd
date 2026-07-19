@@ -90,11 +90,7 @@ def fit(
     tenant_id: str | None = None,
 ) -> dict[str, Any]:
     torch, nn = _require()
-    arr = (
-        np.asarray(series, dtype=np.float32)
-        if series
-        else mlc.synthetic_series(length=96)
-    )
+    arr = np.asarray(series, dtype=np.float32) if series else mlc.synthetic_series(length=96)
     windows = windows_from_series(arr.tolist(), seq_len)
     if windows.shape[0] < 4:
         raise ValueError("need more series points for spiking fit")
@@ -158,7 +154,7 @@ def score(
     path = _ckpt(tenant_id)
     if not path.exists():
         raise RuntimeError("norse_ssn not fitted; POST .../fit first")
-    blob = torch.load(path, map_location="cpu", weights_only=False)
+    blob = torch.load(path, map_location="cpu", weights_only=True)
     meta = dict(blob.get("meta") or {})
     seq_len = int(meta.get("seq_len") or 16)
     model, uses_norse = _build(torch, nn, seq_len=seq_len)

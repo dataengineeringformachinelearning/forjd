@@ -172,9 +172,9 @@ class WorkflowAliases(BaseModel):
     # canonical event_type -> [wire aliases]
     event_types: dict[str, list[str]] = Field(
         default_factory=dict,
-        description="Map canonical event_type → partner/legacy wire aliases",
+        description="Map canonical event_type → partner wire aliases",
     )
-    # Legacy MIME / content_type wire values that resolve to match.content_types.
+    # Alternate MIME / content_type wire values that resolve to match.content_types.
     content_types: list[str] = Field(
         default_factory=list,
         description="Alternate content_type values that match this workflow",

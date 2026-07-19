@@ -5,9 +5,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use anyhow::{bail, Context, Result};
-use futures::{stream, StreamExt};
-use reqwest::{redirect::Policy, Client, StatusCode};
+use anyhow::{Context, Result, bail};
+use futures::{StreamExt, stream};
+use reqwest::{Client, StatusCode, redirect::Policy};
 use sqlx::PgPool;
 use tokio::net::lookup_host;
 use tracing::{error, info, warn};

@@ -65,13 +65,9 @@ def _validate_encryption(event: IngestEventRequest, workflow: WorkflowDefinition
     mode = event.encryption.mode
     algo = event.encryption.algo
     if mode not in workflow.encryption.modes:
-        raise ValueError(
-            f"encryption.mode={mode!r} not allowed for workflow {workflow.id!r}"
-        )
+        raise ValueError(f"encryption.mode={mode!r} not allowed for workflow {workflow.id!r}")
     if algo not in workflow.encryption.algos:
-        raise ValueError(
-            f"encryption.algo={algo!r} not allowed for workflow {workflow.id!r}"
-        )
+        raise ValueError(f"encryption.algo={algo!r} not allowed for workflow {workflow.id!r}")
     if event.envelope.algo != algo:
         raise ValueError("envelope.algo must match encryption.algo")
 
@@ -188,9 +184,7 @@ async def ingest_events(
                     slot["max_cipher_len"], int(stats.get("max_cipher_len") or 0)
                 )
             pathway_summary["workflows"].append(wf_id)
-            persisted += await proj_svc.upsert_stream_results(
-                pool, run.get("stream_results") or []
-            )
+            persisted += await proj_svc.upsert_stream_results(pool, run.get("stream_results") or [])
             # Keep durable projection watermarks aligned with live ingest path.
             await proj_svc.advance_checkpoint_from_meta(
                 pool, meta_rows=meta_rows, workflow_id=wf_id

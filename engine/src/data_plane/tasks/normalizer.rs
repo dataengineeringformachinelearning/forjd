@@ -4,7 +4,7 @@
 
 use std::{net::IpAddr, str::FromStr};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use redis::Client;
 use serde::Deserialize;
 use serde_json::{Map, Value};
@@ -20,7 +20,7 @@ const TELEMETRY_DLQ: &str = "telemetry-raw-dlq";
 
 #[derive(Debug, Deserialize)]
 struct TelemetryEvent {
-    /// Tenant UUID (FORJD); also accepts legacy `account_id`.
+    /// Tenant UUID (FORJD); `account_id` is an accepted wire alias.
     #[serde(default)]
     tenant_id: Option<String>,
     #[serde(default)]
@@ -61,8 +61,10 @@ pub async fn run(pool: PgPool, client: Client, cfg: Config) -> Result<()> {
                 Err(error) if attempt < 12 => {
                     attempt += 1;
                     warn!(%error, attempt, "normalizer: Redis connect retry");
-                    tokio::time::sleep(std::time::Duration::from_secs(2.min(1 + u64::from(attempt))))
-                        .await;
+                    tokio::time::sleep(std::time::Duration::from_secs(
+                        2.min(1 + u64::from(attempt)),
+                    ))
+                    .await;
                 }
                 Err(error) => {
                     return Err(error).context("normalizer: Redis unavailable after retries");

@@ -1,11 +1,9 @@
 {
-  "$schema": "./viking-tokens.schema.json",
   "meta": {
-    "name": "viking-ui",
+    "name": "fjord",
     "version": "2.1.0",
     "description": "Canonical FJORD design tokens — single source of truth for primitives, semantic aliases, and component foundations",
-    "canonicalScss": "../styles/_variables.scss",
-    "documentation": "../../../THEME.md"
+    "consumer": "app/services/pdf_report.py"
   },
   "color": {
     "brand": {
@@ -94,42 +92,42 @@
   "series": {
     "1": {
       "hex": "#2176ff",
-      "token": "--viking-series-1",
+      "token": "--fj-series-1",
       "role": "Primary series, default selection"
     },
     "2": {
       "hex": "#922b3e",
-      "token": "--viking-series-2",
+      "token": "--fj-series-2",
       "role": "Secondary / comparison series"
     },
     "3": {
       "hex": "#2a9d8f",
-      "token": "--viking-series-3",
+      "token": "--fj-series-3",
       "role": "Success / stable metrics"
     },
     "4": {
       "hex": "#c4a035",
-      "token": "--viking-series-4",
+      "token": "--fj-series-4",
       "role": "Warning / threshold proximity"
     },
     "5": {
       "hex": "#a83344",
-      "token": "--viking-series-5",
+      "token": "--fj-series-5",
       "role": "Critical / anomaly series"
     },
     "6": {
       "hex": "#4d94ff",
-      "token": "--viking-series-6",
+      "token": "--fj-series-6",
       "role": "Info / auxiliary series"
     },
     "7": {
       "hex": "#162544",
-      "token": "--viking-series-7",
+      "token": "--fj-series-7",
       "role": "Baseline / muted series"
     },
     "8": {
       "hex": "#666666",
-      "token": "--viking-series-8",
+      "token": "--fj-series-8",
       "role": "Disabled / archived series"
     },
     "default": "#2176ff"
@@ -283,7 +281,7 @@
     "lg": "0 4px 8px rgba(0,0,0,0.2), 0 20px 40px rgba(0,0,0,0.2)",
     "inner": "inset 0 1px 2px rgba(0, 0, 0, 0.14)",
     "hover": "0 2px 4px rgba(0,0,0,0.2), 0 12px 28px rgba(0,0,0,0.2)",
-    "focus": "0 0 0 var(--viking-ring-offset) var(--viking-bg), 0 0 0 calc(var(--viking-ring-offset) + var(--viking-ring-width)) var(--viking-ring)",
+    "focus": "0 0 0 var(--fj-ring-offset) var(--fj-bg), 0 0 0 calc(var(--fj-ring-offset) + var(--fj-ring-width)) var(--fj-ring)",
     "surfaceHighlight": "inset 0 1px 0 rgba(255,255,255,0.06)"
   },
   "motion": {
@@ -318,7 +316,7 @@
   },
   "chart": {
     "ratio": "2 / 1",
-    "plotHeight": "clamp(var(--viking-space-20), 46cqi, var(--viking-space-24))",
+    "plotHeight": "clamp(var(--fj-space-20), 46cqi, var(--fj-space-24))",
     "panelPaddingCompact": "16px",
     "panelPaddingDefault": "16px 24px 24px",
     "responsive": true

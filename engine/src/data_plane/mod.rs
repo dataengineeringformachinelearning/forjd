@@ -14,7 +14,7 @@ pub mod tasks;
 pub use config::{Config, Role};
 pub use http::{DataPlaneState, build_data_plane_router, build_state};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use sqlx::postgres::PgPoolOptions;
 use tokio::task::JoinSet;
 use tracing::{error, info};

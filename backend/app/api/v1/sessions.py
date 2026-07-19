@@ -54,9 +54,7 @@ async def list_sessions(
     if pool is None:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
     limit = max(1, min(limit, 100))
-    sessions = await session_svc.list_sessions(
-        pool, user=user, tenant_id=tenant_id, limit=limit
-    )
+    sessions = await session_svc.list_sessions(pool, user=user, tenant_id=tenant_id, limit=limit)
     return {"ok": True, "tenant_id": str(tenant_id), "sessions": sessions}
 
 

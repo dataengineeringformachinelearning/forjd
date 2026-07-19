@@ -84,9 +84,7 @@ async def list_ml_scores(
     pool = pool_from_request(request)
     if pool is None:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
-    rows = await ml_store.list_recent_scores(
-        pool, tenant_id=tenant_id, family=family, limit=limit
-    )
+    rows = await ml_store.list_recent_scores(pool, tenant_id=tenant_id, family=family, limit=limit)
     return {"ok": True, "tenant_id": str(tenant_id), "scores": rows}
 
 
@@ -118,9 +116,7 @@ async def fit_ml_model(
 
     kwargs = await ml_sb.hydrate_fit_kwargs(pool, model_id, kwargs)
     try:
-        result = ml_registry.fit_model(
-            model_id, **_filter_kwargs(model_id, kwargs, fit=True)
-        )
+        result = ml_registry.fit_model(model_id, **_filter_kwargs(model_id, kwargs, fit=True))
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except RuntimeError as exc:
@@ -162,9 +158,7 @@ async def score_ml_model(
 
     # Score-side hydrate: if no features/series, pull latest metadata series.
     if pool and body.tenant_id:
-        if model_id in {"classical_anomaly", "threat_ensemble"} and not kwargs.get(
-            "features"
-        ):
+        if model_id in {"classical_anomaly", "threat_ensemble"} and not kwargs.get("features"):
             feats = await ml_store.features_from_stream_results(
                 pool, tenant_id=str(body.tenant_id), limit=32
             )
@@ -176,16 +170,12 @@ async def score_ml_model(
             "forecasting",
             "norse_ssn",
         } and not kwargs.get("series"):
-            series = await ml_store.series_from_stream_results(
-                pool, tenant_id=str(body.tenant_id)
-            )
+            series = await ml_store.series_from_stream_results(pool, tenant_id=str(body.tenant_id))
             if series:
                 kwargs["series"] = series
 
     try:
-        result = ml_registry.score_model(
-            model_id, **_filter_kwargs(model_id, kwargs, fit=False)
-        )
+        result = ml_registry.score_model(model_id, **_filter_kwargs(model_id, kwargs, fit=False))
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except RuntimeError as exc:

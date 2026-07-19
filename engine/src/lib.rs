@@ -14,8 +14,8 @@ use arrow::array::{Float64Array, Int64Array, StringArray};
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 use bytes::Bytes;
-use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use parquet::arrow::ArrowWriter;
+use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -85,10 +85,7 @@ fn validate_id(id: &str) -> Result<(), EngineError> {
     if id.len() > MAX_EVENT_ID_LEN {
         return Err(EngineError::IdTooLong);
     }
-    if !id
-        .chars()
-        .all(|c| c.is_ascii_graphic() || c == ' ')
-    {
+    if !id.chars().all(|c| c.is_ascii_graphic() || c == ' ') {
         return Err(EngineError::IdInvalidChars);
     }
     Ok(())
@@ -269,10 +266,10 @@ pub fn token_matches(configured: Option<&str>, provided: Option<&str>) -> bool {
 #[cfg(feature = "python")]
 mod python_api {
     use super::*;
+    use pyo3::IntoPyObjectExt;
     use pyo3::exceptions::PyValueError;
     use pyo3::prelude::*;
     use pyo3::types::{PyDict, PyList};
-    use pyo3::IntoPyObjectExt;
 
     fn engine_err(err: EngineError) -> PyErr {
         PyValueError::new_err(err.to_string())
@@ -564,10 +561,7 @@ mod tests {
 
     #[test]
     fn test_summarize_rejects_empty() {
-        assert_eq!(
-            summarize_values(&[]).unwrap_err(),
-            EngineError::EmptyValues
-        );
+        assert_eq!(summarize_values(&[]).unwrap_err(), EngineError::EmptyValues);
     }
 
     #[test]

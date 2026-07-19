@@ -1,6 +1,7 @@
 """FORJD FastAPI entrypoint — lifespan, middleware, health probes, v1 router."""
 
 import asyncio
+import contextlib
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -8,15 +9,17 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from app.api.v1.router import api_router
 from app.core.auth import warm_jwks
 from app.core.clients import create_db_pool, create_redis_client
 from app.core.config import settings
+from app.core.landing import render_landing
 from app.core.logging import configure_logging
 from app.core.rollbar import configure_rollbar
 from app.core.security import ApiKeyMiddleware, SecurityHeadersMiddleware
+from app.core.sentry import configure_sentry
 
 logger = logging.getLogger("forjd.main")
 
@@ -56,10 +59,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     stop_worker.set()
     if worker_task is not None:
         worker_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await worker_task
-        except asyncio.CancelledError:
-            pass
 
     redis = getattr(app.state, "redis", None)
     if redis is not None:
@@ -84,7 +85,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Rollbar first (when token set), then security headers, optional API key, CORS
+# Sentry (SDK-level, before middleware), Rollbar, then security headers, API key, CORS
+configure_sentry()
 configure_rollbar(app)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(ApiKeyMiddleware)
@@ -99,6 +101,13 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+
+# --- Landing page ---
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+async def landing() -> HTMLResponse:
+    """FJORD-styled API landing page with links to the interactive docs."""
+    return HTMLResponse(content=render_landing())
 
 
 # --- Probes ---

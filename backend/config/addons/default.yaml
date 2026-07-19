@@ -1,0 +1,3 @@
+# FORJD's safe default: optional integrations do not execute.
+addons:
+  enabled: []

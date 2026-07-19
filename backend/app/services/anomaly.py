@@ -38,9 +38,7 @@ def ml_status() -> dict[str, Any]:
         "threshold": settings.ML_ANOMALY_THRESHOLD,
         "checkpoint": str(path) if path.exists() else None,
         "loaded": _model is not None,
-        "hint": None
-        if lae.torch_available()
-        else "Install with: uv sync --group ml",
+        "hint": None if lae.torch_available() else "Install with: uv sync --group ml",
     }
 
 
@@ -105,9 +103,7 @@ def _collect_windows(
     parts: list[np.ndarray] = []
 
     if windows:
-        parts.append(
-            np.stack([lae.pad_or_truncate(w, seq) for w in windows], axis=0)
-        )
+        parts.append(np.stack([lae.pad_or_truncate(w, seq) for w in windows], axis=0))
     if values:
         parts.append(lae.windows_from_series(values, seq))
     if use_synthetic or not parts:
@@ -123,9 +119,7 @@ def _get_or_load_model() -> Any:
             return _model
         path = _checkpoint_path()
         if not path.exists():
-            raise RuntimeError(
-                "No trained checkpoint — POST /api/v1/anomaly/fit first"
-            )
+            raise RuntimeError("No trained checkpoint — POST /api/v1/anomaly/fit first")
         model, _meta = lae.load_checkpoint(
             path,
             hidden_dim=settings.ML_HIDDEN_DIM,
@@ -165,9 +159,7 @@ async def fit_anomaly(
 
     train_epochs = epochs or settings.ML_EPOCHS
     try:
-        data = _collect_windows(
-            values=values, windows=windows, use_synthetic=use_synthetic
-        )
+        data = _collect_windows(values=values, windows=windows, use_synthetic=use_synthetic)
         model = lae.build_model(
             hidden_dim=settings.ML_HIDDEN_DIM,
             latent_dim=settings.ML_LATENT_DIM,
@@ -382,9 +374,7 @@ async def score_anomaly(
     }
 
 
-async def recent_embeddings(
-    pool: asyncpg.Pool | None, *, limit: int = 10
-) -> list[dict[str, Any]]:
+async def recent_embeddings(pool: asyncpg.Pool | None, *, limit: int = 10) -> list[dict[str, Any]]:
     if pool is None:
         return []
     try:

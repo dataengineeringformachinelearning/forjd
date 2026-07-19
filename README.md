@@ -11,7 +11,7 @@ Universal secure streaming engine. This repo’s **pulse PoC** wires the full st
 |------|-----|
 | [uv](https://docs.astral.sh/uv/) | Backend deps + builds the Rust engine |
 | Rust **1.97** (`engine/rust-toolchain.toml`) | maturin / `forjd-engine` |
-| Node 20+ / npm | Frontend |
+| Node 22.22+ / npm | Frontend (Angular 22 CLI floor) |
 | Docker (optional) | Local Dragonfly + Prefect + engine HTTP |
 | Supabase project | Postgres (`POSTGRES_DSN`) — single DB for FORJD; Neon→Supabase runbook in [`docs/NEON_TO_SUPABASE.md`](docs/NEON_TO_SUPABASE.md) |
 | [flyctl](https://fly.io/docs/hands-on/install-flyctl/) (optional) | Deploy Dragonfly / engine |

@@ -37,9 +37,7 @@ def pathway_sealed_process(
         "results": [],
         "anomaly_count": 0,
         "workflow_id": workflow.id if workflow else None,
-        "projection_name": (
-            workflow.pipeline.projection_name if workflow else "sealed.default"
-        ),
+        "projection_name": (workflow.pipeline.projection_name if workflow else "sealed.default"),
     }
     if not events:
         return empty
@@ -47,9 +45,7 @@ def pathway_sealed_process(
     steps = list(workflow.pipeline.steps) if workflow else ["rollup", "size_anomaly"]
     step_set = set(steps)
     tags = dict(workflow.outputs.tags) if workflow else {"use_case": "generic"}
-    projection_name = (
-        workflow.pipeline.projection_name if workflow else "sealed.default"
-    )
+    projection_name = workflow.pipeline.projection_name if workflow else "sealed.default"
     if workflow:
         tags.setdefault("workflow_id", workflow.id)
         tags.setdefault("projection_name", projection_name)
@@ -79,12 +75,8 @@ def pathway_sealed_process(
         }
     )
 
-    params_by_step = (
-        workflow.pipeline.params_for_detectors() if workflow is not None else {}
-    )
-    anomalies = run_detectors(
-        sanitized, steps=steps, params_by_step=params_by_step
-    )
+    params_by_step = workflow.pipeline.params_for_detectors() if workflow is not None else {}
+    anomalies = run_detectors(sanitized, steps=steps, params_by_step=params_by_step)
 
     results = _to_stream_result_rows(
         rollup,
@@ -223,15 +215,11 @@ def _to_stream_result_rows(
 
 
 # --- Fallback when Pathway import/runtime fails ---
-def _python_rollup(
-    events: list[dict[str, Any]], *, error: str | None = None
-) -> dict[str, Any]:
+def _python_rollup(events: list[dict[str, Any]], *, error: str | None = None) -> dict[str, Any]:
     by_tenant: dict[str, dict[str, int]] = {}
     for e in events:
         tid = str(e.get("tenant_id", ""))
-        slot = by_tenant.setdefault(
-            tid, {"count": 0, "bytes": 0, "max_cipher_len": 0}
-        )
+        slot = by_tenant.setdefault(tid, {"count": 0, "bytes": 0, "max_cipher_len": 0})
         clen = int(e.get("cipher_len") or 0)
         slot["count"] += 1
         slot["bytes"] += clen

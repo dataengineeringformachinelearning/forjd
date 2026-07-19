@@ -1,6 +1,6 @@
 """Resolve content_type / event_type / workflow_id → WorkflowDefinition.
 
-Partner / legacy wire ids are config-only: each workflow YAML may declare
+Partner wire ids are config-only: each workflow YAML may declare
 ``aliases.workflow_ids`` and ``aliases.event_types``. Resolution maps those
 onto the canonical workflow id and event types before matching or storage.
 """
@@ -251,9 +251,7 @@ def resolve_workflow(
         if wf.default:
             return wf
 
-    raise ValueError(
-        f"no workflow matched content_type={content_type!r} event_type={event_type!r}"
-    )
+    raise ValueError(f"no workflow matched content_type={content_type!r} event_type={event_type!r}")
 
 
 def list_workflow_summaries() -> list[dict[str, object]]:

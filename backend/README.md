@@ -66,6 +66,10 @@ uv run forjd
 
 **New use case:** add `workflows/my_saas.yaml` (or a detector under `app/workflows/detectors/`) — no ingest/API fork required.
 
+Optional security, ML, and testing integrations use the disabled-by-default
+[add-on system](docs/ADDONS.md). Enable a subset with `FORJD_ADDONS`, or use a
+YAML profile through `FORJD_ADDONS_CONFIG`; inspect state at `GET /api/v1/addons`.
+
 Server-minimal knowledge: Double Ratchet headers stay opaque; FastAPI never decrypts E2EE ciphertext. Self-check: `uv run python -m unittest discover -s tests -v`.
 
 ### ML suite (optional)
@@ -93,7 +97,7 @@ curl -s -X POST http://127.0.0.1:8000/api/v1/ml/classical_anomaly/fit \
 curl -s "http://127.0.0.1:8000/api/v1/ml/scores?tenant_id=$TENANT" \
   -H "Authorization: Bearer $TOKEN"
 
-# Legacy LSTM-AE PoC (still available)
+# Original LSTM-AE PoC endpoint (still available)
 curl -s -X POST http://127.0.0.1:8000/api/v1/anomaly/fit \
   -H 'Content-Type: application/json' -d '{"use_synthetic":true,"epochs":20}'
 ```

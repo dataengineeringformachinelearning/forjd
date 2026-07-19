@@ -64,13 +64,31 @@ class Settings(BaseSettings):
 
     # --- Observability ---
     ROLLBAR_ACCESS_TOKEN: str = ""
+    # Sentry error tracking (empty DSN = disabled).
+    SENTRY_DSN: str = ""
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.0
+    SENTRY_ENVIRONMENT: str = ""
+
+    # --- Add-ons (optional integrations; disabled by default) ---
+    # Comma-separated slugs, or "all" to enable the whole catalog (partners).
+    # e.g. FORJD_ADDONS=osv-dev,nuclei,honeydb
+    FORJD_ADDONS: str = ""
+    # Optional YAML file used when FORJD_ADDONS is empty. Relative paths resolve
+    # from the process working directory (normally backend/).
+    FORJD_ADDONS_CONFIG: str = ""
+
+    # Add-on service endpoints / credentials (only used when the add-on is enabled).
+    OSV_API_URL: str = "https://api.osv.dev"
+    HONEYDB_API_ID: str = ""
+    HONEYDB_API_KEY: str = ""
+    GO_CVE_DICTIONARY_URL: str = ""
 
     # --- Configurable workflows (YAML/JSON under WORKFLOWS_DIR) ---
     WORKFLOWS_DIR: str = "workflows"
 
     # --- Schema / zero-trust (production fail-closed) ---
     # Soft-create table shapes when SQL migrations were not applied (local only).
-    # Production should apply backend/sql/003–008 and leave this false.
+    # Production should apply backend/sql/003–019 and leave this false.
     SOFT_MIGRATE_SCHEMA: bool = True
     # When true, startup/ready fail if RLS is missing on sensitive tables.
     REQUIRE_RLS: bool = False
@@ -108,6 +126,11 @@ class Settings(BaseSettings):
     OBJECT_STORAGE_ADDRESSING_STYLE: str = "path"
 
     @property
+    def ADDONS_ENABLED(self) -> list[str]:
+        """Enabled add-on slugs parsed from the comma-separated ``FORJD_ADDONS``."""
+        return [part.strip() for part in self.FORJD_ADDONS.split(",") if part.strip()]
+
+    @property
     def is_production(self) -> bool:
         """True for ENVIRONMENT=prod|production or Fly-hosted processes."""
         import os
@@ -126,9 +149,7 @@ class Settings(BaseSettings):
             object.__setattr__(self, "SOFT_MIGRATE_SCHEMA", False)
             object.__setattr__(self, "REQUIRE_RLS", True)
             object.__setattr__(self, "REQUIRE_CRYPTO_SESSION", True)
-            if not self.SUPABASE_AUTH_REQUIRED and (
-                self.SUPABASE_URL or self.SUPABASE_JWT_SECRET
-            ):
+            if not self.SUPABASE_AUTH_REQUIRED and (self.SUPABASE_URL or self.SUPABASE_JWT_SECRET):
                 object.__setattr__(self, "SUPABASE_AUTH_REQUIRED", True)
         return self
 

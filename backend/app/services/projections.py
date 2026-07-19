@@ -199,9 +199,7 @@ async def get_checkpoint(
         "projection_name": row["projection_name"],
         "workflow_id": row["workflow_id"],
         "last_event_id": row["last_event_id"],
-        "last_created_at": (
-            row["last_created_at"].isoformat() if row["last_created_at"] else None
-        ),
+        "last_created_at": (row["last_created_at"].isoformat() if row["last_created_at"] else None),
         "updated_at": row["updated_at"].isoformat(),
     }
 

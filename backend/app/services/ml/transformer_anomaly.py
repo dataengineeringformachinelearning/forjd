@@ -110,7 +110,7 @@ def score(
     path = _ckpt(tenant_id)
     if not path.exists():
         raise RuntimeError("transformer anomaly model not fitted; POST .../fit first")
-    blob = torch.load(path, map_location="cpu", weights_only=False)
+    blob = torch.load(path, map_location="cpu", weights_only=True)
     meta = dict(blob.get("meta") or {})
     seq_len = int(meta.get("seq_len") or 16)
     model = _build(torch, nn, d_model=32, nhead=4, seq_len=seq_len)

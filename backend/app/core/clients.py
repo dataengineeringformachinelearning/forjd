@@ -52,10 +52,7 @@ def prefer_fly_ipv6_url(url: str) -> str:
     if parsed.username is not None or parsed.password is not None:
         user = parsed.username or ""
         # redis://:password@host → empty user, password set
-        if parsed.password is not None:
-            userinfo = f"{user}:{parsed.password}@"
-        else:
-            userinfo = f"{user}@"
+        userinfo = f"{user}:{parsed.password}@" if parsed.password is not None else f"{user}@"
     netloc = f"{userinfo}[{ipv6}]:{port}"
     return urlunparse(
         (parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment)

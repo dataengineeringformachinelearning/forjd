@@ -38,16 +38,12 @@ def sklearn_available() -> bool:
 
 def require_sklearn() -> None:
     if not sklearn_available():
-        raise RuntimeError(
-            "scikit-learn is not installed. From backend/: uv sync --group ml"
-        )
+        raise RuntimeError("scikit-learn is not installed. From backend/: uv sync --group ml")
 
 
 def require_torch() -> None:
     if not torch_available():
-        raise RuntimeError(
-            "PyTorch is not installed. From backend/: uv sync --group ml"
-        )
+        raise RuntimeError("PyTorch is not installed. From backend/: uv sync --group ml")
 
 
 def ml_root() -> Path:

@@ -157,7 +157,7 @@ def encode(
     path = _ckpt(tenant_id)
     model = _build_encoder(torch, nn)
     if path.exists():
-        blob = torch.load(path, map_location="cpu", weights_only=False)
+        blob = torch.load(path, map_location="cpu", weights_only=True)
         model.load_state_dict(blob["state_dict"])
     model.eval()
     with torch.no_grad():

@@ -8,6 +8,7 @@ import { generateX25519KeyPair } from './crypto/x25519';
 import { AnomalyScoreResult, PulseApi, PulseResult, StackStatus } from './pulse-api';
 import { IngestResult, SecureApi, Tenant } from './secure-api';
 import { SupabaseService, TelemetryRealtimeRow } from './supabase';
+import { environment } from '../environments/environment';
 import { firstValueFrom } from 'rxjs';
 
 @Component({
@@ -23,6 +24,7 @@ export class App implements OnInit, OnDestroy {
   private unsubRealtime: (() => void) | null = null;
 
   protected readonly title = signal('FORJD');
+  protected readonly docsUrl = `${environment.apiBaseUrl}/docs`;
   protected readonly stack = signal<StackStatus | null>(null);
   protected readonly pulse = signal<PulseResult | null>(null);
   protected readonly anomaly = signal<AnomalyScoreResult | null>(null);

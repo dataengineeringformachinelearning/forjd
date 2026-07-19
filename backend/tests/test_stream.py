@@ -47,7 +47,9 @@ class TestSealedStreamProcess(unittest.TestCase):
         flagged = [a for a in out["anomalies"] if a["event_id"] == "e-big"]
         self.assertEqual(len(flagged), 1)
         self.assertTrue(flagged[0]["is_anomaly"])
-        self.assertTrue(any(r.get("metadata", {}).get("use_case") == "test" for r in out["results"]))
+        self.assertTrue(
+            any(r.get("metadata", {}).get("use_case") == "test" for r in out["results"])
+        )
 
     def test_rollup_only_skips_anomaly(self) -> None:
         tid = "22222222-2222-2222-2222-222222222222"

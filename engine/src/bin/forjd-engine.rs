@@ -7,18 +7,18 @@
 //! `all` = relay+scheduler+probe+normalizer+ingest; `cpe` is opt-in). Process/summarize
 //! routes always available when the `server` feature is enabled.
 
+use axum::BoxError;
+use axum::Router;
 use axum::body::Body;
 use axum::error_handling::HandleErrorLayer;
 use axum::extract::{DefaultBodyLimit, Json, Request, State};
-use axum::http::{header, HeaderName, HeaderValue, StatusCode};
-use axum::middleware::{from_fn_with_state, Next};
+use axum::http::{HeaderName, HeaderValue, StatusCode, header};
+use axum::middleware::{Next, from_fn_with_state};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
-use axum::BoxError;
-use axum::Router;
-use forjd_engine::pipeline::{run_sealed_pipeline, SealedPipelineRequest};
+use forjd_engine::pipeline::{SealedPipelineRequest, run_sealed_pipeline};
 use forjd_engine::{
-    engine_version, process_event, summarize_values, token_matches, Event, SummarizeResult,
+    Event, SummarizeResult, engine_version, process_event, summarize_values, token_matches,
 };
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
@@ -52,7 +52,9 @@ async fn main() {
     }
 
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
         .json()
         .init();
 
@@ -433,6 +435,12 @@ impl IntoResponse for ApiError {
         struct ErrBody {
             error: String,
         }
-        (self.status, Json(ErrBody { error: self.message })).into_response()
+        (
+            self.status,
+            Json(ErrBody {
+                error: self.message,
+            }),
+        )
+            .into_response()
     }
 }

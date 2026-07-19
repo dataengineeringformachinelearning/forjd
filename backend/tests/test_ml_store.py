@@ -24,14 +24,17 @@ class TestSupabaseBridge(unittest.IsolatedAsyncioTestCase):
 
     async def test_persist_score_writes_rows(self) -> None:
         pool = AsyncMock()
-        with mock.patch(
-            "app.services.ml.supabase_bridge.ml_store.ensure_ml_store_schema",
-            new_callable=AsyncMock,
-        ), mock.patch(
-            "app.services.ml.supabase_bridge.ml_store.persist_scores",
-            new_callable=AsyncMock,
-            return_value=2,
-        ) as persist:
+        with (
+            mock.patch(
+                "app.services.ml.supabase_bridge.ml_store.ensure_ml_store_schema",
+                new_callable=AsyncMock,
+            ),
+            mock.patch(
+                "app.services.ml.supabase_bridge.ml_store.persist_scores",
+                new_callable=AsyncMock,
+                return_value=2,
+            ) as persist,
+        ):
             out = await bridge.persist_score(
                 pool,
                 model_id="threat_ensemble",

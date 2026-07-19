@@ -46,7 +46,6 @@ class TestWorkflowRegistry(unittest.TestCase):
         ids = {w.id for w in workflows}
         self.assertIn("default_sealed", ids)
         self.assertIn("threat_telemetry", ids)
-        self.assertNotIn("deml_telemetry", ids)
 
         default = resolve_workflow(content_type="application/forjd-event+v1")
         self.assertEqual(default.id, "default_sealed")
@@ -128,12 +127,8 @@ pipeline:
             path.write_text(text, encoding="utf-8")
             loaded = load_workflow_file(path)
         self.assertEqual(loaded.aliases.workflow_ids, ["partner_alias_wf"])
-        self.assertEqual(
-            loaded.aliases.event_types["partner.metric"], ["alias.metric"]
-        )
-        self.assertEqual(
-            loaded.aliases.content_types, ["application/vnd.partner.alias+v1"]
-        )
+        self.assertEqual(loaded.aliases.event_types["partner.metric"], ["alias.metric"])
+        self.assertEqual(loaded.aliases.content_types, ["application/vnd.partner.alias+v1"])
 
     def test_content_type_alias_resolves_workflow(self) -> None:
         """Partner MIME aliases map onto match.content_types families."""

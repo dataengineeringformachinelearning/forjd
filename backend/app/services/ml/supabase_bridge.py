@@ -120,8 +120,10 @@ async def persist_score(
 
     # Latent vectors → embedding_vectors (pgvector)
     embedding = result.get("embedding")
-    if isinstance(embedding, list) and embedding and all(
-        isinstance(x, (int, float)) for x in embedding
+    if (
+        isinstance(embedding, list)
+        and embedding
+        and all(isinstance(x, (int, float)) for x in embedding)
     ):
         emb_id = await ml_store.persist_embedding(
             pool,
@@ -168,9 +170,7 @@ async def persist_score(
                 {
                     "model_name": model_id,
                     "score": row.get("score"),
-                    "is_anomaly": bool(
-                        row.get("is_anomaly") or row.get("is_threat") or False
-                    ),
+                    "is_anomaly": bool(row.get("is_anomaly") or row.get("is_threat") or False),
                     "features": {
                         k: v
                         for k, v in row.items()

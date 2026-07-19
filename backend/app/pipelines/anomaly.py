@@ -23,8 +23,7 @@ def ack_anomaly(
         "final_loss": final_loss,
         "is_anomaly": is_anomaly,
         "message": (
-            f"prefect anomaly {action} {series_id} "
-            f"windows={n_windows} loss={final_loss:.6f}{flag}"
+            f"prefect anomaly {action} {series_id} windows={n_windows} loss={final_loss:.6f}{flag}"
         ),
     }
 
@@ -51,11 +50,7 @@ def run_anomaly_flow(
     is_anomaly: bool | None = None,
 ) -> dict[str, Any]:
     try:
-        return anomaly_flow(
-            series_id, action, n_windows, final_loss, is_anomaly
-        )
+        return anomaly_flow(series_id, action, n_windows, final_loss, is_anomaly)
     except Exception as exc:
-        body = ack_anomaly.fn(
-            series_id, action, n_windows, final_loss, is_anomaly
-        )
+        body = ack_anomaly.fn(series_id, action, n_windows, final_loss, is_anomaly)
         return {"ok": True, "mode": "local-fallback", "error": str(exc), **body}

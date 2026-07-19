@@ -39,10 +39,7 @@ def _lstm_fit(**kwargs: Any) -> dict[str, Any]:
         latent_dim=settings.ML_LATENT_DIM,
     )
     loss = lae.fit_model(model, windows, epochs=epochs)
-    path = (
-        __import__("pathlib").Path(settings.ML_MODEL_DIR)
-        / f"{settings.ML_MODEL_VERSION}.pt"
-    )
+    path = __import__("pathlib").Path(settings.ML_MODEL_DIR) / f"{settings.ML_MODEL_VERSION}.pt"
     lae.save_checkpoint(
         model,
         path,
@@ -68,10 +65,7 @@ def _lstm_score(**kwargs: Any) -> dict[str, Any]:
     series = kwargs.get("series") or []
     if not series:
         raise ValueError("series required for lstm_autoencoder score")
-    path = (
-        __import__("pathlib").Path(settings.ML_MODEL_DIR)
-        / f"{settings.ML_MODEL_VERSION}.pt"
-    )
+    path = __import__("pathlib").Path(settings.ML_MODEL_DIR) / f"{settings.ML_MODEL_VERSION}.pt"
     if not path.exists():
         raise RuntimeError("lstm_autoencoder not fitted")
     model, meta = lae.load_checkpoint(
@@ -174,9 +168,7 @@ def list_models() -> list[dict[str, Any]]:
                 "available": available,
                 "norse": norse_ssn.norse_available() if mid == "norse_ssn" else None,
                 "sentence_transformers": (
-                    embeddings.sentence_transformers_available()
-                    if mid == "embeddings"
-                    else None
+                    embeddings.sentence_transformers_available() if mid == "embeddings" else None
                 ),
             }
         )

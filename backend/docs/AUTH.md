@@ -90,11 +90,17 @@ fork FORJD ingest per product.
 | `status:write` / `status:read` | Manage / list tenant status pages (public slug stays unauth) |
 | `analytics:read` | Analytics overview |
 | `analytics:write` | Trigger analytics aggregation (opt-in; not in default mint) |
+| `exports:read` / `exports:write` | Tenant export jobs and artifacts |
+| `vulnerabilities:read` / `vulnerabilities:write` | Vulnerability ledger CRUD |
+| `integrations:write` | Register partner integration health checks |
+| `tenants:erase` | Durable tenant erase (opt-in; not in default mint) |
 | `*` | All scopes |
 
-Default mint includes ingest, projections, sessions, replay, status, and
-`analytics:read`. Existing service-account rows keep their stored scopes until
-rotated or recreated.
+Default mint includes ingest, projections, sessions, replay, status,
+`analytics:read`, exports, vulnerabilities, and `integrations:write`
+(see `DEFAULT_SCOPES` in `app/services/service_accounts.py`). `analytics:write`
+and `tenants:erase` are allowlisted but opt-in. Existing service-account rows
+keep their stored scopes until rotated or recreated.
 
 Humans use `tenant_members` roles (`owner` / `admin` / `member` / `viewer`) instead.
 

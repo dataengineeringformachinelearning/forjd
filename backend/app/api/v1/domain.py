@@ -167,9 +167,7 @@ async def osint_hibp(
     body: HibpRequest,
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
-    await tenant_svc.require_member(
-        _pool(request), tenant_id=body.tenant_id, user_id=user.user_id
-    )
+    await tenant_svc.require_member(_pool(request), tenant_id=body.tenant_id, user_id=user.user_id)
     return await osint_svc.check_hibp_breaches(
         _pool(request), account_email=body.email, tenant_id=body.tenant_id
     )

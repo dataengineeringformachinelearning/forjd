@@ -57,9 +57,7 @@ async def stack_status(request: Request) -> dict[str, Any]:
             checks["dragonfly"] = {"ok": False, "error": str(exc)}
 
     # Core stack readiness ignores optional ML (torch may be absent in slim images).
-    core_ok = all(
-        v.get("ok") for k, v in checks.items() if k != "ml"
-    )
+    core_ok = all(v.get("ok") for k, v in checks.items() if k != "ml")
     return {
         "ok": core_ok,
         "environment": settings.ENVIRONMENT,

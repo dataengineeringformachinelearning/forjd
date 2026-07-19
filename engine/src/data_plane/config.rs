@@ -2,7 +2,7 @@
 
 use std::env;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 
 // --- Role selection ---
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -217,10 +217,11 @@ impl Config {
         if self.skip_tls_verify {
             bail!("HEALTH_PINGER_SKIP_TLS_VERIFY cannot be enabled in production");
         }
-        if let Ok(endpoint) = env::var("OTEL_EXPORTER_OTLP_ENDPOINT") {
-            if !endpoint.is_empty() && !endpoint.starts_with("https://") {
-                bail!("production OTEL_EXPORTER_OTLP_ENDPOINT must use https://");
-            }
+        if let Ok(endpoint) = env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
+            && !endpoint.is_empty()
+            && !endpoint.starts_with("https://")
+        {
+            bail!("production OTEL_EXPORTER_OTLP_ENDPOINT must use https://");
         }
         Ok(())
     }
@@ -238,7 +239,7 @@ pub fn is_production() -> bool {
 }
 
 fn decode_bytes_env(name: &str) -> Result<Option<Vec<u8>>> {
-    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
 
     let Some(encoded) = env::var(name).ok().filter(|value| !value.is_empty()) else {
         return Ok(None);

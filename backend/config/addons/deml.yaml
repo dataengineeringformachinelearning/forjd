@@ -1,0 +1,4 @@
+# DEML FORJD deployment profile. Enablement and installation are independent:
+# GET /api/v1/addons reports whether each package, binary, or service is available.
+addons:
+  enabled: all

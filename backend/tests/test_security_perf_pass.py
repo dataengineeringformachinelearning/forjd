@@ -41,9 +41,7 @@ class TestAuthHotPath(unittest.IsolatedAsyncioTestCase):
                 new_callable=AsyncMock,
             ) as ensure,
         ):
-            out = await authenticate_opaque(
-                pool, prefix="abcd1234", token="fjsvc_abcd1234_secret"
-            )
+            out = await authenticate_opaque(pool, prefix="abcd1234", token="fjsvc_abcd1234_secret")
 
         self.assertIsNotNone(out)
         ensure.assert_not_called()

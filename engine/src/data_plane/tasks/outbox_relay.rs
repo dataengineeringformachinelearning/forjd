@@ -2,10 +2,10 @@
 
 use std::time::Duration;
 
-use futures::{stream, StreamExt};
+use futures::{StreamExt, stream};
 use redis::Client;
 use serde_json::{Map, Value};
-use sqlx::{postgres::PgListener, PgPool};
+use sqlx::{PgPool, postgres::PgListener};
 use tracing::{error, info, warn};
 use uuid::Uuid;
 

@@ -216,9 +216,7 @@ async def replay_events(
             event_type=meta[0].get("event_type") or None,
             workflow_id=wf.id,
         )
-        written = await proj_svc.upsert_stream_results(
-            pool, flow.get("stream_results") or []
-        )
+        written = await proj_svc.upsert_stream_results(pool, flow.get("stream_results") or [])
         return {
             "ok": True,
             "matched": len(meta),

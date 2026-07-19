@@ -35,9 +35,7 @@ def torch_available() -> bool:
 
 def _require_torch() -> None:
     if not _TORCH_OK:
-        raise RuntimeError(
-            "PyTorch is not installed. From backend/: uv sync --group ml"
-        )
+        raise RuntimeError("PyTorch is not installed. From backend/: uv sync --group ml")
 
 
 if _TORCH_OK:
@@ -148,9 +146,7 @@ def synthetic_normal_windows(
     phases = rng.uniform(0, 2 * np.pi, size=n_windows).astype(np.float32)
     amps = rng.uniform(0.6, 1.4, size=n_windows).astype(np.float32)
     noise = rng.normal(0.0, 0.05, size=(n_windows, seq_len)).astype(np.float32)
-    return (amps[:, None] * np.sin(t[None, :] + phases[:, None]) + noise).astype(
-        np.float32
-    )
+    return (amps[:, None] * np.sin(t[None, :] + phases[:, None]) + noise).astype(np.float32)
 
 
 def build_model(*, hidden_dim: int, latent_dim: int) -> LSTMAutoencoder:
@@ -220,9 +216,7 @@ def score_window(model: LSTMAutoencoder, window: np.ndarray) -> ScoreResult:
         recon, z = model(x)
         err = float(torch.mean((recon - x) ** 2).item())
         embedding = z.squeeze(0).cpu().numpy().astype(np.float32).tolist()
-        reconstructed = (
-            recon.squeeze(0).squeeze(-1).cpu().numpy().astype(np.float32).tolist()
-        )
+        reconstructed = recon.squeeze(0).squeeze(-1).cpu().numpy().astype(np.float32).tolist()
     return ScoreResult(
         reconstruction_error=err,
         embedding=embedding,
@@ -250,7 +244,7 @@ def load_checkpoint(
 ) -> tuple[LSTMAutoencoder, dict[str, Any]]:
     _require_torch()
     assert torch is not None
-    blob = torch.load(path, map_location="cpu", weights_only=False)
+    blob = torch.load(path, map_location="cpu", weights_only=True)
     model = build_model(hidden_dim=hidden_dim, latent_dim=latent_dim)
     model.load_state_dict(blob["state_dict"])
     model.eval()

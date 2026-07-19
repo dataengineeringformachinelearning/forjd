@@ -1,7 +1,7 @@
 # Production deploy — FORJD (Fly + Vercel)
 
-Final operator runbook for the FORJD platform. Partner BFF/UI steps live in the
-partner repo (DEML: `docs/PRODUCTION_DEPLOY.md`).
+Final operator runbook for the FORJD platform. Partner BFF/UI steps live in each
+partner's own deploy runbook.
 
 **Verified live (2026-07-18):**
 
@@ -115,8 +115,8 @@ Do not soft-migrate schema in prod. Do not accept `service_role` JWTs.
 | API + RLS | **Yes** |
 | Engine data plane (`All`) | **Yes** |
 | Dragonfly | **Yes** |
-| Universal (no DEML hardcoding) | **Yes** |
-| sql/019 + remint | **Apply/remint on next deploy** |
+| Universal (no partner hardcoding) | **Yes** |
+| sql/019 + remint | **Yes** (re-run remint after any scope-default change) |
 
-**Verdict:** FORJD is production-ready. Apply `sql/019`, deploy latest `main`,
-and mint or rotate partner tokens as needed.
+**Verdict:** FORJD is production-ready. Deploy latest `main` and mint or rotate
+partner tokens as needed.

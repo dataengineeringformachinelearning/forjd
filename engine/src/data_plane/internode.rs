@@ -7,11 +7,11 @@ use std::{
 };
 
 use aes_gcm::{
-    aead::{Aead, AeadCore, KeyInit, OsRng, Payload},
     Aes256Gcm, Nonce,
+    aead::{Aead, AeadCore, KeyInit, OsRng, Payload},
 };
-use anyhow::{bail, Context, Result};
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use anyhow::{Context, Result, bail};
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -323,23 +323,27 @@ mod tests {
             .unwrap(),
             br#"{"tenant":"00000000-0000-0000-0000-000000000001"}"#
         );
-        assert!(decrypt_with(
-            &encrypted,
-            "stream:user-issues",
-            &keyring(Mode::Required),
-            1_783_728_000,
-        )
-        .is_err());
+        assert!(
+            decrypt_with(
+                &encrypted,
+                "stream:user-issues",
+                &keyring(Mode::Required),
+                1_783_728_000,
+            )
+            .is_err()
+        );
     }
 
     #[test]
     fn required_mode_rejects_plaintext_downgrades() {
-        assert!(decrypt_with(
-            br#"{"legacy":true}"#,
-            "stream:app-events",
-            &keyring(Mode::Required),
-            1_783_728_000,
-        )
-        .is_err());
+        assert!(
+            decrypt_with(
+                br#"{"legacy":true}"#,
+                "stream:app-events",
+                &keyring(Mode::Required),
+                1_783_728_000,
+            )
+            .is_err()
+        );
     }
 }

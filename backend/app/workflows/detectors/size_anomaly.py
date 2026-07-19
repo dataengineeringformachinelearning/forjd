@@ -37,9 +37,7 @@ def detect(events: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[st
                 "score": round(score, 4),
                 "is_anomaly": is_anom,
                 "detector": "size_anomaly",
-                "reason": (
-                    "max_cipher_len" if hard else ("z_score" if spike else "ok")
-                ),
+                "reason": ("max_cipher_len" if hard else ("z_score" if spike else "ok")),
             }
         )
     return out

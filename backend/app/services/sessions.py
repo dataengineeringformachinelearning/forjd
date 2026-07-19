@@ -57,9 +57,7 @@ async def require_active_sessions(
     )
     found = {(UUID(str(r["tid"])), str(r["session_id"])) for r in rows}
     if pairs - found:
-        raise ValueError(
-            "envelope.key_id must match an active crypto_sessions.session_id"
-        )
+        raise ValueError("envelope.key_id must match an active crypto_sessions.session_id")
 
 
 # --- Upsert public keys for a device session ---
@@ -119,9 +117,7 @@ async def upsert_session(
                 body.session_id,
             )
             if existing is not None and existing["revoked_at"] is not None:
-                raise ValueError(
-                    "session_id was revoked; register a new session_id"
-                )
+                raise ValueError("session_id was revoked; register a new session_id")
     else:
         # Humans may only update sessions they own.
         row = await pool.fetchrow(

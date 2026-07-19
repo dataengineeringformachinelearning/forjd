@@ -2,27 +2,30 @@
 
 ## Log
 
+- 2026-07-19: Completed the optional add-on system with env-over-YAML enablement, default-off and DEML-all profiles, isolated Prefect ingest lifecycle hooks, contributor docs, and focused coverage. Backend verification passes 99 tests (3 skipped), with add-on lint and format checks clean.
+- 2026-07-19: Add-on framework + Sentry + API landing. Added `app/addons/` registry (11 config-gated integrations, disabled by default; `FORJD_ADDONS=all` for partners) with `GET /api/v1/addons` and gated clients for OSV.dev, HoneyDB, go-cve-dictionary, nuclei, osv-scanner. Added optional Sentry (`uv sync --group sentry`, `SENTRY_DSN`) alongside Rollbar. Added a FJORD-styled `GET /` landing linking to Swagger `/docs`; frontend hero now links to the API docs. Backend gates green (93 tests).
+- 2026-07-19: Final open-source quality pass — fixed 9 ruff violations + 35-file format drift, 3 clippy warnings (`let`-chains, `is_empty`), and switched all `torch.load` calls to `weights_only=True` (no-pickle rule). Scrubbed remaining partner naming (PDF report tokens rebranded FJORD `--fj-*`, deploy docs, test assertion, LOG), removed dead `parse_user_agent` module, extended AUTH scope docs and SQL README to the `003`–`019` path, raised the frontend initial-bundle budget to its real 516 kB footprint. All gates green: backend 84 tests, engine 22 tests + fmt + clippy, frontend 6 tests + prod build.
 - 2026-07-18: Engine test fix — `validates_batch_contract` now asserts ciphertext-only ingest shape; `cargo test --features server,data-plane` green (22). Prefer that over `--all-features` locally (PyO3 link needs maturin/Python).
-- 2026-07-18: Production verification — redeployed `forjd-backend` (exports/vulns service auth), applied SQL `017`–`019` (dropped crypto_sessions→auth.users FK), expanded `deml-railway` scopes; E2EE session→ingest→projections smoke passed (`scripts/e2e_sealed_ingest_smoke.py`).
-- 2026-07-18: Dead-code cleanup — dropped unused `pathway_sealed_rollup` and `rust_sealed_metadata` alias, unused IP enrichment helpers, and `MIGRATE_MODE=deml` back-compat; wiped local ETL `.run/` secrets.
+- 2026-07-18: Production verification — redeployed `forjd-backend` (exports/vulns service auth), applied SQL `017`–`019` (dropped crypto_sessions→auth.users FK), expanded the partner service account scopes; E2EE session→ingest→projections smoke passed (`scripts/e2e_sealed_ingest_smoke.py`).
+- 2026-07-18: Dead-code cleanup — dropped unused `pathway_sealed_rollup` and `rust_sealed_metadata` alias, unused IP enrichment helpers, and `MIGRATE_MODE` partner back-compat; wiped local ETL `.run/` secrets.
 - 2026-07-18: Code polish pass — removed anti-legacy framing from engine/bus/vulnerability comments, remint default names, and partner alias examples (`partner_aliases.example.yaml`); kept SQL filenames stable.
 - 2026-07-18: Final documentation cleanup — presented FORJD as the universal secure streaming engine (no migration/lineage framing). Replaced cutover checklists with `docs/PRODUCTION_CHECKLIST.md`; removed `CUTOVER.md` / `CLEANUP_2026-07-18.md`; refreshed `AGENTS.md`, `ARCHITECTURE.md`, and README deploy links.
 - 2026-07-18: Added production Neon→Supabase controlled ETL (`scripts/neon_supabase_etl/`) — YAML mappings/transforms, pgvector-aware schema, PK upserts, resumable watermarks, full/incremental modes, verify CLI; docs in `docs/NEON_TO_SUPABASE_ETL.md`. Optional `uv sync --group etl` (psycopg).
 - 2026-07-18: Production deploy runbook — `docs/PRODUCTION_DEPLOY.md` + `docs/PRODUCTION_CHECKLIST.md` (live health/ready/engine All verified). Remaining: apply `sql/019`, redeploy security/perf to Fly, partner remint if erase needed.
 - 2026-07-18: Security/perf pass — sticky session revoke; batch crypto-session checks; tenant-bound cursors; auth hot path skips DDL + debounces `last_used_at`; shared engine HTTP clients; `tenants:erase` opt-in (`sql/019`); rate-limited auth-failure logs; larger DB pool. Tests in `test_security_perf_pass.py`.
-- 2026-07-18: Final cleanup pass — FORJD checklist is platform-only; Neon migrate/verify scripts generalized (`partner` + `TARGET_SCHEMA` / `PARTNER_CONTROL_SCHEMA`); removed hardcoded DEML schema probes.
+- 2026-07-18: Final cleanup pass — FORJD checklist is platform-only; Neon migrate/verify scripts generalized (`partner` + `TARGET_SCHEMA` / `PARTNER_CONTROL_SCHEMA`); removed hardcoded partner schema probes.
 - 2026-07-18: Status CRUD for partners — PATCH/DELETE pages, list/update/delete services & incidents with `status:*` scopes; `apply_sql_migrations.py` now includes sql/018.
 - 2026-07-18: Final partner cutover — `sql/018` default scopes (exports/vulns/integrations/`tenants:erase`), remint script, durable `POST /api/v1/tenants/{id}/erase`, and `docs/PRODUCTION_CUTOVER_CHECKLIST.md`. Existing `fjsvc_` tokens must be reminted after 017/018.
-- 2026-07-18: Documented Neon→Supabase consolidation — FORJD Fly already on Supabase PG17+vector; Neon holds DEML Django (PG18). Added `docs/NEON_TO_SUPABASE.md`, `scripts/pg_migrate_neon_to_supabase.sh`, and `backend/scripts/verify_supabase_post_migration.py` (RLS/vector/Realtime gates + rollback).
+- 2026-07-18: Documented Neon→Supabase consolidation — FORJD Fly already on Supabase PG17+vector; Neon holds the partner control plane (PG18). Added `docs/NEON_TO_SUPABASE.md`, `scripts/pg_migrate_neon_to_supabase.sh`, and `backend/scripts/verify_supabase_post_migration.py` (RLS/vector/Realtime gates + rollback).
 - 2026-07-18: Fixed FORJD_ROLE=all crash loop — minted FORJD_INTERNODE_* via sync_engine_dataplane_secrets.sh, redeployed engine (`forjd_role=All`, health passing). Backend `/ready` reports engine metadata without failing closed on engine blips; docs/ARCHITECTURE updated for post-cutover roles.
 - 2026-07-18: Final validation hardenings — reject `service_role` before forjd claim shaping; gate global `/api/v1/anomaly` in production; require `ENGINE_API_TOKEN` on Fly/prod engine startup.
-- 2026-07-18: Cutover prep complete across FORJD + DEML — partner BFF dual-write/dual-read flags, Railway/Vercel checklists, and rollback live in `CUTOVER.md` (FORJD) and DEML `docs/CUTOVER.md`; Angular wire contracts unchanged.
+- 2026-07-18: Cutover prep complete across FORJD + partner — partner BFF dual-write/dual-read flags, Railway/Vercel checklists, and rollback live in the cutover runbooks in each repo; Angular wire contracts unchanged.
 - 2026-07-18: Expanded CUTOVER.md with Fly/Vercel deployment checklist and FORJD-side rollback; partner dual-write/read remains BFF-owned so the platform stays universal.
 - 2026-07-18: Hardened E2EE/auth boundaries — JWKS alg allowlist (no header trust), `app_metadata`-only service claims, CORS DELETE for revoke, auth-gated anomaly/compliance, production pulse write gate, routing-tag metadata values, byte-accurate `cipher_len`, YAML `content_types` aliases with prod fail-closed collisions.
-- 2026-07-18: Removed first-party `deml_telemetry.yaml`; partners map legacy wire ids via YAML aliases or BFF rewrite onto `threat_telemetry`. Resolved AUTH/test merge conflicts for universal alias wording.
-- 2026-07-18: Finished DEML↔FORJD cutover ops — Railway user-plane only (backend/frontend/dragonfly); retired data-plane services deleted; volumes queued for purge. Platform account mapped to FORJD tenant; service token projections verified. Engine left on `FORJD_ROLE=engine` after `all` crash-looped (DB/Redis secrets present; sealed process path healthy).
-- 2026-07-17: Applied production SQL `003`–`016` on Supabase via forjd-backend (`SCHEMA_OK`); `/ready` now reports `schema_rls=true`. Railway deml-backend stripped legacy data-plane env; still needs `FORJD_SERVICE_TOKEN` + `FORJD_TENANT_ID` before cutover.
-- 2026-07-17: Cutover prep for DEML subprocessor — added `deml_telemetry.yaml` (deml.metric/deml.alert), engine secret sync script, and redeployed forjd-engine with current fly.toml (process-only until DB/Redis secrets are copied).
+- 2026-07-18: Removed the first-party partner telemetry YAML; partners map legacy wire ids via YAML aliases or BFF rewrite onto `threat_telemetry`. Resolved AUTH/test merge conflicts for universal alias wording.
+- 2026-07-18: Finished partner↔FORJD cutover ops — Railway user-plane only (backend/frontend/dragonfly); retired data-plane services deleted; volumes queued for purge. Platform account mapped to FORJD tenant; service token projections verified. Engine left on `FORJD_ROLE=engine` after `all` crash-looped (DB/Redis secrets present; sealed process path healthy).
+- 2026-07-17: Applied production SQL `003`–`016` on Supabase via forjd-backend (`SCHEMA_OK`); `/ready` now reports `schema_rls=true`. Partner Railway backend stripped legacy data-plane env; still needs `FORJD_SERVICE_TOKEN` + `FORJD_TENANT_ID` before cutover.
+- 2026-07-17: Cutover prep for the partner subprocessor — added a partner telemetry workflow YAML (partner wire event types), engine secret sync script, and redeployed forjd-engine with current fly.toml (process-only until DB/Redis secrets are copied).
 - 2026-07-14: Initialized the backend project. Ran `mkdir backend && cd backend`, `uv init --app`, then added core dependencies: FastAPI + uvicorn[standard], pydantic-settings, python-dotenv, redis, asyncpg, httpx, Prefect[redis], and Pathway. This establishes the foundation for the API, workflow orchestration, and high-performance streaming.
 
 - 2026-07-14: Created the basic application structure with `mkdir -p app/{core,api/v1,models,pipelines,services,utils}` and placeholder files. Added `.env.example` and ran initial `uv sync`. Tested with `uv run forjd`. Focused on keeping the setup lightweight and uv-driven.
@@ -146,6 +149,7 @@ Direct dependencies only. Star these on GitHub.
 - [Pathway](https://github.com/pathwaycom/pathway) — streaming / incremental processing
 - [Polars](https://github.com/pola-rs/polars) — batch DataFrames
 - [pyrollbar](https://github.com/rollbar/pyrollbar) — error reporting
+- [sentry-sdk](https://github.com/getsentry/sentry-python) — optional error tracking (`uv sync --group sentry`, `SENTRY_DSN`)
 - [pytorch](https://github.com/pytorch/pytorch) — LSTM-AE / transformers / forecasting / NorseSSN fallback (`uv sync --group ml`)
 - [numpy](https://github.com/numpy/numpy) — window tensors for ML (`ml` group)
 - [scikit-learn](https://github.com/scikit-learn/scikit-learn) — Isolation Forest, OCSVM, RF, HistGradientBoosting (`ml` group)
@@ -158,6 +162,19 @@ Direct dependencies only. Star these on GitHub.
 - [uv](https://github.com/astral-sh/uv) — Python package manager
 - [ruff](https://github.com/astral-sh/ruff) — linter / formatter (dev)
 - [maturin](https://github.com/PyO3/maturin) — build Rust→Python extensions (dev / engine)
+
+### Add-ons (optional integrations — disabled by default; `FORJD_ADDONS`)
+- [osv.dev](https://github.com/google/osv.dev) — vulnerability advisories API (`osv-dev`)
+- [osv-scanner](https://github.com/google/osv-scanner) — lockfile/SBOM vuln scanner (`osv-scanner`)
+- [osv-scalibr](https://github.com/google/osv-scalibr) — SBOM / inventory extraction (`osv-scalibr`)
+- [nuclei](https://github.com/projectdiscovery/nuclei) — template-based scanner (`nuclei`)
+- [honeydb-python](https://github.com/honeydbio/honeydb-python) — honeypot threat intel (`honeydb`)
+- [go-cve-dictionary](https://github.com/vulsio/go-cve-dictionary) — local CVE mirror (`go-cve-dictionary`)
+- [jax](https://github.com/jax-ml/jax) — accelerated ML detectors, install on demand (`jax`)
+- [acme](https://github.com/google-deepmind/acme) — RL research framework, descriptor only (`acme`)
+- [robotframework](https://github.com/robotframework/robotframework) — acceptance-test automation (`robotframework`)
+- [oss-fuzz](https://github.com/ShielderSec/oss-fuzz) — continuous fuzzing, CI/infra reference (`oss-fuzz`)
+- [design-patterns-python](https://github.com/RefactoringGuru/design-patterns-python) — reference material (`design-patterns-python`)
 
 ### Frontend (Angular / npm)
 - [angular](https://github.com/angular/angular) — UI framework (+ CLI / build tooling; includes `@angular/animations` for Storybook Vite)

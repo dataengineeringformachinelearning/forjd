@@ -24,11 +24,14 @@ class TenantEraseTests(unittest.IsolatedAsyncioTestCase):
             tenant_id=str(uuid4()),
             scopes=frozenset({"ingest:write"}),
         )
-        with patch.object(
-            erase_svc.tenant_svc,
-            "require_tenant_access",
-            new=AsyncMock(side_effect=HTTPException(status_code=403, detail="insufficient")),
-        ), self.assertRaises(HTTPException):
+        with (
+            patch.object(
+                erase_svc.tenant_svc,
+                "require_tenant_access",
+                new=AsyncMock(side_effect=HTTPException(status_code=403, detail="insufficient")),
+            ),
+            self.assertRaises(HTTPException),
+        ):
             await erase_svc.erase_tenant(pool, principal=principal, tenant_id=uuid4())
 
     async def test_erase_deletes_in_transaction(self) -> None:

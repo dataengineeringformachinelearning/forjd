@@ -95,9 +95,7 @@ async def list_events(
     if pool is None:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
     limit = max(1, min(limit, 100))
-    rows = await ingest_svc.list_recent_events(
-        pool, user=user, tenant_id=tenant_id, limit=limit
-    )
+    rows = await ingest_svc.list_recent_events(pool, user=user, tenant_id=tenant_id, limit=limit)
     return {"ok": True, "tenant_id": str(tenant_id), "events": rows}
 
 

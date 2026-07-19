@@ -84,9 +84,7 @@ def _neural_seasonal(torch: Any, nn: Any, *, n_harmonics: int = 4) -> Any:
 
 
 # --- GRU / LSTM multi-step P99 latency forecaster ---
-def _seq_forecaster(
-    torch: Any, nn: Any, *, kind: CellKind, seq_len: int, horizon: int
-) -> Any:
+def _seq_forecaster(torch: Any, nn: Any, *, kind: CellKind, seq_len: int, horizon: int) -> Any:
     cell = nn.GRU if kind == "gru" else nn.LSTM
 
     class P99Forecaster(nn.Module):
@@ -170,7 +168,10 @@ def fit(
         opt.step()
         last = float(loss.item())
     losses["neural_seasonal"] = last
-    torch.save({"state_dict": ns.state_dict(), "meta": {"length": int(len(arr))}}, paths["neural_seasonal"])
+    torch.save(
+        {"state_dict": ns.state_dict(), "meta": {"length": int(len(arr))}},
+        paths["neural_seasonal"],
+    )
 
     # GRU + LSTM P99
     for kind, key in (("gru", "p99_gru"), ("lstm", "p99_lstm")):
@@ -221,7 +222,7 @@ def score(
     if not path.exists():
         raise RuntimeError(f"{model} not fitted; POST .../fit first")
 
-    blob = torch.load(path, map_location="cpu", weights_only=False)
+    blob = torch.load(path, map_location="cpu", weights_only=True)
     meta = dict(blob.get("meta") or {})
     arr = np.asarray(series, dtype=np.float32)
 

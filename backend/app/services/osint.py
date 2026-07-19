@@ -138,8 +138,7 @@ async def search_ahmia(keyword: str) -> dict[str, Any]:
     if not proxy:
         return {"ok": False, "error": "TOR_PROXY_URL not configured"}
     onion = (
-        "http://juhanurmihxlp77nkq76byazcldy2hlmovfu2epvl5ankdibsot4csyd.onion"
-        f"/search/?q={keyword}"
+        f"http://juhanurmihxlp77nkq76byazcldy2hlmovfu2epvl5ankdibsot4csyd.onion/search/?q={keyword}"
     )
     try:
         async with httpx.AsyncClient(timeout=30.0, proxy=proxy) as client:

@@ -82,8 +82,6 @@ async def retry_dlq(
     if pool is None:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
     try:
-        return await replay_svc.retry_dlq_item(
-            pool, user=user, tenant_id=tenant_id, dlq_id=dlq_id
-        )
+        return await replay_svc.retry_dlq_item(pool, user=user, tenant_id=tenant_id, dlq_id=dlq_id)
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

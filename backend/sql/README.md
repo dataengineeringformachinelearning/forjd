@@ -5,7 +5,7 @@ Apply in order in the Supabase SQL editor (or `psql`).
 | File | Purpose |
 |------|---------|
 | `001_pulses.sql` | Stack pulse PoC |
-| `002_anomaly_embeddings.sql` | Legacy ML PoC embeddings |
+| `002_anomaly_embeddings.sql` | Original pulse ML PoC embeddings |
 | `003_secure_tenancy.sql` | **Production path** — tenants, RLS, E2EE telemetry, vector embeddings |
 | `004_crypto_sessions.sql` | X25519 public-key session directory (private keys never stored) |
 | `005_stream_results.sql` | Pathway/Prefect outputs (metadata scores; RLS) |
@@ -24,14 +24,14 @@ Apply in order in the Supabase SQL editor (or `psql`).
 | `018_partner_domain_scopes.sql` | Default scopes for exports/vulns/integrations (remint required) |
 | `019_least_privilege_erase_scope.sql` | Drop `tenants:erase` from DEFAULT scopes (opt-in at mint/remint) |
 
-## Secure path (`003`–`018`)
+## Secure path (`003`–`019`)
 
 1. Enable extensions **vector** and **pgcrypto** (Dashboard → Database → Extensions).
-2. Run `003` → `018` in order.
+2. Run `003` → `019` in order.
 3. Realtime: `015`/`016` add `stream_results`, `telemetry_events`, `ml_scores`, `training_runs` when publication exists.
 4. Set backend env: `SUPABASE_URL`, `SUPABASE_JWT_SECRET` (or rely on JWKS), `POSTGRES_DSN` (Supabase only — not Neon).
 5. Add SaaS use cases as YAML under `backend/workflows/` (see that folder’s README).
-6. After `017`/`018`, remint opaque `fjsvc_` tokens (`scripts/remint_service_account.sh`) so stored scopes include sessions/replay/status/analytics/exports/vulns/integrations/`tenants:erase`.
+6. After `017`–`019`, remint opaque `fjsvc_` tokens (`scripts/remint_service_account.sh`) so stored scopes include sessions/replay/status/analytics/exports/vulns/integrations (plus `tenants:erase` when opted in).
 7. Tenant erase: `POST /api/v1/tenants/{id}/erase` (human owner/admin or service with `tenants:erase`).
 8. Post-check: `python backend/scripts/verify_supabase_post_migration.py` (or SQL in `scripts/verify_supabase_post_migration.sql`).
 9. Neon consolidation (partner control plane): [`docs/NEON_TO_SUPABASE.md`](../../docs/NEON_TO_SUPABASE.md).
