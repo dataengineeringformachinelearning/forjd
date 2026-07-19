@@ -26,25 +26,37 @@ async def require_active_session(
     tenant_id: UUID,
     key_id: str,
 ) -> None:
-    """Fail closed when ingest key_id is not a registered, non-expired session.
+    """Fail closed when ingest key_id is not a registered, non-expired session."""
+    await require_active_sessions(pool, pairs={(tenant_id, key_id)})
+
+
+async def require_active_sessions(
+    pool: asyncpg.Pool,
+    *,
+    pairs: set[tuple[UUID, str]],
+) -> None:
+    """Batch session check — one query for an ingest batch (fail closed).
 
     Controlled by REQUIRE_CRYPTO_SESSION (forced true in production).
     """
-    if not settings.REQUIRE_CRYPTO_SESSION:
+    if not settings.REQUIRE_CRYPTO_SESSION or not pairs:
         return
-    row = await pool.fetchrow(
+    tenants = [str(tid) for tid, _ in pairs]
+    session_ids = [sid for _, sid in pairs]
+    rows = await pool.fetch(
         """
-        SELECT 1
-        FROM crypto_sessions
-        WHERE tenant_id = $1::uuid
-          AND session_id = $2
-          AND revoked_at IS NULL
-          AND (expires_at IS NULL OR expires_at > NOW())
+        SELECT cs.tenant_id::text AS tid, cs.session_id
+        FROM crypto_sessions AS cs
+        JOIN UNNEST($1::uuid[], $2::text[]) AS want(tid, sid)
+          ON cs.tenant_id = want.tid AND cs.session_id = want.sid
+        WHERE cs.revoked_at IS NULL
+          AND (cs.expires_at IS NULL OR cs.expires_at > NOW())
         """,
-        str(tenant_id),
-        key_id,
+        tenants,
+        session_ids,
     )
-    if row is None:
+    found = {(UUID(str(r["tid"])), str(r["session_id"])) for r in rows}
+    if pairs - found:
         raise ValueError(
             "envelope.key_id must match an active crypto_sessions.session_id"
         )
@@ -81,8 +93,8 @@ async def upsert_session(
                 ratchet_state_hint = EXCLUDED.ratchet_state_hint,
                 expires_at = EXCLUDED.expires_at,
                 user_id = EXCLUDED.user_id,
-                revoked_at = NULL,
                 updated_at = NOW()
+            WHERE crypto_sessions.revoked_at IS NULL
             RETURNING id::text, tenant_id::text, session_id, user_id::text,
                       identity_public_key, ephemeral_public_key, ratchet_state_hint,
                       created_at, updated_at, expires_at, revoked_at
@@ -95,6 +107,21 @@ async def upsert_session(
             body.ratchet_state_hint,
             body.expires_at,
         )
+        if row is None:
+            # Sticky revoke: never clear revoked_at; partner must mint a new session_id.
+            existing = await pool.fetchrow(
+                """
+                SELECT revoked_at
+                FROM crypto_sessions
+                WHERE tenant_id = $1::uuid AND session_id = $2
+                """,
+                str(body.tenant_id),
+                body.session_id,
+            )
+            if existing is not None and existing["revoked_at"] is not None:
+                raise ValueError(
+                    "session_id was revoked; register a new session_id"
+                )
     else:
         # Humans may only update sessions they own.
         row = await pool.fetchrow(
@@ -124,8 +151,7 @@ async def upsert_session(
             body.expires_at,
         )
     if row is None:
-        # Conflict owned by another user.
-        raise PermissionError("session_id owned by another user")
+        raise PermissionError("session_id owned by another user or revoked")
     return _row_out(row)
 
 

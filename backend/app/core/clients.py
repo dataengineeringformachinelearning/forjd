@@ -66,8 +66,8 @@ async def create_db_pool() -> asyncpg.Pool | None:
     try:
         pool = await asyncpg.create_pool(
             dsn=asyncpg_dsn(),
-            min_size=1,
-            max_size=5,
+            min_size=max(1, settings.DB_POOL_MIN),
+            max_size=max(settings.DB_POOL_MIN, settings.DB_POOL_MAX),
             timeout=5,
             command_timeout=5,
         )

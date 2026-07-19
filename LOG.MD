@@ -2,6 +2,8 @@
 
 ## Log
 
+- 2026-07-18: Production deploy runbook — `docs/PRODUCTION_DEPLOY.md` + status-bearing cutover checklist (live health/ready/engine All verified). Remaining: apply `sql/019`, redeploy security/perf to Fly, partner remint if erase needed.
+- 2026-07-18: Security/perf pass — sticky session revoke; batch crypto-session checks; tenant-bound cursors; auth hot path skips DDL + debounces `last_used_at`; shared engine HTTP clients; `tenants:erase` opt-in (`sql/019`); rate-limited auth-failure logs; larger DB pool. Tests in `test_security_perf_pass.py`.
 - 2026-07-18: Final cleanup pass — FORJD checklist is platform-only; Neon migrate/verify scripts generalized (`partner` + `TARGET_SCHEMA` / `PARTNER_CONTROL_SCHEMA`); removed hardcoded DEML schema probes. See `docs/CLEANUP_2026-07-18.md`.
 - 2026-07-18: Status CRUD for partners — PATCH/DELETE pages, list/update/delete services & incidents with `status:*` scopes; `apply_sql_migrations.py` now includes sql/018.
 - 2026-07-18: Final partner cutover — `sql/018` default scopes (exports/vulns/integrations/`tenants:erase`), remint script, durable `POST /api/v1/tenants/{id}/erase`, and `docs/PRODUCTION_CUTOVER_CHECKLIST.md`. Existing `fjsvc_` tokens must be reminted after 017/018.

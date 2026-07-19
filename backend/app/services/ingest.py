@@ -100,6 +100,12 @@ async def ingest_events(
     by_workflow: dict[str, list[dict[str, Any]]] = defaultdict(list)
     workflow_meta: dict[str, tuple[str, str | None]] = {}
 
+    # Zero-trust: batch-check crypto sessions (one query, not N).
+    await session_svc.require_active_sessions(
+        pool,
+        pairs={(e.tenant_id, e.envelope.key_id) for e in batch.events},
+    )
+
     for event in batch.events:
         workflow = resolve_workflow(
             content_type=event.content_type,
@@ -109,10 +115,6 @@ async def ingest_events(
         # Partner aliases → canonical event_type for storage / processors.
         stored_event_type = canonical_event_type(event.event_type) or event.event_type
         _validate_encryption(event, workflow)
-        # Zero-trust: key_id must be a registered crypto session (prod).
-        await session_svc.require_active_session(
-            pool, tenant_id=event.tenant_id, key_id=event.envelope.key_id
-        )
         result = await _insert_event(
             pool,
             user=user,
@@ -448,7 +450,8 @@ async def list_stream_results(
         args.append(str(after_id))
         clauses.append(
             f"(created_at, id) > ("
-            f"(SELECT created_at FROM stream_results WHERE id = ${len(args)}::uuid), "
+            f"(SELECT created_at FROM stream_results"
+            f" WHERE id = ${len(args)}::uuid AND tenant_id = $1::uuid), "
             f"${len(args)}::uuid)"
         )
     order = "ASC" if (since is not None or after_id is not None) else "DESC"

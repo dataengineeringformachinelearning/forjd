@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     # When true, missing auth config fails closed on protected routes.
     SUPABASE_AUTH_REQUIRED: bool = False
 
+    # --- Postgres pool ---
+    DB_POOL_MIN: int = 1
+    DB_POOL_MAX: int = 20
+
     # --- Rust engine (empty = in-process PyO3) ---
     ENGINE_URL: str = ""
     ENGINE_API_TOKEN: str = ""

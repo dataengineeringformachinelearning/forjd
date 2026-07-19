@@ -13,6 +13,8 @@ logger = logging.getLogger("forjd.engine")
 
 _pyo3 = None
 _import_error: str | None = None
+_async_client: httpx.AsyncClient | None = None
+_sync_client: httpx.Client | None = None
 
 try:
     import forjd_engine as _pyo3  # type: ignore[import-not-found]
@@ -53,29 +55,68 @@ def _auth_headers() -> dict[str, str]:
     return {"Authorization": f"Bearer {token}", "X-Engine-Token": token}
 
 
-async def _http_json(method: str, path: str, *, json_body: dict[str, Any] | None = None) -> Any:
-    base = settings.ENGINE_URL.rstrip("/")
-    timeout = httpx.Timeout(settings.ENGINE_TIMEOUT_SECONDS)
-    # Fly 6PN is IPv6-only — bind the client to :: so we do not attempt IPv4.
-    transport = None
+def _needs_ipv6_bind(base: str) -> bool:
     host = base.split("://", 1)[-1].split("/", 1)[0].split(":")[0].lower()
-    if host.endswith(".internal") or host.endswith(".flycast"):
+    return host.endswith(".internal") or host.endswith(".flycast")
+
+
+# --- Shared HTTP clients (keep-alive; closed on app shutdown) ---
+def _ensure_async_client() -> httpx.AsyncClient:
+    global _async_client
+    if _async_client is not None and not _async_client.is_closed:
+        return _async_client
+    base = settings.ENGINE_URL.rstrip("/")
+    transport = None
+    if _needs_ipv6_bind(base):
         transport = httpx.AsyncHTTPTransport(local_address="::")
-    async with httpx.AsyncClient(
+    _async_client = httpx.AsyncClient(
         base_url=base,
-        timeout=timeout,
+        timeout=httpx.Timeout(settings.ENGINE_TIMEOUT_SECONDS),
         headers=_auth_headers(),
         transport=transport,
-    ) as client:
-        response = await client.request(method, path, json=json_body)
-        if response.status_code >= 400:
-            detail: str
-            try:
-                detail = str(response.json().get("error") or response.text)
-            except Exception:
-                detail = response.text
-            raise RuntimeError(f"engine HTTP {response.status_code}: {detail}")
-        return response.json()
+    )
+    return _async_client
+
+
+def _ensure_sync_client() -> httpx.Client:
+    global _sync_client
+    if _sync_client is not None and not _sync_client.is_closed:
+        return _sync_client
+    base = settings.ENGINE_URL.rstrip("/")
+    transport = None
+    if _needs_ipv6_bind(base):
+        transport = httpx.HTTPTransport(local_address="::")
+    _sync_client = httpx.Client(
+        base_url=base,
+        timeout=httpx.Timeout(settings.ENGINE_TIMEOUT_SECONDS),
+        headers=_auth_headers(),
+        transport=transport,
+    )
+    return _sync_client
+
+
+async def close_engine_clients() -> None:
+    """Lifespan shutdown — drop keep-alive pools."""
+    global _async_client, _sync_client
+    if _async_client is not None and not _async_client.is_closed:
+        await _async_client.aclose()
+    _async_client = None
+    if _sync_client is not None and not _sync_client.is_closed:
+        _sync_client.close()
+    _sync_client = None
+
+
+async def _http_json(method: str, path: str, *, json_body: dict[str, Any] | None = None) -> Any:
+    client = _ensure_async_client()
+    response = await client.request(method, path, json=json_body)
+    if response.status_code >= 400:
+        detail: str
+        try:
+            detail = str(response.json().get("error") or response.text)
+        except Exception:
+            detail = response.text
+        raise RuntimeError(f"engine HTTP {response.status_code}: {detail}")
+    return response.json()
 
 
 async def process_event(event: dict[str, Any]) -> dict[str, Any]:
@@ -146,30 +187,26 @@ def run_sealed_pipeline_sync(
 
     if _http_configured():
         try:
-            with httpx.Client(
-                base_url=settings.ENGINE_URL.rstrip("/"),
-                timeout=httpx.Timeout(settings.ENGINE_TIMEOUT_SECONDS),
-                headers=_auth_headers(),
-            ) as client:
-                response = client.post(
-                    "/v1/sealed/pipeline",
-                    json={
-                        "events": events,
-                        "steps": steps,
-                        "params": params,
-                        "tags": tags,
-                        "projection_name": projection_name,
-                        "workflow_id": workflow_id,
-                    },
+            client = _ensure_sync_client()
+            response = client.post(
+                "/v1/sealed/pipeline",
+                json={
+                    "events": events,
+                    "steps": steps,
+                    "params": params,
+                    "tags": tags,
+                    "projection_name": projection_name,
+                    "workflow_id": workflow_id,
+                },
+            )
+            if response.status_code >= 400:
+                logger.warning(
+                    "rust sealed pipeline HTTP %s: %s",
+                    response.status_code,
+                    response.text[:200],
                 )
-                if response.status_code >= 400:
-                    logger.warning(
-                        "rust sealed pipeline HTTP %s: %s",
-                        response.status_code,
-                        response.text[:200],
-                    )
-                    return None
-                return dict(response.json())
+                return None
+            return dict(response.json())
         except Exception as exc:  # noqa: BLE001
             logger.warning("rust sealed pipeline (http) failed: %s", exc)
     return None

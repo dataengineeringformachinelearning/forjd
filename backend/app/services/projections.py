@@ -54,7 +54,8 @@ async def fetch_meta_after_checkpoint(
         args.append(str(after_event_id))
         eid_ph = len(args)
         clauses.append(
-            f"created_at >= (SELECT created_at FROM telemetry_events WHERE id = ${eid_ph}::uuid)"
+            f"created_at >= (SELECT created_at FROM telemetry_events"
+            f" WHERE id = ${eid_ph}::uuid AND tenant_id = $1::uuid)"
         )
         clauses.append(f"id <> ${eid_ph}::uuid")
     args.append(limit)
@@ -269,7 +270,8 @@ async def advance_checkpoint_from_meta(
                 )
                 VALUES (
                     $1::uuid, $2, $3, $4::uuid,
-                    (SELECT created_at FROM telemetry_events WHERE id = $4::uuid),
+                    (SELECT created_at FROM telemetry_events
+                     WHERE id = $4::uuid AND tenant_id = $1::uuid),
                     NOW()
                 )
                 ON CONFLICT (tenant_id, projection_name, workflow_id) DO UPDATE SET
@@ -438,7 +440,8 @@ async def list_projections(
         args.append(str(after_id))
         clauses.append(
             f"(created_at, id) > ("
-            f"(SELECT created_at FROM stream_results WHERE id = ${len(args)}::uuid), "
+            f"(SELECT created_at FROM stream_results"
+            f" WHERE id = ${len(args)}::uuid AND tenant_id = $1::uuid), "
             f"${len(args)}::uuid)"
         )
     # Live feed (since/after) is ascending; dashboard "latest" is descending.

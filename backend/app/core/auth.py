@@ -43,6 +43,26 @@ _JWKS_TTL_SECONDS = 3600.0
 SERVICE_TOKEN_PREFIX = "fjsvc_"
 SERVICE_PREFIX_LEN = 8
 
+# Rate-limited auth failure logs (never log full tokens).
+_AUTH_FAIL_LOG: dict[str, float] = {}
+_AUTH_FAIL_LOG_INTERVAL = 60.0
+
+
+def _log_auth_failure(*, kind: str, reason: str, token_prefix: str = "") -> None:
+    """Structured 401 observability without leaking secrets."""
+    key = f"{kind}:{reason}:{token_prefix[:8]}"
+    now = time.monotonic()
+    last = _AUTH_FAIL_LOG.get(key, 0.0)
+    if now - last < _AUTH_FAIL_LOG_INTERVAL:
+        return
+    _AUTH_FAIL_LOG[key] = now
+    logger.warning(
+        "auth_failed kind=%s reason=%s token_prefix=%s",
+        kind,
+        reason,
+        token_prefix[:8] or "-",
+    )
+
 
 class PrincipalKind(StrEnum):
     USER = "user"
@@ -249,12 +269,14 @@ async def _authenticate_opaque_service(pool: Any, token: str) -> AuthUser:
 
     prefix = service_token_prefix(token)
     if prefix is None:
+        _log_auth_failure(kind="opaque", reason="bad_shape")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="invalid service token",
         )
     row = await svc_accounts.authenticate_opaque(pool, prefix=prefix, token=token)
     if row is None:
+        _log_auth_failure(kind="opaque", reason="reject", token_prefix=prefix)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="invalid service token",
@@ -307,6 +329,7 @@ async def get_current_user(
 ) -> AuthUser:
     """Require a valid user JWT or tenant-scoped service credential."""
     if creds is None or creds.scheme.lower() != "bearer":
+        _log_auth_failure(kind="bearer", reason="missing")
         if settings.SUPABASE_AUTH_REQUIRED or auth_configured():
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

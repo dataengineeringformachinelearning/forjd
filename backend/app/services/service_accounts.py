@@ -31,6 +31,7 @@ logger = logging.getLogger("forjd.service_accounts")
 # sessions:* — register X25519 pubs when REQUIRE_CRYPTO_SESSION=true
 # replay:* / status:* / analytics:read — partner control-plane adapters
 # (human mint still required for the token itself).
+# tenants:erase is allowlisted but NOT default — opt in at mint/remint.
 DEFAULT_SCOPES: tuple[str, ...] = (
     "ingest:write",
     "ingest:read",
@@ -49,13 +50,13 @@ DEFAULT_SCOPES: tuple[str, ...] = (
     "vulnerabilities:read",
     "vulnerabilities:write",
     "integrations:write",
-    "tenants:erase",
 )
 
 ALLOWED_SCOPES = frozenset(
     {
         *DEFAULT_SCOPES,
         "analytics:write",
+        "tenants:erase",
         "*",
     }
 )
@@ -82,8 +83,7 @@ async def ensure_schema(pool: asyncpg.Pool) -> None:
                 'analytics:read',
                 'exports:read', 'exports:write',
                 'vulnerabilities:read', 'vulnerabilities:write',
-                'integrations:write',
-                'tenants:erase'
+                'integrations:write'
             ]::text[],
             is_active BOOLEAN NOT NULL DEFAULT TRUE,
             revoked_at TIMESTAMPTZ,
@@ -135,11 +135,23 @@ def _public_row(row: asyncpg.Record) -> dict[str, Any]:
     }
 
 
-# --- Auth lookups (used by app.core.auth) ---
+# --- Auth lookups (used by app.core.auth; no DDL on hot path) ---
+async def _touch_last_used(pool: asyncpg.Pool, account_id: Any) -> None:
+    """Debounced last_used_at write — at most once per 5 minutes per account."""
+    await pool.execute(
+        """
+        UPDATE service_accounts
+        SET last_used_at = NOW()
+        WHERE id = $1::uuid
+          AND (last_used_at IS NULL OR last_used_at < NOW() - INTERVAL '5 minutes')
+        """,
+        str(account_id),
+    )
+
+
 async def authenticate_opaque(
     pool: asyncpg.Pool, *, prefix: str, token: str
 ) -> dict[str, Any] | None:
-    await ensure_schema(pool)
     row = await pool.fetchrow(
         """
         SELECT id, tenant_id, name, subprocessor, scopes, key_hash,
@@ -154,15 +166,11 @@ async def authenticate_opaque(
     expected = row["key_hash"]
     if not expected or not hmac.compare_digest(hash_service_token(token), expected):
         return None
-    await pool.execute(
-        "UPDATE service_accounts SET last_used_at = NOW() WHERE id = $1::uuid",
-        str(row["id"]),
-    )
+    await _touch_last_used(pool, row["id"])
     return dict(row)
 
 
 async def authenticate_auth_user(pool: asyncpg.Pool, *, auth_user_id: str) -> dict[str, Any] | None:
-    await ensure_schema(pool)
     row = await pool.fetchrow(
         """
         SELECT id, tenant_id, name, subprocessor, scopes,
@@ -174,10 +182,7 @@ async def authenticate_auth_user(pool: asyncpg.Pool, *, auth_user_id: str) -> di
     )
     if row is None or not row["is_active"] or row["revoked_at"] is not None:
         return None
-    await pool.execute(
-        "UPDATE service_accounts SET last_used_at = NOW() WHERE id = $1::uuid",
-        str(row["id"]),
-    )
+    await _touch_last_used(pool, row["id"])
     return dict(row)
 
 

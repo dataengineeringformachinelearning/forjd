@@ -42,7 +42,7 @@ Backend Python is pinned to **3.12** with Pathway ≥0.31 (`beartype<0.16` via u
 - Keep dependencies minimal — add a package only when a concrete use case needs it.
 - After meaningful progress, append a `LOG.MD` entry (format in `.cursorrules`).
 
-Last updated: 2026-07-18 (final cleanup — FORJD-only checklist; partner-agnostic Neon migrate; docs/CLEANUP_2026-07-18.md)
+Last updated: 2026-07-18 (security/perf — sticky revoke, batch sessions, sql/019 erase opt-in, engine client reuse)
 
 **Cutover:** [`CUTOVER.md`](CUTOVER.md) + [`docs/PRODUCTION_CUTOVER_CHECKLIST.md`](docs/PRODUCTION_CUTOVER_CHECKLIST.md) — SQL `003`–`018`, remint `fjsvc_`, Fly backend/engine + Vercel frontend. Partner BFFs own dual-write/read flags; FORJD stays universal YAML-configured sealed ingest.
 

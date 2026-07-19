@@ -35,11 +35,13 @@ class TestServiceScopes(unittest.TestCase):
             "exports:read",
             "vulnerabilities:read",
             "integrations:write",
-            "tenants:erase",
         }
         self.assertTrue(required.issubset(set(DEFAULT_SCOPES)))
         self.assertIn("analytics:write", ALLOWED_SCOPES)
         self.assertNotIn("analytics:write", DEFAULT_SCOPES)
+        # Least privilege: erase is allowlisted but opt-in at mint/remint.
+        self.assertNotIn("tenants:erase", DEFAULT_SCOPES)
+        self.assertIn("tenants:erase", ALLOWED_SCOPES)
 
 
 class TestServiceTokenShape(unittest.TestCase):

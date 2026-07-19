@@ -446,8 +446,7 @@ async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
                 'analytics:read',
                 'exports:read', 'exports:write',
                 'vulnerabilities:read', 'vulnerabilities:write',
-                'integrations:write',
-                'tenants:erase'
+                'integrations:write'
             ]::text[],
             is_active BOOLEAN NOT NULL DEFAULT TRUE,
             revoked_at TIMESTAMPTZ,

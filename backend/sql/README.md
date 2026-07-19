@@ -21,7 +21,8 @@ Apply in order in the Supabase SQL editor (or `psql`).
 | `015_realtime_and_consumer.sql` | Realtime publication, `projection_feed` view, cursor indexes, sessions scopes |
 | `016_ml_supabase.sql` | ML `training_runs` family columns, `ml_scores` + RLS, Realtime for ML |
 | `017_service_principal_cutover.sql` | Drop `crypto_sessions.user_id` → `auth.users` FK; expand default service scopes |
-| `018_partner_domain_scopes.sql` | Default scopes for exports/vulns/integrations/`tenants:erase` (remint required) |
+| `018_partner_domain_scopes.sql` | Default scopes for exports/vulns/integrations (remint required) |
+| `019_least_privilege_erase_scope.sql` | Drop `tenants:erase` from DEFAULT scopes (opt-in at mint/remint) |
 
 ## Secure path (`003`–`018`)
 

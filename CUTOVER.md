@@ -10,14 +10,17 @@ platform side.
 
 ## Preflight
 
-1. Apply SQL in order: `003` → `018` (`backend/sql/README.md`).
+1. Apply SQL in order: `003` → `019` (`backend/sql/README.md`).
+   Deploy/rollback runbook: [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md).
 2. Confirm `POSTGRES_DSN` is Supabase (not Neon). Consolidation runbook:
    [`docs/NEON_TO_SUPABASE.md`](docs/NEON_TO_SUPABASE.md); verify with
    `backend/scripts/verify_supabase_post_migration.py`.
 3. Confirm production forces RLS + crypto-session binding (`ENVIRONMENT=prod`).
-4. Mint (or remint) tenant `fjsvc_` service accounts **after** `017`/`018`
+4. Mint (or remint) tenant `fjsvc_` service accounts **after** `017`–`019`
    (`scripts/remint_service_account.sh`) so scopes include sessions, replay/DLQ,
-   status, analytics, exports, vulnerabilities, integrations, and `tenants:erase`.
+   status, analytics, exports, vulnerabilities, and integrations. Include
+   `tenants:erase` explicitly when the partner needs account-deletion erase
+   (`FORJD_INCLUDE_ERASE=1`, default).
 5. Verify isolation gates:
    - `service_role` JWT rejected on application routes (including JWTs that also carry `app_metadata.forjd`)
    - cross-tenant `tenant_id` → `403`
@@ -39,7 +42,7 @@ platform side.
 | API | Fly `forjd-backend` | Deploy with `POSTGRES_DSN`, `REDIS_URL`, `SUPABASE_*`, `ENVIRONMENT=prod`, CORS including `https://forjd.co` and partner origins |
 | Engine | Fly `forjd-engine` | `fly deploy` from `engine/`; set `ENGINE_URL` + `ENGINE_API_TOKEN` on API |
 | Cache | Fly Dragonfly | Volume + `DFLY_requirepass`; API `REDIS_URL` |
-| SQL | Supabase | Apply `003`–`018`; confirm `/ready` `schema_rls=true` |
+| SQL | Supabase | Apply `003`–`019`; confirm `/ready` `schema_rls=true` |
 | Web | Vercel `forjd.co` | `frontend/vercel.json`; `apiBaseUrl=https://backend.forjd.co` |
 | UI kit | Vercel `ui.forjd.co` | Optional Storybook project |
 | DNS | Vercel → Fly | Point `backend.forjd.co` A/AAAA at Fly as documented in root `README.md` |

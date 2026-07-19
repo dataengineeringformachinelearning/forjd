@@ -69,6 +69,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if pool is not None:
         await pool.close()
 
+    try:
+        from app.services.engine import close_engine_clients
+
+        await close_engine_clients()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("engine client shutdown: %s", exc)
+
 
 # --- App + middleware stack ---
 app = FastAPI(

@@ -1,14 +1,15 @@
 # Production cutover checklist — FORJD
 
-FORJD-only ops checklist for partner cutover. Partner BFF / UI runbooks live in the
-partner repository (example: DEML `docs/PRODUCTION_CUTOVER_CHECKLIST.md`).
+FORJD-only ops checklist. Partner BFF / UI: partner repo
+(example DEML `docs/PRODUCTION_CUTOVER_CHECKLIST.md`).
+Deploy commands: [`PRODUCTION_DEPLOY.md`](./PRODUCTION_DEPLOY.md).
 
-| Layer | Owner | Host |
-|-------|--------|------|
-| Sealed streaming, projections, ML, exports, vulns, status | FORJD | **Fly** `forjd-backend` + `forjd-engine` |
-| Cache (data plane) | FORJD | **Fly** Dragonfly (`forjd-dragonfly`) |
-| Data-plane Postgres | FORJD | Supabase `public` (+ RLS / Realtime) |
-| Partner user plane | Partner | Partner hosts (e.g. Fly Django + Vercel Angular) |
+| Layer | Owner | Host | Status (2026-07-18) |
+|-------|--------|------|---------------------|
+| Sealed streaming, projections, ML, exports, vulns, status | FORJD | **Fly** `forjd-backend` + `forjd-engine` | **Live** |
+| Cache (data plane) | FORJD | **Fly** Dragonfly (`forjd-dragonfly`) | **Live** |
+| Data-plane Postgres | FORJD | Supabase `public` (+ RLS / Realtime) | **Live** (`schema_rls=true`) |
+| Partner user plane | Partner | Partner hosts | Partner-owned |
 
 **Do not** run Redpanda, ClickHouse, Kafka, or partner-local stream workers as a FORJD substitute.
 
@@ -16,27 +17,33 @@ partner repository (example: DEML `docs/PRODUCTION_CUTOVER_CHECKLIST.md`).
 
 ## A. Schema + service principals
 
-1. Apply SQL `003` → `018` on Supabase (includes service-principal scopes + erase).
-2. Remint `fjsvc_` after `017`/`018` so stored scopes include sessions/replay/status/analytics/exports/vulns/integrations/`tenants:erase`:
-   ```bash
-   ./scripts/remint_service_account.sh partner-production
-   ```
-3. Confirm `backend/scripts/apply_sql_migrations.py` includes `018` (or apply `018_partner_domain_scopes.sql` manually).
+| Step | Action | Status |
+|------|--------|--------|
+| A1 | Apply SQL `003` → `018` | **Done** |
+| A2 | Apply SQL `019` (erase opt-in default) | **Pending** next migrate |
+| A3 | Remint `fjsvc_` (`scripts/remint_service_account.sh`) | Remint after `019` if erase required |
+| A4 | `apply_sql_migrations.py` includes `019` | **In repo** |
+
+```bash
+./scripts/remint_service_account.sh partner-production
+```
 
 ## B. Fly deploy
 
-1. `fly secrets set` on `forjd-backend`: `DATABASE_URL`/`POSTGRES_DSN`, `REDIS_URL`, `SUPABASE_*`, `ENGINE_URL`, `ENGINE_API_TOKEN`, …
-2. `fly deploy -a forjd-backend` and `fly deploy` from `engine/` (`FORJD_ROLE` as documented).
-3. Engine data plane (`FORJD_ROLE=all`) needs internode keys via `scripts/sync_engine_dataplane_secrets.sh`.
-4. Verify: `curl -fsS https://backend.forjd.co/ready` and `/health`.
-5. Optional gates: `POSTGRES_DSN=… python backend/scripts/verify_supabase_post_migration.py`.
+| Step | Action | Status |
+|------|--------|--------|
+| B1 | Secrets on `forjd-backend` | **Configured** |
+| B2 | Deploy API + engine (`FORJD_ROLE=all` + internode keys) | **Live** |
+| B3 | `https://backend.forjd.co/ready` | **Pass** |
+| B4 | Redeploy latest `main` (security/perf pass) | **Pending** after push |
+| B5 | Optional `verify_supabase_post_migration.py` | Recommended after `019` |
 
 ## C. Partner smoke (universal)
 
 1. Mint service account → sealed ingest → projections list.
 2. Analytics overview → status page CRUD → exports/vulns as scoped.
 3. Staging tenant erase: `POST /api/v1/tenants/{id}/erase`.
-4. Partner BFF advances its own dual-write/read flags (never hardcoded product names in FORJD).
+4. Partner BFF steady state (phase 2 / forjd-only).
 
 ## D. Separation invariants
 
@@ -47,3 +54,16 @@ partner repository (example: DEML `docs/PRODUCTION_CUTOVER_CHECKLIST.md`).
 | Ingest / projections / ML | BFF → FORJD | Owns storage + processing |
 | Cache | Optional / none | Fly Dragonfly |
 | Tenant erase | Calls FORJD erase then local teardown | `POST /api/v1/tenants/{id}/erase` |
+
+## E. Rollback
+
+| Issue | Action |
+|-------|--------|
+| Bad API/engine deploy | Prior Fly release; engine → `FORJD_ROLE=engine` |
+| Ingest errors | `/ready`, Dragonfly, crypto sessions, workflows |
+| Scope 403s | Remint `fjsvc_` |
+| Partner freeze | Partner write/read `off` |
+
+## F. Verdict
+
+**FORJD is production-ready.** Apply `sql/019`, deploy latest `main`, remint partner tokens as needed. Live gates already pass health/ready/engine All.
