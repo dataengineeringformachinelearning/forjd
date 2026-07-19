@@ -9,7 +9,8 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
 from app.core.auth import warm_jwks
@@ -101,6 +102,7 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 # --- Landing page ---
@@ -108,6 +110,25 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 async def landing() -> HTMLResponse:
     """FJORD-styled API landing page with links to the interactive docs."""
     return HTMLResponse(content=render_landing())
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse, include_in_schema=False)
+async def robots() -> PlainTextResponse:
+    return PlainTextResponse(
+        "User-agent: *\nAllow: /\nDisallow: /api/v1/\n"
+        "Allow: /api/v1/addons\nSitemap: https://backend.forjd.co/sitemap.xml\n"
+    )
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+async def sitemap() -> Response:
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://backend.forjd.co/</loc><changefreq>weekly</changefreq></url>
+  <url><loc>https://backend.forjd.co/docs</loc><changefreq>weekly</changefreq></url>
+  <url><loc>https://backend.forjd.co/api/v1/addons</loc><changefreq>weekly</changefreq></url>
+</urlset>"""
+    return Response(content=xml, media_type="application/xml")
 
 
 # --- Probes ---

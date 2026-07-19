@@ -5,6 +5,8 @@ that introduces the engine and links to the interactive API docs. Rendered at
 ``GET /`` so the bare backend URL is a modern page rather than a 404.
 """
 
+# ruff: noqa: E501 -- SEO metadata is kept as readable one-line HTML attributes.
+
 from __future__ import annotations
 
 from app.core.config import settings
@@ -16,6 +18,29 @@ _LANDING_HTML = """<!doctype html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>{project} — universal secure streaming engine</title>
+<meta name="description"
+      content="FORJD API for sealed ingest, configurable workflows, durable projections, analytics, replay, and machine learning." />
+<meta name="robots" content="index, follow, max-image-preview:large" />
+<link rel="canonical" href="https://backend.forjd.co/" />
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+<link rel="icon" type="image/png" sizes="96x96" href="/static/favicon-96x96.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://backend.forjd.co/" />
+<meta property="og:title" content="FORJD API — Universal Secure Streaming Engine" />
+<meta property="og:description"
+      content="Secure streaming APIs for sealed ingest, workflows, projections, analytics, replay, and machine learning." />
+<meta property="og:image" content="https://backend.forjd.co/static/forjd-social.png" />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content="1280" />
+<meta property="og:image:height" content="720" />
+<meta property="og:image:alt" content="FORJD secure streaming engine" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="FORJD API — Universal Secure Streaming Engine" />
+<meta name="twitter:description"
+      content="Secure streaming APIs for sealed ingest, workflows, projections, analytics, replay, and machine learning." />
+<meta name="twitter:image" content="https://backend.forjd.co/static/forjd-social.png" />
+<meta name="theme-color" content="#0a0a0a" />
 <style>
   :root {{
     --fj-bg: #0a0a0a; --fj-surface: #111111; --fj-surface-2: #1a1a1a;
