@@ -47,7 +47,5 @@ FROM information_schema.views
 WHERE table_schema = 'public'
   AND table_name IN ('projection_feed', 'sealed_events');
 
--- Optional DEML consolidation schema
-SELECT schema_name
-FROM information_schema.schemata
-WHERE schema_name = 'deml';
+-- Optional partner control-plane schema (set name explicitly if co-located)
+-- SELECT schema_name FROM information_schema.schemata WHERE schema_name = '<partner_schema>';

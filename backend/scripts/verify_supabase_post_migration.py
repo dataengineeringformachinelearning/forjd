@@ -128,11 +128,24 @@ async def _check(conn: Any) -> list[tuple[str, bool, str]]:
     )
     results.append((f"view_{view}", bool(exists), "ok" if exists else "MISSING"))
 
-  # --- Optional deml control-plane schema (consolidation) ---
-  deml = await conn.fetchval(
-    "SELECT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'deml')"
-  )
-  results.append(("schema_deml_optional", True, "present" if deml else "absent"))
+  # --- Optional partner control-plane schema (PARTNER_CONTROL_SCHEMA) ---
+  partner_schema = (os.environ.get("PARTNER_CONTROL_SCHEMA") or "").strip()
+  if partner_schema:
+    present = await conn.fetchval(
+      """
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.schemata WHERE schema_name = $1
+      )
+      """,
+      partner_schema,
+    )
+    results.append(
+      (
+        f"schema_{partner_schema}_optional",
+        True,
+        "present" if present else "absent",
+      )
+    )
 
   return results
 

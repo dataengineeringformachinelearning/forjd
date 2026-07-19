@@ -93,5 +93,5 @@ Do not soft-migrate schema in prod. Do not accept `service_role` JWTs.
 | API | `curl -sS https://backend.forjd.co/ready` → `schema_rls` + postgres + redis (+ engine) |
 | Engine | `curl -sS https://forjd-engine.fly.dev/ready` → `status=ready` |
 | Sealed path | session register → sealed ingest → projections list (service token) |
-| Partner BFF | DEML `FORJD_CUTOVER_PHASE=2` after dual-write shadow looks healthy |
+| Partner BFF | Partner dual-write/read flags at steady state (runbook in partner repo) |
 | Anomaly PoC | `/api/v1/anomaly` → `404` in prod |

@@ -1,32 +1,35 @@
 #!/usr/bin/env bash
 # Neon → Supabase Postgres migration helper (pg_dump / pg_restore).
 #
-# Current production fact (2026-07-18):
-#   • FORJD Fly POSTGRES_DSN / ENGINE DATABASE_URL already point at Supabase
-#     (adsmmikjthfufjocmpty / pooler.supabase.com) — no FORJD data move required.
-#   • Neon project "deml" holds the DEML Django control plane (~395MB, PG 18).
-#   • Supabase FORJD project is PG 17.6 with pgcrypto + vector enabled.
+# FORJD production already uses Supabase. This script is for:
+#   • forjd  — disaster-recovery restore into Supabase public
+#   • partner — co-locate a partner control-plane DB into a non-public schema
 #
 # Required env (never echoed):
 #   NEON_DATABASE_URL
 #   SUPABASE_DATABASE_URL   # DIRECT: postgresql://postgres.<ref>@db.<ref>.supabase.co:5432/postgres
 #
 # Optional:
-#   MIGRATE_MODE=deml|forjd   # default deml
-#   TARGET_SCHEMA=deml        # DEML tables land here (avoids clashing with FORJD public.*)
+#   MIGRATE_MODE=partner|forjd   # default partner
+#   TARGET_SCHEMA=<name>         # required for partner mode (non-public schema)
 #   DUMP_DIR=./.pg_migrate_dumps
 #   DRY_RUN=1
-#   ALLOW_MAJOR_DOWNGRADE=0   # set 1 only after reviewing dump/restore errors
+#   ALLOW_MAJOR_DOWNGRADE=0      # set 1 only after reviewing dump/restore errors
 #
 # Usage:
 #   export NEON_DATABASE_URL='postgresql://…@….neon.tech/neondb?sslmode=require'
 #   export SUPABASE_DATABASE_URL='postgresql://postgres.…@db.…supabase.co:5432/postgres'
-#   DRY_RUN=1 ./scripts/pg_migrate_neon_to_supabase.sh
-#   ./scripts/pg_migrate_neon_to_supabase.sh
+#   DRY_RUN=1 TARGET_SCHEMA=partner_control ./scripts/pg_migrate_neon_to_supabase.sh
+#   TARGET_SCHEMA=partner_control ./scripts/pg_migrate_neon_to_supabase.sh
 set -euo pipefail
 
-MIGRATE_MODE="${MIGRATE_MODE:-deml}"
-TARGET_SCHEMA="${TARGET_SCHEMA:-deml}"
+MIGRATE_MODE="${MIGRATE_MODE:-partner}"
+# Back-compat: older docs used MIGRATE_MODE=deml
+if [[ "${MIGRATE_MODE}" == "deml" ]]; then
+  MIGRATE_MODE="partner"
+  TARGET_SCHEMA="${TARGET_SCHEMA:-deml}"
+fi
+TARGET_SCHEMA="${TARGET_SCHEMA:-}"
 DUMP_DIR="${DUMP_DIR:-./.pg_migrate_dumps}"
 DRY_RUN="${DRY_RUN:-0}"
 ALLOW_MAJOR_DOWNGRADE="${ALLOW_MAJOR_DOWNGRADE:-0}"
@@ -54,7 +57,7 @@ LOG_FILE="${DUMP_DIR}/migrate_${MIGRATE_MODE}_${STAMP}.log"
 exec > >(tee -a "${LOG_FILE}") 2>&1
 
 echo "=== Neon → Supabase migration ==="
-echo "mode=${MIGRATE_MODE} target_schema=${TARGET_SCHEMA} dry_run=${DRY_RUN}"
+echo "mode=${MIGRATE_MODE} target_schema=${TARGET_SCHEMA:-"(n/a)"} dry_run=${DRY_RUN}"
 echo "dump=${DUMP_FILE}"
 echo "URLs configured (not printed)"
 
@@ -65,8 +68,8 @@ dst_major=$((dst_ver / 10000))
 echo "source_major=${src_major} target_major=${dst_major}"
 
 if (( src_major > dst_major )) && [[ "${ALLOW_MAJOR_DOWNGRADE}" != "1" ]]; then
-  die "Neon PG ${src_major} → Supabase PG ${dst_major} is a major downgrade. \
-Prefer Django dumpdata for DEML, or upgrade Supabase to PG ${src_major}. \
+  die "Source PG ${src_major} → Supabase PG ${dst_major} is a major downgrade. \
+Prefer partner dumpdata/loaddata, or upgrade Supabase to PG ${src_major}. \
 Override with ALLOW_MAJOR_DOWNGRADE=1 only after a dry-run restore test."
 fi
 
@@ -111,10 +114,12 @@ case "${MIGRATE_MODE}" in
       }
     ;;
 
-  deml)
-    # Schema-isolate DEML so FORJD public.* (tenants, telemetry_events, …) is untouched.
+  partner)
+    [[ -n "${TARGET_SCHEMA}" ]] || die "TARGET_SCHEMA is required for partner mode"
+    [[ "${TARGET_SCHEMA}" != "public" ]] || die "TARGET_SCHEMA must not be public"
+    # Schema-isolate partner tables so FORJD public.* stays untouched.
     if ! command -v docker >/dev/null; then
-      die "docker is required for deml mode (staging rename public→${TARGET_SCHEMA})"
+      die "docker is required for partner mode (staging rename public→${TARGET_SCHEMA})"
     fi
 
     STAGE_NAME="forjd_neon_stage_${STAMP}"
@@ -155,14 +160,14 @@ ALTER SCHEMA public RENAME TO ${TARGET_SCHEMA};
 CREATE SCHEMA public;
 SQL
 
-    DEML_DUMP="${DUMP_DIR}/deml_schema_${STAMP}.dump"
+    PARTNER_DUMP="${DUMP_DIR}/partner_schema_${STAMP}.dump"
     echo "Dumping schema ${TARGET_SCHEMA} from staging..."
     pg_dump "${STAGE_URL}" \
       --format=custom \
       --no-owner \
       --no-acl \
       --schema="${TARGET_SCHEMA}" \
-      --file="${DEML_DUMP}"
+      --file="${PARTNER_DUMP}"
 
     echo "Creating ${TARGET_SCHEMA} on Supabase and restoring..."
     psql "${SUPABASE_DATABASE_URL}" -v ON_ERROR_STOP=1 \
@@ -174,7 +179,7 @@ SQL
       --no-acl \
       --verbose \
       --single-transaction \
-      "${DEML_DUMP}" || {
+      "${PARTNER_DUMP}" || {
         echo "pg_restore into ${TARGET_SCHEMA} reported errors — inspect ${LOG_FILE}"
         exit 1
       }
@@ -190,7 +195,7 @@ SQL
     ;;
 
   *)
-    die "MIGRATE_MODE must be deml or forjd"
+    die "MIGRATE_MODE must be partner or forjd"
     ;;
 esac
 
@@ -198,6 +203,6 @@ echo
 echo "=== Migration finished ==="
 echo "Next steps:"
 echo "  1) FORJD gates:  POSTGRES_DSN=<supabase> python backend/scripts/verify_supabase_post_migration.py"
-echo "  2) DEML Django: set DATABASE_URL + OPTIONS search_path to include ${TARGET_SCHEMA}"
-echo "  3) Cut traffic; keep Neon read-only ≥ 7 days before delete"
-echo "  4) Rollback: point DSNs back to Neon (see docs/NEON_TO_SUPABASE.md)"
+echo "  2) Partner app: set DATABASE_URL + search_path to include ${TARGET_SCHEMA:-public}"
+echo "  3) Cut traffic; keep source DB read-only ≥ 7 days before delete"
+echo "  4) Rollback: point DSNs back to the source host (see docs/NEON_TO_SUPABASE.md)"

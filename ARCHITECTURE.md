@@ -81,13 +81,13 @@ Product names never belong in engine/API code.
 
 ## SQL apply order
 
-`003` → `017` under `backend/sql/` (see that folder’s README). Production forces
+`003` → `018` under `backend/sql/` (see that folder’s README). Production forces
 `SOFT_MIGRATE_SCHEMA=false`, `REQUIRE_RLS=true`, `REQUIRE_CRYPTO_SESSION=true`.
 Realtime + `projection_feed` land in `015`; ML scores/runs in `016`; service-principal
-session actor + expanded default scopes in `017`.
+session actor + expanded default scopes in `017`; partner domain scopes + erase in `018`.
 
-Postgres host is **Supabase** (`POSTGRES_DSN`). Partner control-plane DBs (e.g. DEML
-on Neon) may consolidate into the same project under a non-`public` schema — see
+Postgres host is **Supabase** (`POSTGRES_DSN`). Partner control-plane databases may
+optionally co-locate in the same project under a non-`public` schema — see
 [`docs/NEON_TO_SUPABASE.md`](docs/NEON_TO_SUPABASE.md).
 
 ## Production cutover

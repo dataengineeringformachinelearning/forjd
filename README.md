@@ -117,7 +117,7 @@ cargo run --no-default-features --features server   # HTTP on :8080
 
 ## Secure streaming (Supabase Auth + E2EE)
 
-Production path for replacing Redpanda-style ingress with FORJD as the sealed pipe:
+Production path for sealed partner ingress (FORJD as the exclusive sealed pipe):
 
 1. Apply SQL `003`→`018` under [`backend/sql/`](backend/sql/) (tenants, RLS, sealed events, projections/DLQ, service accounts, Realtime, ML, service-principal cutover, partner domain scopes).
 2. Configure `SUPABASE_URL` / `SUPABASE_JWT_SECRET` on the API (see `backend/.env.example`).
@@ -193,7 +193,7 @@ Production partner cutover (SQL, remint `fjsvc_`, Fly/Vercel checklist, rollback
 
 **Engine data plane:** `FORJD_ROLE=engine` is process-only; `all` needs DSNs **and** internode keys (`./scripts/sync_engine_dataplane_secrets.sh`). Missing `FORJD_INTERNODE_*` was the Fly crash-loop cause.
 
-**Postgres:** FORJD production already uses Supabase. Consolidating Neon (DEML control plane) into the same project: [`docs/NEON_TO_SUPABASE.md`](docs/NEON_TO_SUPABASE.md) + `scripts/pg_migrate_neon_to_supabase.sh`. Verify with `backend/scripts/verify_supabase_post_migration.py`.
+**Postgres:** FORJD production already uses Supabase. Optional partner control-plane co-location into a non-`public` schema: [`docs/NEON_TO_SUPABASE.md`](docs/NEON_TO_SUPABASE.md) + `scripts/pg_migrate_neon_to_supabase.sh`. Verify with `backend/scripts/verify_supabase_post_migration.py`.
 
 ### Storybook → Vercel (ui.forjd.co)
 

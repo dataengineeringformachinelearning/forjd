@@ -1,68 +1,49 @@
-# Production cutover checklist — FORJD + DEML
+# Production cutover checklist — FORJD
 
-Single ops checklist for the final DEML → FORJD cutover. No overlapping data planes.
+FORJD-only ops checklist for partner cutover. Partner BFF / UI runbooks live in the
+partner repository (example: DEML `docs/PRODUCTION_CUTOVER_CHECKLIST.md`).
 
 | Layer | Owner | Host |
 |-------|--------|------|
-| Angular UI | DEML | **Vercel** project `deml` |
-| Django BFF / Firebase identity | DEML | **Fly** `deml-backend` (Railway standby) |
-| Sealed streaming, projections, ML, exports, vulns | FORJD | **Fly** `forjd-backend` + `forjd-engine` |
-| Cache (data plane) | FORJD | **Fly** Dragonfly |
-| Control-plane Postgres | DEML | Neon → Supabase schema `deml` |
-| Data-plane Postgres | FORJD | Supabase `public` |
+| Sealed streaming, projections, ML, exports, vulns, status | FORJD | **Fly** `forjd-backend` + `forjd-engine` |
+| Cache (data plane) | FORJD | **Fly** Dragonfly (`forjd-dragonfly`) |
+| Data-plane Postgres | FORJD | Supabase `public` (+ RLS / Realtime) |
+| Partner user plane | Partner | Partner hosts (e.g. Fly Django + Vercel Angular) |
 
-**Do not** run Redpanda, ClickHouse, deml-dragonfly, or DEML Rust workers in production.
+**Do not** run Redpanda, ClickHouse, Kafka, or partner-local stream workers as a FORJD substitute.
 
 ---
 
-## A. FORJD (Fly)
+## A. Schema + service principals
 
 1. Apply SQL `003` → `018` on Supabase (includes service-principal scopes + erase).
 2. Remint `fjsvc_` after `017`/`018` so stored scopes include sessions/replay/status/analytics/exports/vulns/integrations/`tenants:erase`:
    ```bash
    ./scripts/remint_service_account.sh partner-production
    ```
-3. `fly secrets set` on `forjd-backend`: `DATABASE_URL`/`POSTGRES_DSN`, `REDIS_URL`, `SUPABASE_*`, `ENGINE_URL`, `ENGINE_API_TOKEN`, …
-4. `fly deploy -a forjd-backend` and `fly deploy` from `engine/` (`FORJD_ROLE` as documented).
-5. Verify: `curl -fsS https://backend.forjd.co/ready` and `/health`.
-6. Smoke: mint service account → sealed ingest → projections → analytics overview → status page CRUD → erase in staging.
-7. Confirm `backend/scripts/apply_sql_migrations.py` includes `018` (or apply `018_partner_domain_scopes.sql` manually).
+3. Confirm `backend/scripts/apply_sql_migrations.py` includes `018` (or apply `018_partner_domain_scopes.sql` manually).
 
-## B. DEML Fly + Vercel
+## B. Fly deploy
 
-1. Set Fly secrets on `deml-backend` (see `docs/FLY.md`):
-   - `DATABASE_URL` (Neon or Supabase `deml` schema)
-   - `FORJD_API_URL=https://backend.forjd.co`
-   - **reminted** `FORJD_SERVICE_TOKEN` + `FORJD_TENANT_ID`
-   - Firebase + Stripe + CORS origins for `deml.app` / Vercel
-2. `cd backend && fly deploy`
-3. `fly ssh console -a deml-backend -C "python manage.py map_forjd_tenant <account> <tenant> --service-token-secret-ref env:FORJD_SERVICE_TOKEN"`
-4. Confirm `/api/v1/health` + `/api/v1/ready`.
-5. Deploy Angular: Vercel project `deml` (`docs/VERCEL.md`); `BACKEND_URL=https://backend.deml.app`.
-6. Cutover phases (optional dual-write first):
-   ```bash
-   fly secrets set FORJD_CUTOVER_PHASE=0 -a deml-backend   # dual-write / empty-read
-   fly secrets set FORJD_CUTOVER_PHASE=1 -a deml-backend   # read FORJD
-   fly secrets set FORJD_CUTOVER_PHASE=2 -a deml-backend   # FORJD-only (steady state)
-   ```
-7. Smoke Angular: login, dashboard CES, status pages, vulns list, exports list, sessions, account delete (staging).
+1. `fly secrets set` on `forjd-backend`: `DATABASE_URL`/`POSTGRES_DSN`, `REDIS_URL`, `SUPABASE_*`, `ENGINE_URL`, `ENGINE_API_TOKEN`, …
+2. `fly deploy -a forjd-backend` and `fly deploy` from `engine/` (`FORJD_ROLE` as documented).
+3. Engine data plane (`FORJD_ROLE=all`) needs internode keys via `scripts/sync_engine_dataplane_secrets.sh`.
+4. Verify: `curl -fsS https://backend.forjd.co/ready` and `/health`.
+5. Optional gates: `POSTGRES_DSN=… python backend/scripts/verify_supabase_post_migration.py`.
 
-## C. Retire legacy DEML Railway data plane
+## C. Partner smoke (universal)
 
-```bash
-python scripts/railway_audit.py --apply --service deml-backend
-python scripts/railway_retire_dataplane.py --apply   # includes deml-dragonfly
-```
+1. Mint service account → sealed ingest → projections list.
+2. Analytics overview → status page CRUD → exports/vulns as scoped.
+3. Staging tenant erase: `POST /api/v1/tenants/{id}/erase`.
+4. Partner BFF advances its own dual-write/read flags (never hardcoded product names in FORJD).
 
-Keep Railway `deml-backend` / `deml-frontend` only as cold standby until DNS is stable on Fly/Vercel.
+## D. Separation invariants
 
-## D. Separation invariants (no overlaps)
-
-| Concern | DEML | FORJD |
-|---------|------|-------|
-| End-user auth | Firebase | Supabase Auth (platform) / `fjsvc_` (partners) |
-| Browser API | Django only | Never called with Firebase tokens |
+| Concern | Partner | FORJD |
+|---------|---------|-------|
+| End-user auth | Partner IdP (e.g. Firebase) | Supabase Auth (platform) / `fjsvc_` (partners) |
+| Browser API | Partner BFF only | Never called with partner end-user tokens |
 | Ingest / projections / ML | BFF → FORJD | Owns storage + processing |
-| Sessions (browser) | Postgres `browser_sessions` | Crypto sessions (E2EE) |
-| Cache | None required | Fly Dragonfly |
+| Cache | Optional / none | Fly Dragonfly |
 | Tenant erase | Calls FORJD erase then local teardown | `POST /api/v1/tenants/{id}/erase` |
