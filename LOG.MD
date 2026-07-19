@@ -2,6 +2,7 @@
 
 ## Log
 
+- 2026-07-19: Borrowed OpenBB’s Fetcher TET pattern (not the OpenBB package) for OSINT scanners — `app/services/fetchers/` with typed `FetchResult` envelope; crt.sh + HIBP migrated behind query→extract→transform while keeping existing HTTP façades. Addons stay the lean-core extension surface.
 - 2026-07-19: Regression pass — backend 270 tests OK, engine `server,data-plane` 24 tests OK, frontend unit tests OK; live `/ready` green (postgres/redis/workers/engine). Pending deploy still required for Swagger-at-root and public status `tenant_id` omission.
 - 2026-07-19: Landing polish — API root (`/` and `/docs`) serves FJORD-themed Swagger UI; Angular product landing uses forjd-ui `FjButton` (href) + `FjPanel` (card) primitives; removed the separate backend HTML marketing card.
 - 2026-07-19: Security hardening follow-up — domain HIBP/SLA/discovered-endpoints use `require_tenant_access` (service principals + scopes); HIBP persists SHA-256 email digests only; public status slug DTO omits `tenant_id`; anonymous IP rate limits on public status/capabilities/addons/honeypot-hit routes plus auth-failure bucket; honeypot hit always returns `{ok: true}` (no 404 enumeration); tenant erase covers `correlation_receipts` and `threat_reports`; staging/stage get the same fail-closed schema defaults as production.
