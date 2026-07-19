@@ -1,0 +1,35 @@
+<main class="landing">
+  <section class="landing__hero">
+    <p class="fj-brand">{{ title() }}</p>
+    <h1 class="fj-headline">Universal secure streaming engine</h1>
+    <p class="fj-lede landing__lede">
+      Sealed end-to-end encrypted ingest, configurable YAML workflows, durable projections,
+      replay/DLQ, and tenant-scoped analytics — driven by a Rust hot-path and FastAPI control plane.
+    </p>
+    <div class="landing__actions">
+      <a class="landing__link landing__link--primary" routerLink="/console">Open console</a>
+      <a class="landing__link" [href]="docsUrl" target="_blank" rel="noopener">
+        API docs (Swagger)
+      </a>
+      <a class="landing__link" [href]="redocUrl" target="_blank" rel="noopener">ReDoc</a>
+      <a class="landing__link" [href]="healthUrl" target="_blank" rel="noopener">Health</a>
+    </div>
+  </section>
+
+  <section class="landing__grid" aria-label="Capabilities">
+    @for (f of features; track f.name) {
+      <article class="landing__feature">
+        <h2>{{ f.name }}</h2>
+        <p>{{ f.detail }}</p>
+      </article>
+    }
+  </section>
+
+  <footer class="landing__meta">
+    <div>
+      <span>api</span><code>{{ apiBaseUrl }}</code>
+    </div>
+    <div><span>ui</span><code>forjd.co</code></div>
+    <div><span>engine</span><code>rust · arrow · parquet</code></div>
+  </footer>
+</main>

@@ -68,6 +68,11 @@ class Settings(BaseSettings):
     SENTRY_DSN: str = ""
     SENTRY_TRACES_SAMPLE_RATE: float = 0.0
     SENTRY_ENVIRONMENT: str = ""
+    # Distributed per-principal sliding-window limits (Dragonfly/Redis).
+    RATE_LIMIT_ENABLED: bool = True
+    READ_RATE_LIMIT_RPM: int = Field(default=1_200, ge=1, le=100_000)
+    WRITE_RATE_LIMIT_RPM: int = Field(default=300, ge=1, le=100_000)
+    INGEST_RATE_LIMIT_RPM: int = Field(default=120, ge=1, le=100_000)
 
     # --- Add-ons (optional integrations; disabled by default) ---
     # Comma-separated slugs, or "all" to enable the whole catalog (partners).
@@ -117,6 +122,14 @@ class Settings(BaseSettings):
     FIRECRAWL_API_KEY: str = ""
     FIRECRAWL_API_URL: str = "https://api.firecrawl.dev"
     SCANNER_SERVICE_URL: str = ""
+    # Custom TAXII/webhook egress. Production fails closed when empty. Entries
+    # are comma-separated exact hosts or deliberate subdomain rules
+    # (for example: ``taxii.vendor.com,*.hooks.example.com``).
+    OUTBOUND_HOST_ALLOWLIST: str = ""
+    # JSON object mapping opaque webhook ``secret_ref`` identifiers to HMAC
+    # secrets. References are stored in playbooks; secret values remain only in
+    # the process environment and are never returned by the API.
+    WEBHOOK_SIGNING_SECRETS_JSON: str = ""
     # S3-compatible object storage for exports/reports (empty = local filesystem)
     OBJECT_STORAGE_ENDPOINT: str = ""
     OBJECT_STORAGE_ACCESS_KEY: str = ""
@@ -124,6 +137,19 @@ class Settings(BaseSettings):
     OBJECT_STORAGE_BUCKET: str = "forjd-exports"
     OBJECT_STORAGE_REGION: str = "us-east-1"
     OBJECT_STORAGE_ADDRESSING_STYLE: str = "path"
+    EXPORT_WORKER_INTERVAL_SECONDS: float = Field(default=2.0, ge=0.25, le=60.0)
+    EXPORT_MAX_ATTEMPTS: int = Field(default=5, ge=1, le=20)
+    EXPORT_TTL_SECONDS: int = Field(default=604_800, ge=300, le=31_536_000)
+    EXPORT_MAX_ARTIFACT_BYTES: int = Field(
+        default=100 * 1024 * 1024, ge=1024, le=1024 * 1024 * 1024
+    )
+    EXPORT_MAX_SOURCE_BYTES: int = Field(
+        default=64 * 1024 * 1024, ge=1024 * 1024, le=1024 * 1024 * 1024
+    )
+    INGEST_PROCESSING_INTERVAL_SECONDS: float = Field(default=2.0, ge=0.25, le=60.0)
+    INGEST_PROCESSING_BATCH_SIZE: int = Field(default=10, ge=1, le=100)
+    SOAR_WORKER_INTERVAL_SECONDS: float = Field(default=5.0, ge=1.0, le=60.0)
+    SOAR_WORKER_BATCH_SIZE: int = Field(default=50, ge=1, le=200)
 
     @property
     def ADDONS_ENABLED(self) -> list[str]:

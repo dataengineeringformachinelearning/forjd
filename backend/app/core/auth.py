@@ -9,6 +9,9 @@ Principal kinds
   1. Opaque token `fjsvc_<prefix>_<secret>` (hashed in `service_accounts`), or
   2. Supabase JWT with `app_metadata.forjd.principal_type = "service"` that
      matches an active `service_accounts.auth_user_id` row.
+* **erase_tombstone** — A deleted opaque service credential matched only by a
+  completed same-tenant erase receipt, on the exact erase-retry route. It has
+  no general service scopes.
 
 Partner apps keep their own end-user auth. FORJD never accepts those end-user
 tokens — only the subprocessor's tenant-scoped service principal.
@@ -22,6 +25,7 @@ import time
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
+from uuid import UUID
 
 import httpx
 import jwt
@@ -30,6 +34,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWKClient
 
 from app.core.config import settings
+from app.core.rate_limit import enforce_principal_rate_limit
+from app.core.request_context import bind_principal_context
 
 logger = logging.getLogger("forjd.auth")
 
@@ -67,6 +73,9 @@ def _log_auth_failure(*, kind: str, reason: str, token_prefix: str = "") -> None
 class PrincipalKind(StrEnum):
     USER = "user"
     SERVICE = "service"
+    # A deleted opaque credential may prove only that its completed erase
+    # receipt belongs to the same tenant. It is never a general service actor.
+    ERASE_TOMBSTONE = "erase_tombstone"
 
 
 # --- Verified caller (human or service) ---
@@ -87,6 +96,10 @@ class AuthUser:
     tenant_id: str | None = None
     subprocessor: str | None = None
     scopes: frozenset[str] = field(default_factory=frozenset)
+    # Populated only after a live opaque token has passed the service_accounts
+    # hash comparison. The raw token is never attached to the principal.
+    opaque_token_prefix: str | None = None
+    opaque_token_hash: str | None = field(default=None, repr=False)
 
     @property
     def is_service(self) -> bool:
@@ -95,6 +108,10 @@ class AuthUser:
     @property
     def is_user(self) -> bool:
         return self.kind == PrincipalKind.USER
+
+    @property
+    def is_erase_tombstone(self) -> bool:
+        return self.kind == PrincipalKind.ERASE_TOMBSTONE
 
     @property
     def actor_id(self) -> str:
@@ -264,7 +281,32 @@ def _principal_from_claims(claims: dict[str, Any]) -> AuthUser:
 
 
 # --- Opaque service token → DB principal ---
-async def _authenticate_opaque_service(pool: Any, token: str) -> AuthUser:
+def _erase_retry_tenant_id(request: Request) -> UUID | None:
+    """Return the tenant only for the exact completed-erase retry route.
+
+    Route-template matching is intentional: a tombstoned credential must not
+    become valid merely because an unrelated URL happens to contain
+    ``/tenants/`` and ``/erase``.
+    """
+    if request.method.upper() != "POST":
+        return None
+    route = request.scope.get("route")
+    expected = f"{settings.API_V1_STR.rstrip('/')}/tenants/{{tenant_id}}/erase"
+    if getattr(route, "path", None) != expected:
+        return None
+    raw_tenant_id = request.path_params.get("tenant_id")
+    try:
+        return UUID(str(raw_tenant_id))
+    except (TypeError, ValueError):
+        return None
+
+
+async def _authenticate_opaque_service(
+    pool: Any,
+    token: str,
+    *,
+    request: Request | None = None,
+) -> AuthUser:
     from app.services import service_accounts as svc_accounts
 
     prefix = service_token_prefix(token)
@@ -274,17 +316,43 @@ async def _authenticate_opaque_service(pool: Any, token: str) -> AuthUser:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="invalid service token",
         )
+    retry_tenant_id = _erase_retry_tenant_id(request) if request is not None else None
     row = await svc_accounts.authenticate_opaque(pool, prefix=prefix, token=token)
-    if row is None:
-        _log_auth_failure(kind="opaque", reason="reject", token_prefix=prefix)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="invalid service token",
+    if row is not None:
+        return _auth_user_from_service_row(
+            row,
+            raw_claims={"auth": "opaque_service_token"},
+            opaque_token_prefix=prefix if retry_tenant_id is not None else None,
+            opaque_token_hash=(hash_service_token(token) if retry_tenant_id is not None else None),
         )
-    return _auth_user_from_service_row(row, raw_claims={"auth": "opaque_service_token"})
+
+    # Lost-response recovery after tenant erase. This lookup is unreachable for
+    # every other route/method and accepts only a completed receipt for the same
+    # tenant. The tombstone principal has no reusable service scopes.
+    if retry_tenant_id is not None:
+        tombstone = await svc_accounts.authenticate_erased_opaque(
+            pool,
+            tenant_id=retry_tenant_id,
+            prefix=prefix,
+            token=token,
+        )
+        if tombstone is not None:
+            return _auth_user_from_erase_tombstone(tombstone)
+
+    _log_auth_failure(kind="opaque", reason="reject", token_prefix=prefix)
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="invalid service token",
+    )
 
 
-def _auth_user_from_service_row(row: dict[str, Any], *, raw_claims: dict[str, Any]) -> AuthUser:
+def _auth_user_from_service_row(
+    row: dict[str, Any],
+    *,
+    raw_claims: dict[str, Any],
+    opaque_token_prefix: str | None = None,
+    opaque_token_hash: str | None = None,
+) -> AuthUser:
     scopes = row.get("scopes") or []
     return AuthUser(
         user_id=str(row["id"]),
@@ -295,6 +363,21 @@ def _auth_user_from_service_row(row: dict[str, Any], *, raw_claims: dict[str, An
         tenant_id=str(row["tenant_id"]),
         subprocessor=(str(row["subprocessor"]) if row.get("subprocessor") else None),
         scopes=frozenset(str(s) for s in scopes),
+        opaque_token_prefix=opaque_token_prefix,
+        opaque_token_hash=opaque_token_hash,
+    )
+
+
+def _auth_user_from_erase_tombstone(row: dict[str, Any]) -> AuthUser:
+    """Build a non-service principal valid only for receipt replay."""
+    prefix = str(row["erased_credential_prefix"])
+    return AuthUser(
+        user_id=f"erased:{prefix}",
+        email=None,
+        role="erase_tombstone",
+        raw_claims={"auth": "erased_opaque_tombstone"},
+        kind=PrincipalKind.ERASE_TOMBSTONE,
+        tenant_id=str(row["tenant_id"]),
     )
 
 
@@ -348,7 +431,8 @@ async def get_current_user(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="database unavailable",
             )
-        return await _authenticate_opaque_service(pool, token)
+        principal = await _authenticate_opaque_service(pool, token, request=request)
+        return await _finalize_principal(request, principal)
 
     if not auth_configured():
         raise HTTPException(
@@ -363,8 +447,22 @@ async def get_current_user(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="database unavailable",
             )
-        return await _bind_jwt_service_principal(pool, principal)
+        principal = await _bind_jwt_service_principal(pool, principal)
+    return await _finalize_principal(request, principal)
+
+
+async def _finalize_principal(request: Request, principal: AuthUser) -> AuthUser:
+    _bind_log_context(principal)
+    await enforce_principal_rate_limit(request, principal)
     return principal
+
+
+def _bind_log_context(principal: AuthUser) -> None:
+    bind_principal_context(
+        principal_kind=principal.kind.value,
+        principal_id=principal.user_id,
+        tenant_id=principal.tenant_id,
+    )
 
 
 async def get_optional_user(
@@ -381,7 +479,7 @@ async def get_optional_user(
 
 def require_user_principal(user: AuthUser) -> AuthUser:
     """Reject service tokens on human-only routes (tenant create, mint keys, …)."""
-    if user.is_service:
+    if not user.is_user:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="enterprise user JWT required (service tokens cannot perform this action)",

@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, OnDestroy } from '@angular/core';
 import { createClient, RealtimeChannel, SupabaseClient, type Session } from '@supabase/supabase-js';
 import { BehaviorSubject } from 'rxjs';
 
@@ -14,14 +14,13 @@ export type TelemetryRealtimeRow = {
 };
 
 @Injectable({ providedIn: 'root' })
-export class SupabaseService {
+export class SupabaseService implements OnDestroy {
   private readonly client: SupabaseClient | null;
   private channel: RealtimeChannel | null = null;
+  private authSubscription: { unsubscribe(): void } | null = null;
 
   readonly session$ = new BehaviorSubject<Session | null>(null);
-  readonly configured = Boolean(
-    environment.supabaseUrl && environment.supabaseAnonKey,
-  );
+  readonly configured = Boolean(environment.supabaseUrl && environment.supabaseAnonKey);
 
   constructor() {
     if (!this.configured) {
@@ -36,11 +35,16 @@ export class SupabaseService {
       },
     });
     void this.client.auth.getSession().then(({ data }) => this.session$.next(data.session));
-    this.client.auth.onAuthStateChange((_event, session) => this.session$.next(session));
+    const { data } = this.client.auth.onAuthStateChange((_event, session) =>
+      this.session$.next(session),
+    );
+    this.authSubscription = data.subscription;
   }
 
-  get raw(): SupabaseClient | null {
-    return this.client;
+  ngOnDestroy(): void {
+    this.authSubscription?.unsubscribe();
+    void this.unsubscribeTelemetry();
+    this.session$.complete();
   }
 
   async signIn(email: string, password: string): Promise<void> {
@@ -57,26 +61,20 @@ export class SupabaseService {
 
   async signOut(): Promise<void> {
     if (!this.client) return;
-    await this.client.auth.signOut();
+    const { error } = await this.client.auth.signOut();
+    if (error) throw error;
   }
 
   async accessToken(): Promise<string | null> {
     if (!this.client) return null;
-    const { data } = await this.client.auth.getSession();
+    const { data, error } = await this.client.auth.getSession();
+    if (error) throw error;
     return data.session?.access_token ?? null;
   }
 
-  /**
-   * Subscribe to sealed telemetry inserts for one tenant (RLS filters rows).
-   * Enable Realtime on `telemetry_events` in the Supabase dashboard if needed.
-   */
-  subscribeTelemetry(
-    tenantId: string,
-    onInsert: (row: TelemetryRealtimeRow) => void,
-  ): () => void {
-    if (!this.client) {
-      return () => undefined;
-    }
+  /** Subscribe only to metadata for sealed events visible through tenant RLS. */
+  subscribeTelemetry(tenantId: string, onInsert: (row: TelemetryRealtimeRow) => void): () => void {
+    if (!this.client) return () => undefined;
     void this.unsubscribeTelemetry();
     this.channel = this.client
       .channel(`telemetry:${tenantId}`)
@@ -91,15 +89,12 @@ export class SupabaseService {
         (payload) => onInsert(payload.new as TelemetryRealtimeRow),
       )
       .subscribe();
-    return () => {
-      void this.unsubscribeTelemetry();
-    };
+    return () => void this.unsubscribeTelemetry();
   }
 
   private async unsubscribeTelemetry(): Promise<void> {
-    if (this.client && this.channel) {
-      await this.client.removeChannel(this.channel);
-      this.channel = null;
-    }
+    const channel = this.channel;
+    this.channel = null;
+    if (this.client && channel) await this.client.removeChannel(channel);
   }
 }

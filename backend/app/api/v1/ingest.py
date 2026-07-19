@@ -25,10 +25,18 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.core.auth import AuthUser, get_current_user, pool_from_request
+from app.core.ingest_limits import MAX_INGEST_BATCH_EVENTS, MAX_INGEST_BODY_BYTES
 from app.models.ingest import EmbeddingIngestRequest, IngestBatchRequest, IngestEventRequest
 from app.services import ingest as ingest_svc
+from app.services import ingest_processing as processing_svc
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
+
+_BODY_LIMIT_RESPONSES = {
+    status.HTTP_413_CONTENT_TOO_LARGE: {
+        "description": f"Ingest JSON body exceeds {MAX_INGEST_BODY_BYTES} bytes."
+    }
+}
 
 
 # --- Parse ISO cursor for live polling ---
@@ -45,8 +53,8 @@ def _parse_since(value: str | None) -> datetime | None:
 
 
 # --- Primary ingest (POST /api/v1/ingest) ---
-@router.post("")
-@router.post("/")
+@router.post("", responses=_BODY_LIMIT_RESPONSES)
+@router.post("/", responses=_BODY_LIMIT_RESPONSES)
 async def ingest_root(
     request: Request,
     body: IngestEventRequest,
@@ -57,7 +65,7 @@ async def ingest_root(
 
 
 # --- Sealed telemetry events (aliases under /events) ---
-@router.post("/events")
+@router.post("/events", responses=_BODY_LIMIT_RESPONSES)
 async def ingest_event(
     request: Request,
     body: IngestEventRequest,
@@ -67,20 +75,49 @@ async def ingest_event(
     return await _ingest_one(request, body, user)
 
 
-@router.post("/events:batch")
+@router.post(
+    "/events:batch",
+    responses=_BODY_LIMIT_RESPONSES,
+    description=(
+        f"Ingest up to {MAX_INGEST_BATCH_EVENTS} sealed events within the shared "
+        f"{MAX_INGEST_BODY_BYTES}-byte request cap."
+    ),
+)
 async def ingest_events_batch(
     request: Request,
     body: IngestBatchRequest,
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """Batch ingest (max 100). Server stores ciphertext only."""
+    """Bounded sealed batch ingest. Server stores ciphertext only."""
     pool = pool_from_request(request)
     if pool is None:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
     try:
         return await ingest_svc.ingest_events(pool=pool, user=user, batch=body)
+    except ingest_svc.IngestConflictError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.get("/processing/{batch_id}")
+async def get_processing_status(
+    request: Request,
+    batch_id: UUID,
+    user: AuthUser = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Return a tenant-authorized durable processing receipt (metadata only)."""
+    pool = pool_from_request(request)
+    if pool is None:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
+    try:
+        return await processing_svc.get_processing_batch_status(
+            pool,
+            user=user,
+            batch_id=batch_id,
+        )
+    except LookupError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
 @router.get("/events")
@@ -136,7 +173,7 @@ async def list_results(
 
 
 # --- Tenant-scoped anomaly embeddings (optional sealed context) ---
-@router.post("/embeddings")
+@router.post("/embeddings", responses=_BODY_LIMIT_RESPONSES)
 async def ingest_embedding(
     request: Request,
     body: EmbeddingIngestRequest,
@@ -167,5 +204,7 @@ async def _ingest_one(
             user=user,
             batch=IngestBatchRequest(events=[body]),
         )
+    except ingest_svc.IngestConflictError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

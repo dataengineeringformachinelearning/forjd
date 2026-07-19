@@ -1,8 +1,9 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, from, map, switchMap } from 'rxjs';
 
 import { environment } from '../environments/environment';
+import { SupabaseService } from './supabase';
 
 export interface StackStatus {
   ok: boolean;
@@ -57,6 +58,7 @@ export interface AnomalyScoreResult {
 @Injectable({ providedIn: 'root' })
 export class PulseApi {
   private readonly http = inject(HttpClient);
+  private readonly supabase = inject(SupabaseService);
   private readonly base = environment.apiBaseUrl;
 
   stack(): Observable<StackStatus> {
@@ -64,10 +66,15 @@ export class PulseApi {
   }
 
   pulse(values?: number[]): Observable<PulseResult> {
-    return this.http.post<PulseResult>(`${this.base}/api/v1/pulse`, {
-      values: values ?? [1, 2, 3, 5, 8],
-      source: 'angular',
-    });
+    return this.authHeaders(false).pipe(
+      switchMap((headers) =>
+        this.http.post<PulseResult>(
+          `${this.base}/api/v1/pulse`,
+          { values: values ?? [1, 2, 3, 5, 8], source: 'angular-console' },
+          { headers },
+        ),
+      ),
+    );
   }
 
   last(): Observable<PulseSnapshot> {
@@ -75,19 +82,40 @@ export class PulseApi {
   }
 
   fitAnomaly(): Observable<AnomalyFitResult> {
-    return this.http.post<AnomalyFitResult>(`${this.base}/api/v1/anomaly/fit`, {
-      series_id: 'angular',
-      use_synthetic: true,
-      epochs: 20,
-    });
+    return this.authHeaders(true).pipe(
+      switchMap((headers) =>
+        this.http.post<AnomalyFitResult>(
+          `${this.base}/api/v1/anomaly/fit`,
+          { series_id: 'angular', use_synthetic: true, epochs: 20 },
+          { headers },
+        ),
+      ),
+    );
   }
 
   scoreAnomaly(values?: number[]): Observable<AnomalyScoreResult> {
-    return this.http.post<AnomalyScoreResult>(`${this.base}/api/v1/anomaly/score`, {
-      values: values ?? [0.1, 0.2, 8.0, 9.0, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2],
-      series_id: 'angular',
-      persist: true,
-      neighbors: 3,
-    });
+    return this.authHeaders(true).pipe(
+      switchMap((headers) =>
+        this.http.post<AnomalyScoreResult>(
+          `${this.base}/api/v1/anomaly/score`,
+          {
+            values: values ?? [0.1, 0.2, 8, 9, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2],
+            series_id: 'angular',
+            persist: true,
+            neighbors: 3,
+          },
+          { headers },
+        ),
+      ),
+    );
+  }
+
+  private authHeaders(required: boolean): Observable<HttpHeaders> {
+    return from(this.supabase.accessToken()).pipe(
+      map((token) => {
+        if (!token && required) throw new Error('Sign in before using anomaly controls');
+        return token ? new HttpHeaders({ Authorization: `Bearer ${token}` }) : new HttpHeaders();
+      }),
+    );
   }
 }

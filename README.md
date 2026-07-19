@@ -119,10 +119,13 @@ cargo run --no-default-features --features server   # HTTP on :8080
 
 Production path for sealed partner ingress:
 
-1. Apply SQL `003`→`019` under [`backend/sql/`](backend/sql/) (tenants, RLS, sealed events, projections/DLQ, service accounts, Realtime, ML, partner domain scopes).
+1. Apply SQL `003`→`025` under [`backend/sql/`](backend/sql/) (tenants, RLS, sealed events, projections/DLQ, service accounts, Realtime, ML, replay-safe SIEM/SOAR, durable exports, and ingest-processing recovery).
 2. Configure `SUPABASE_URL` / `SUPABASE_JWT_SECRET` on the API (see `backend/.env.example`).
-3. Clients authenticate with Supabase Auth **or** a tenant service token (`fjsvc_…`), publish X25519 public keys (`POST /api/v1/sessions`), derive AES-256 via ECDH+HKDF, and `POST /api/v1/ingest` with envelopes + `content_type` (YAML workflow in [`backend/workflows/`](backend/workflows/); partner wire ids via YAML `aliases`).
+3. Clients authenticate with Supabase Auth **or** a tenant service token (`fjsvc_…`), publish X25519 public keys (`POST /api/v1/sessions`), derive AES-256 via ECDH+HKDF, and use canonical partner batch `POST /api/v1/ingest/events:batch` with envelopes + `content_type` (YAML workflow in [`backend/workflows/`](backend/workflows/); partner wire ids via YAML `aliases`).
 4. Rust sealed pipeline (Pathway fallback) processes **metadata only**; consumers poll `GET /api/v1/projections` or Realtime on `stream_results`. Partner SaaS apps call FORJD as a subprocessor — see [`backend/docs/AUTH.md`](backend/docs/AUTH.md).
+5. When content-aware SIEM is required, the trusted partner separately submits
+   strict normalized, PII-minimized signals to `/api/v1/siem/signals`; raw
+   evidence remains sealed. Cases and durable playbook runs stay tenant-scoped.
 
 Details: [`backend/sql/README.md`](backend/sql/README.md), [`backend/README.md`](backend/README.md), and [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md).
 

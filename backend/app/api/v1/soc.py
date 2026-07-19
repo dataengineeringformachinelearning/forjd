@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.core.auth import AuthUser, get_current_user, pool_from_request
-from app.models.domain import CreateCaseRequest
+from app.models.domain import CreateCaseRequest, UpdateCaseRequest
 from app.services import soc as soc_svc
 
 router = APIRouter(prefix="/soc", tags=["soc"])
@@ -45,5 +45,25 @@ async def create_case(
         description=body.description,
         severity=body.severity,
         metadata=body.metadata,
+    )
+    return {"ok": True, "case": case}
+
+
+@router.patch("/cases/{case_id}")
+async def update_case(
+    request: Request,
+    case_id: UUID,
+    body: UpdateCaseRequest,
+    user: AuthUser = Depends(get_current_user),
+) -> dict[str, Any]:
+    pool = pool_from_request(request)
+    if pool is None:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
+    case = await soc_svc.update_case(
+        pool,
+        user=user,
+        tenant_id=body.tenant_id,
+        case_id=case_id,
+        updates=body.model_dump(exclude={"tenant_id"}, exclude_unset=True),
     )
     return {"ok": True, "case": case}

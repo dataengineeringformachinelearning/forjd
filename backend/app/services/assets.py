@@ -7,8 +7,10 @@ from typing import Any
 from uuid import UUID
 
 import asyncpg
+from fastapi import HTTPException, status
 
 from app.core.auth import AuthUser
+from app.services import audit
 from app.services import tenants as tenant_svc
 
 
@@ -83,7 +85,17 @@ async def create_asset(
         os_version,
         json.dumps(metadata or {}),
     )
-    return dict(row)
+    out = dict(row)
+    await audit.record_required(
+        pool,
+        action="asset.create",
+        actor_user_id=user.actor_id,
+        tenant_id=tenant_id,
+        resource_type="asset",
+        resource_id=out["id"],
+        details={"environment": environment},
+    )
+    return out
 
 
 async def list_assets(
@@ -125,6 +137,14 @@ async def create_vulnerability(
         required_scopes=frozenset({"vulnerabilities:write"}),
     )
     await ensure_asset_schema(pool)
+    if asset_id is not None:
+        owns_asset = await pool.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM assets WHERE id = $1::uuid AND tenant_id = $2::uuid)",
+            str(asset_id),
+            str(tenant_id),
+        )
+        if not owns_asset:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="asset not found")
     row = await pool.fetchrow(
         """
         INSERT INTO vulnerabilities (
@@ -133,7 +153,8 @@ async def create_vulnerability(
         )
         VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8::jsonb, $9::uuid)
         RETURNING id::text, tenant_id::text, asset_id::text, title, description,
-                  status, severity, cve_id, created_at
+                  status, severity, impact, likelihood, cve_id, telemetry_context,
+                  created_at, updated_at
         """,
         str(tenant_id),
         str(asset_id) if asset_id else None,
@@ -145,7 +166,17 @@ async def create_vulnerability(
         json.dumps(telemetry_context or {}),
         user.user_id,
     )
-    return dict(row)
+    out = dict(row)
+    await audit.record_required(
+        pool,
+        action="vulnerability.create",
+        actor_user_id=user.actor_id,
+        tenant_id=tenant_id,
+        resource_type="vulnerability",
+        resource_id=out["id"],
+        details={"severity": severity, "status": status, "has_asset": asset_id is not None},
+    )
+    return out
 
 
 async def list_vulnerabilities(
@@ -161,7 +192,8 @@ async def list_vulnerabilities(
     rows = await pool.fetch(
         """
         SELECT id::text, tenant_id::text, asset_id::text, title, description,
-               status, severity, cve_id, created_at
+               status, severity, impact, likelihood, cve_id, telemetry_context,
+               created_at, updated_at
         FROM vulnerabilities WHERE tenant_id = $1::uuid
         ORDER BY created_at DESC LIMIT $2
         """,
@@ -169,3 +201,76 @@ async def list_vulnerabilities(
         max(1, min(limit, 500)),
     )
     return [dict(r) for r in rows]
+
+
+async def update_vulnerability(
+    pool: asyncpg.Pool,
+    *,
+    user: AuthUser,
+    tenant_id: UUID,
+    vulnerability_id: UUID,
+    updates: dict[str, Any],
+) -> dict[str, Any]:
+    await tenant_svc.require_tenant_access(
+        pool,
+        principal=user,
+        tenant_id=tenant_id,
+        min_roles=frozenset({"owner", "admin", "member"}),
+        required_scopes=frozenset({"vulnerabilities:write"}),
+    )
+    await ensure_asset_schema(pool)
+    allowed = {
+        "asset_id": "uuid",
+        "title": "text",
+        "description": "text",
+        "status": "text",
+        "severity": "text",
+        "impact": "int",
+        "likelihood": "int",
+        "cve_id": "text",
+        "telemetry_context": "jsonb",
+    }
+    clean = {key: value for key, value in updates.items() if key in allowed}
+    if not clean:
+        raise ValueError("at least one vulnerability field must be supplied")
+    asset_id = clean.get("asset_id")
+    if asset_id is not None:
+        owns_asset = await pool.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM assets WHERE id = $1::uuid AND tenant_id = $2::uuid)",
+            str(asset_id),
+            str(tenant_id),
+        )
+        if not owns_asset:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="asset not found")
+    args: list[Any] = [str(vulnerability_id), str(tenant_id)]
+    assignments: list[str] = []
+    for key, value in clean.items():
+        args.append(json.dumps(value) if key == "telemetry_context" else value)
+        assignments.append(f"{key} = ${len(args)}::{allowed[key]}")
+    row = await pool.fetchrow(
+        f"""
+        UPDATE vulnerabilities
+        SET {", ".join(assignments)}, updated_at = NOW()
+        WHERE id = $1::uuid AND tenant_id = $2::uuid
+        RETURNING id::text, tenant_id::text, asset_id::text, title, description,
+                  status, severity, impact, likelihood, cve_id, telemetry_context,
+                  created_at, updated_at
+        """,
+        *args,
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="vulnerability not found",
+        )
+    out = dict(row)
+    await audit.record_required(
+        pool,
+        action="vulnerability.update",
+        actor_user_id=user.actor_id,
+        tenant_id=tenant_id,
+        resource_type="vulnerability",
+        resource_id=str(vulnerability_id),
+        details={"fields": sorted(clean)},
+    )
+    return out

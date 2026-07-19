@@ -7,14 +7,13 @@ asyncpg wants a plain `postgresql://…` URL — we normalize once here.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 import socket
 from urllib.parse import urlparse, urlunparse
 
 import asyncpg
 from redis import asyncio as aioredis
-from redis.backoff import NoBackoff
+from redis.backoff import ExponentialWithJitterBackoff
 from redis.retry import Retry
 
 from app.core.config import settings
@@ -78,7 +77,6 @@ async def create_db_pool() -> asyncpg.Pool | None:
 
 
 async def create_redis_client() -> aioredis.Redis | None:
-    client: aioredis.Redis | None = None
     try:
         redis_url = prefer_fly_ipv6_url(settings.REDIS_URL)
         client = aioredis.from_url(
@@ -86,17 +84,22 @@ async def create_redis_client() -> aioredis.Redis | None:
             decode_responses=True,
             socket_connect_timeout=2,
             socket_timeout=2,
-            retry_on_timeout=False,
-            retry=Retry(NoBackoff(), retries=0),
-            health_check_interval=0,
+            retry_on_timeout=True,
+            retry=Retry(ExponentialWithJitterBackoff(cap=0.5, base=0.05), retries=3),
+            health_check_interval=30,
         )
+    except Exception:
+        logger.exception("redis client configuration failed — /ready will fail")
+        return None
+
+    try:
         # Cap soft-connect so missing Dragonfly does not stall API boot.
         await asyncio.wait_for(client.ping(), timeout=3)
         logger.info("redis connected")
-        return client
     except Exception:
-        logger.exception("redis unavailable — app will start; /ready will fail")
-        if client is not None:
-            with contextlib.suppress(Exception):
-                await client.aclose()
-        return None
+        # Keep the lazy client. Redis reconnects on later /ready and request calls,
+        # allowing recovery from a startup race without restarting the API process.
+        logger.warning(
+            "redis unavailable at startup — client retained for reconnect", exc_info=True
+        )
+    return client

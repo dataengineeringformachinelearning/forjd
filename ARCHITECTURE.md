@@ -5,8 +5,10 @@ Universal secure streaming engine. Stability and E2EE over novelty.
 ## Principles
 
 1. **Supabase-first** — Postgres + pgvector + Auth + Realtime for platform identity and durable storage.
-2. **Rust-max hot path** — ingestion edge, sealed-metadata pipeline, outbox/relay, probes, and scheduling live in `forjd-engine`.
-3. **Ciphertext-blind server** — AES-256-GCM envelopes with X25519/HKDF session keys derived client-side; server stores ciphertext and opaque ratchet headers only.
+2. **One durable ingest authority** — FastAPI owns authenticated sealed-event acceptance and its processing ledger; Rust owns the sealed-metadata hot path, outbox/relay, probes, and scheduling.
+3. **Two explicit security lanes** — sealed evidence stays ciphertext-blind; a
+   separate strict, selectively disclosed signal lane stores only normalized,
+   PII-minimized fields needed for SIEM correlation and SOAR.
 4. **Config over forks** — YAML/JSON workflows under `backend/workflows/` select processors, detectors, and projections per use case.
 
 ## Layers
@@ -17,7 +19,8 @@ Partner SaaS (subprocessor)  Tenant-scoped service token (fjsvc_… / M2M JWT)
         │
         ▼
 FastAPI (forjd-backend)     Principal verify (user vs service), tenancy, Prefect
-        │  metadata only
+        │                    ├─ sealed evidence → telemetry_events (ciphertext)
+        │                    └─ normalized signal → security_signals (no raw payload)
         ▼
 forjd-engine (Rust)         /v1/sealed/pipeline · data-plane FORJD_ROLE
         │
@@ -29,12 +32,15 @@ Dragonfly                   Streams bus · rate limits · cache
 | Concern | Owner |
 |---------|--------|
 | Auth / principals | Supabase Auth users + `service_accounts` (sql/014); see `backend/docs/AUTH.md` |
-| Sealed ingest API | FastAPI → Postgres (ciphertext-only); user JWT or tenant service token |
+| Sealed ingest API | FastAPI `/api/v1/ingest/events:batch` → Postgres (ciphertext-only); canonical partner/DEML contract |
+| Retired Rust ingest edge | `/api/v1/ingest` returns `410 Gone`; it never claims acceptance or publishes to an unconsumed stream |
 | Crypto sessions / replay / status / analytics | FastAPI + `require_tenant_access` (human member **or** scoped `fjsvc_`) |
-| Daemon ingest (API key) | Rust `FORJD_ROLE=ingest` → outbox (sealed envelopes required) |
+| Daemon/partner ingest | FastAPI canonical sealed batch with scoped `fjsvc_` token; durable acceptance and processing receipts |
 | Rollup + size/rate detectors | Rust `run_sealed_pipeline` (Pathway fallback) |
 | Outbox → Streams, probes, cron | Rust data plane |
-| Batch analytics / ML / SOC domain | Python (Polars / Prefect / optional torch) |
+| Normalized SIEM signals / cases | FastAPI + `security_signals` / `incident_cases`; strict tenant scopes |
+| Durable SOAR | Versioned playbooks + idempotent runs/action receipts; control-plane actions await acknowledgement |
+| Batch analytics / ML | Python (Polars / Prefect / optional torch) |
 | Realtime UI | Supabase Realtime on `stream_results` / `telemetry_events` metadata |
 
 ## E2EE invariants
@@ -45,6 +51,33 @@ Dragonfly                   Streams bus · rate limits · cache
 - `crypto_sessions` stores **public** X25519 keys only; `revoked_at` blocks ingest
 - Pathway / Rust pipeline never receive ciphertext fields
 - Internode AES-GCM on Dragonfly Streams is **transport** crypto (server-held keys), not client E2EE
+- `security_signals` never stores ciphertext, raw evidence, credentials, email
+  addresses, or direct usernames; it contains explicitly disclosed normalized
+  fields and bounded observables only.
+
+## Headless SIEM/SOAR
+
+`POST /api/v1/siem/signals` is the normalized, tenant-idempotent signal lane.
+`client_signal_id` identifies retries; reuse with different normalized content
+returns `409`. Signals can correlate into tenant cases and matching playbooks.
+The raw evidence that produced a signal stays on the sealed ingest lane.
+
+SOAR execution is durable in `playbook_runs` and
+`playbook_action_results`. Webhooks can succeed only after a real 2xx response.
+Each run freezes its ordered action plan; later playbook edits cannot add, drop,
+or reorder work in an in-flight version. Retryable webhook failures (`408`,
+`425`, `429`, `5xx`, and network errors) use bounded exponential backoff,
+`Retry-After` capping, stable delivery idempotency keys, and leased
+`SKIP LOCKED` worker claims. Permanent `4xx` failures require an explicit
+operator retry. Control-plane actions are never auto-retried.
+Partner-owned actions such as `block_ip` or `revoke_api_key` remain
+`awaiting_ack` until the control plane acknowledges the action result. Custom
+TAXII and webhook egress is HTTPS-only in production, has redirects disabled,
+rejects non-public addresses, and must match `OUTBOUND_HOST_ALLOWLIST`.
+
+Manual correlations have tenant/key/request-fingerprint receipts covering case
+and playbook effects. Privileged SIEM/SOAR audit writes fail closed, and SQL
+enforces `audit_events` as append-only.
 
 ## Configurable pipelines
 
@@ -76,16 +109,23 @@ Product names never belong in engine/API code.
   credential the subprocessor uses against FORJD.
 - Service principals cannot cross tenants, create tenants, or mint other keys.
 - Default scopes cover ingest, projections, crypto sessions, replay/DLQ,
-  status management, and analytics reads (see `AUTH.md`).
+  status management, analytics reads, normalized SIEM, cases, playbooks, and
+  report documents (`reports:read`/`reports:write`, `sql/022`).
+  Global feed administration, tenant TAXII writes, erase, and ML writes remain
+  human-only or explicit opt-ins (see `AUTH.md`).
 - Details, scopes, and minting API: [`backend/docs/AUTH.md`](backend/docs/AUTH.md).
 
 ## SQL apply order
 
-`003` → `019` under `backend/sql/` (see that folder’s README). Production forces
+`003` → `025` under `backend/sql/` (see that folder’s README). Production forces
 `SOFT_MIGRATE_SCHEMA=false`, `REQUIRE_RLS=true`, `REQUIRE_CRYPTO_SESSION=true`.
 Realtime + `projection_feed` land in `015`; ML scores/runs in `016`; service-principal
 session actor + expanded default scopes in `017`; partner domain scopes + erase in `018`;
-erase opt-in defaults in `019`.
+erase opt-in defaults in `019`; normalized SIEM/SOAR and scoped defaults in
+`020`; sealed-ingest/projection/replay reliability state in `021`; report
+documents in `022`; durable exports in `023`; durable ingest-processing
+recovery in `024`; and immutable SIEM/SOAR replay plus continuation recovery
+in `025`.
 
 Postgres host is **Supabase** (`POSTGRES_DSN`). Partner control-plane databases may
 optionally co-locate in the same project under a non-`public` schema — see

@@ -1,0 +1,174 @@
+<main class="console">
+  <header class="console__header">
+    <nav class="console__nav" aria-label="Console navigation">
+      <a routerLink="/">← FORJD</a>
+      <a [href]="docsUrl" target="_blank" rel="noopener">API docs</a>
+    </nav>
+    <p class="fj-brand">FORJD console</p>
+    <h1 class="fj-headline">Secure streaming operations</h1>
+    <p class="fj-lede console__lede">
+      Inspect stack health, run a pulse, manage tenant access, and seal a test event entirely in
+      this browser before ciphertext-only ingest.
+    </p>
+  </header>
+
+  <div class="console__actions">
+    <forjd-button type="button" (click)="runPulse()" [attr.aria-busy]="busy()">
+      {{ busy() ? 'Running…' : 'Run pulse' }}
+    </forjd-button>
+    <forjd-button
+      type="button"
+      variant="ghost"
+      (click)="runAnomaly()"
+      [attr.aria-busy]="anomalyBusy()"
+    >
+      {{ anomalyBusy() ? 'Scoring…' : 'Fit + score dev anomaly' }}
+    </forjd-button>
+    <forjd-button variant="ghost" type="button" (click)="refreshStack()">
+      Refresh stack
+    </forjd-button>
+  </div>
+
+  @if (error()) {
+    <p class="fj-error" role="alert">{{ error() }}</p>
+  }
+
+  <forjd-panel title="Stack" aria-label="Stack status">
+    @if (stackChecks(); as checks) {
+      <forjd-status-list [items]="checks" />
+    } @else {
+      <p class="fj-muted">No stack status yet.</p>
+    }
+  </forjd-panel>
+
+  <forjd-panel title="Secure stream (E2EE)" aria-label="Secure streaming">
+    @if (!supabaseReady) {
+      <p class="fj-muted">
+        Configure the public Supabase URL and anon key at build time to enable Auth and Realtime.
+        Never place a service-role key or tenant service token in the browser.
+      </p>
+    } @else if (!sessionEmail()) {
+      <form class="console__form" (submit)="$event.preventDefault(); signIn()">
+        <label class="console__field">
+          <span>Email</span>
+          <input type="email" name="email" [(ngModel)]="email" autocomplete="username" required />
+        </label>
+        <label class="console__field">
+          <span>Password</span>
+          <input
+            type="password"
+            name="password"
+            [(ngModel)]="password"
+            autocomplete="current-password"
+            required
+          />
+        </label>
+        <div class="console__actions">
+          <forjd-button type="submit">Sign in</forjd-button>
+          <forjd-button type="button" variant="ghost" (click)="signUp()">Sign up</forjd-button>
+        </div>
+      </form>
+    } @else {
+      <p class="fj-meta console__meta">Signed in as {{ sessionEmail() }}</p>
+      <div class="console__actions">
+        <forjd-button type="button" variant="ghost" (click)="signOut()">Sign out</forjd-button>
+        <forjd-button type="button" variant="ghost" (click)="refreshTenants()">
+          Refresh tenants
+        </forjd-button>
+      </div>
+
+      <div class="console__form">
+        <label class="console__field">
+          <span>Tenant slug</span>
+          <input type="text" name="slug" [(ngModel)]="tenantSlug" />
+        </label>
+        <label class="console__field">
+          <span>Tenant name</span>
+          <input type="text" name="name" [(ngModel)]="tenantName" />
+        </label>
+        <div class="console__actions">
+          <forjd-button type="button" (click)="createTenant()" [attr.aria-busy]="secureBusy()">
+            Create tenant
+          </forjd-button>
+          <forjd-button
+            type="button"
+            variant="ghost"
+            (click)="sealAndIngest()"
+            [attr.aria-busy]="secureBusy()"
+          >
+            {{ secureBusy() ? 'Sealing…' : 'Seal + ingest event' }}
+          </forjd-button>
+        </div>
+      </div>
+
+      @if (tenants().length) {
+        <ul class="console__list" aria-label="Available tenants">
+          @for (tenant of tenants(); track tenant.id) {
+            <li>
+              <button
+                type="button"
+                class="console__tenant"
+                [class.console__tenant--active]="tenant.id === activeTenantId()"
+                [attr.aria-pressed]="tenant.id === activeTenantId()"
+                (click)="selectTenant(tenant.id)"
+              >
+                {{ tenant.slug }} · {{ tenant.role }}
+              </button>
+            </li>
+          }
+        </ul>
+      }
+
+      @if (ingestResult(); as ingest) {
+        <p class="fj-meta console__meta">
+          Ingest accepted {{ ingest.accepted }}
+          @if (ingest.processing_state; as state) {
+            · processing {{ state }}
+          }
+        </p>
+        <details class="console__details">
+          <summary>Receipt JSON (metadata only)</summary>
+          <pre>{{ ingest | json }}</pre>
+        </details>
+      }
+
+      @if (realtimeEvents().length) {
+        <p class="fj-meta console__meta">Realtime inserts (IDs and ciphertext hashes only)</p>
+        <ul class="console__list">
+          @for (event of realtimeEvents(); track event.id) {
+            <li class="fj-muted">
+              {{ event.client_event_id }} · {{ event.ciphertext_sha256?.slice(0, 12) }}…
+            </li>
+          }
+        </ul>
+      }
+    }
+  </forjd-panel>
+
+  @if (pulse(); as result) {
+    <forjd-panel title="Last pulse" aria-label="Last pulse">
+      <p class="fj-meta console__meta">
+        {{ result.layers_ok }}/{{ result.layers_total }} layers · id {{ result.id }}
+      </p>
+      <forjd-status-list [items]="layerEntries()" />
+      <details class="console__details">
+        <summary>Raw JSON</summary>
+        <pre>{{ result | json }}</pre>
+      </details>
+    </forjd-panel>
+  }
+
+  @if (anomaly(); as result) {
+    <forjd-panel title="Development anomaly (LSTM-AE)" aria-label="Anomaly score">
+      <p class="fj-meta console__meta">
+        error {{ result.reconstruction_error | number: '1.4-4' }} · threshold
+        {{ result.threshold | number: '1.4-4' }} ·
+        {{ result.is_anomaly ? 'anomaly' : 'normal' }}
+        @if (result.embedding_id) {
+          · id {{ result.embedding_id }}
+        }
+      </p>
+      <p class="fj-muted">This global proof-of-concept endpoint is disabled in production.</p>
+    </forjd-panel>
+  }
+</main>

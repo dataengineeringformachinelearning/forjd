@@ -1,6 +1,6 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, from, switchMap } from 'rxjs';
+import { Observable, from, map, switchMap } from 'rxjs';
 
 import { environment } from '../environments/environment';
 import type { SealedEnvelope } from './crypto/seal';
@@ -18,12 +18,18 @@ export interface Tenant {
 export interface IngestResult {
   ok: boolean;
   accepted: number;
+  new_events?: number;
+  duplicates?: number;
+  processing_state?: 'not_required' | 'completed' | 'failed';
+  processing_mode?: 'synchronous';
+  async_processing_available?: boolean;
   results: Array<{
     id: string;
     tenant_id: string;
     client_event_id: string;
     created_at: string;
     duplicate: boolean;
+    workflow_id?: string | null;
   }>;
   prefect?: Record<string, unknown>;
 }
@@ -36,16 +42,9 @@ export class SecureApi {
 
   private withAuth(): Observable<HttpHeaders> {
     return from(this.supabase.accessToken()).pipe(
-      switchMap((token) => {
-        if (!token) {
-          throw new Error('Sign in with Supabase Auth first (set supabaseAnonKey)');
-        }
-        return from([
-          new HttpHeaders({
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          }),
-        ]);
+      map((token) => {
+        if (!token) throw new Error('Sign in with Supabase Auth first');
+        return new HttpHeaders({ Authorization: `Bearer ${token}` });
       }),
     );
   }
@@ -72,7 +71,7 @@ export class SecureApi {
     );
   }
 
-  /** Publish X25519 public key; session_id must match envelope.key_id on ingest. */
+  /** Publish public X25519 material; private keys never enter this request. */
   upsertSession(opts: {
     tenantId: string;
     sessionId: string;
@@ -112,7 +111,6 @@ export class SecureApi {
         ratchet_header: opts.envelope.ratchetHeader,
         ciphertext_sha256: opts.envelope.ciphertextSha256,
       },
-      // Routing tags only (server allowlists metadata keys).
       metadata: opts.metadata ?? { source: 'angular' },
     };
     return this.withAuth().pipe(

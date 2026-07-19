@@ -30,7 +30,7 @@ uv run forjd
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/health` | Liveness |
-| GET | `/ready` | Postgres + Dragonfly |
+| GET | `/ready` | Postgres + Dragonfly + supervised workers (+ object storage in production) |
 | GET | `/api/v1/stack` | Layer status for the UI |
 | POST | `/api/v1/pulse` | Run one connected pulse |
 | GET | `/api/v1/pulse` | Cached last pulse + recent rows |
@@ -41,7 +41,8 @@ uv run forjd
 | GET/POST/DELETE | `/api/v1/service-accounts` | Mint / list / revoke tenant-scoped M2M tokens |
 | POST | `/api/v1/ingest` | Sealed event ingest (user JWT or service token) |
 | POST | `/api/v1/ingest/events` | Alias of `/ingest` |
-| POST | `/api/v1/ingest/events:batch` | Batch ingest (≤100) |
+| POST | `/api/v1/ingest/events:batch` | Canonical DEML/partner sealed batch ingest (≤25 events, ≤8 MiB request) |
+| GET | `/api/v1/ingest/processing/{batch_id}` | Durable post-acceptance processing status |
 | GET | `/api/v1/ingest/events?tenant_id=` | List event metadata (no ciphertext bodies) |
 | GET | `/api/v1/ingest/results?tenant_id=` | Pathway/Prefect `stream_results` (+ optional `workflow_id`) |
 | POST | `/api/v1/ingest/embeddings` | Tenant-scoped vectors (ML / threat features) |
@@ -53,16 +54,39 @@ uv run forjd
 | GET | `/api/v1/replay/dlq` | Projection DLQ |
 | GET/POST | `/api/v1/status/pages` | Status pages (JWT manage) |
 | GET | `/api/v1/status/pages/slug/{slug}` | Public published status page |
+| GET/POST | `/api/v1/siem/signals` | Filter/create tenant-idempotent, PII-minimized normalized signals |
+| GET/POST/PATCH | `/api/v1/soc/cases` | Tenant case management (`PATCH` uses `/{case_id}`) |
+| GET/POST/PATCH | `/api/v1/playbooks` | Versioned playbook management (`PATCH` uses `/{playbook_id}`) |
+| POST | `/api/v1/playbooks/{playbook_id}/execute` | Durable idempotent manual execution |
+| GET | `/api/v1/playbooks/runs` | Durable run/action state |
+| POST | `/api/v1/playbooks/runs/{run_id}/actions/{result_id}/ack` | Control-plane action acknowledgement |
+| POST | `/api/v1/playbooks/runs/{run_id}/actions/{result_id}/retry` | Queue an explicit bounded webhook retry |
+| GET/POST | `/api/v1/exports` | List/create durable idempotent tenant exports |
+| GET | `/api/v1/exports/{job_id}` | Poll export status/checksum/expiry |
+| GET | `/api/v1/exports/{job_id}/download` | Create a short-lived private signed download |
+
+Exports support CSV, JSON, Parquet, and PDF. PDF is explicitly capped at 1,000
+rows; other formats page up to the requested 100,000-row limit within the
+configured source/artifact byte budgets, without silent truncation.
 
 ### Secure streaming (Supabase Auth + E2EE)
 
-1. Run SQL `003`→`015` (see [`sql/README.md`](sql/README.md)).
+1. Run SQL `003`→`025` (see [`sql/README.md`](sql/README.md)).
 2. Set `SUPABASE_URL` and/or `SUPABASE_JWT_SECRET` in `.env`.
 3. **Enterprise users:** Supabase Auth → `Authorization: Bearer <access_token>`.
 4. **Subprocessors:** admin mints `POST /api/v1/service-accounts` → the partner calls with `Bearer fjsvc_…` (see [`docs/AUTH.md`](docs/AUTH.md)). Partners keep their own end-user auth.
 5. Publish X25519 *public* keys via `POST /api/v1/sessions` (private keys stay on device / subprocessor).
-6. Derive AES-256 via X25519 ECDH + HKDF; seal with AES-256-GCM; `POST /api/v1/ingest` with `content_type` / optional `event_type` / `workflow_id`.
+6. Derive AES-256 via X25519 ECDH + HKDF; seal with AES-256-GCM; use canonical partner batch `POST /api/v1/ingest/events:batch` with `content_type` / optional `event_type` / `workflow_id`.
 7. Prefect / Rust sealed pipeline write durable `stream_results`; poll `GET /api/v1/projections?since=` or Realtime; `POST /api/v1/projections/run` for catch-up.
+
+Discover the live headless contract and exact request limits at
+`GET /api/v1/capabilities`. Canonical ingest is capped before JSON parsing at
+8 MiB per request and 25 events per batch; oversized requests return `413`.
+Sealed acceptance also creates an ordered, version/hash-bound processing
+receipt and a required tenant-scoped, metadata-only audit event in the same
+transaction; an audit persistence failure rolls back acceptance. The API still attempts work synchronously;
+leased workers recover crashes/restarts, and clients can poll the returned
+`processing_batches[].status_path`. No `202` asynchronous contract is claimed.
 
 **New use case:** add `workflows/my_saas.yaml` (or a detector under `app/workflows/detectors/`) — no ingest/API fork required.
 
@@ -71,6 +95,20 @@ Optional security, ML, and testing integrations use the disabled-by-default
 YAML profile through `FORJD_ADDONS_CONFIG`; inspect state at `GET /api/v1/addons`.
 
 Server-minimal knowledge: Double Ratchet headers stay opaque; FastAPI never decrypts E2EE ciphertext. Self-check: `uv run python -m unittest discover -s tests -v`.
+
+Content-aware SIEM is an explicit second lane, not a decryption shortcut. A
+trusted partner submits only normalized, bounded, PII-minimized fields to
+`/api/v1/siem/signals`; raw evidence stays sealed. In production, configure
+`OUTBOUND_HOST_ALLOWLIST` before using custom TAXII feeds or webhook actions.
+Webhook playbooks may store an opaque `secret_ref`; resolve its HMAC key from
+the deployment-secret `WEBHOOK_SIGNING_SECRETS_JSON` mapping. Missing refs fail
+without sending an unsigned request, and secret values are never persisted or
+returned.
+
+The compatibility `POST /api/v1/integrations/security-alert` route now requires
+`client_alert_id` and timezone-aware `observed_at` and delegates to the same
+idempotent normalized-signal core. New integrations should call
+`POST /api/v1/siem/signals` directly.
 
 ### ML suite (optional)
 
@@ -112,7 +150,8 @@ Build from **repo root** (engine + backend + ML group):
 docker build -f backend/Dockerfile -t forjd-backend .
 ```
 
-The image installs the `ml` dependency group (CPU torch) and mounts checkpoints at `ML_MODEL_DIR` (`/data/models` on Fly).
+The image installs the `ml` and object-storage dependency groups (CPU torch +
+S3 client) and mounts checkpoints at `ML_MODEL_DIR` (`/data/models` on Fly).
 
 Compose (from `backend/`):
 

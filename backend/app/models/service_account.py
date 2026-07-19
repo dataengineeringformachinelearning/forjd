@@ -13,6 +13,8 @@ class ServiceAccountCreate(BaseModel):
     # e.g. "partner-app" — audit / policy label; not a trust boundary by itself.
     subprocessor: str = Field(default="", max_length=64)
     scopes: list[str] | None = None
+    # Extends canonical DEFAULT_SCOPES without making scripts duplicate them.
+    include_tenant_erase: bool = False
     # Optional Supabase Auth user for M2M JWTs (app_metadata.forjd).
     auth_user_id: UUID | None = None
     # When true (default), mint an opaque fjsvc_… token returned once.

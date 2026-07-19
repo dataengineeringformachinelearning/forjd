@@ -13,9 +13,15 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import os
+import re
 import sys
+from pathlib import Path
 from typing import Any
+
+_MIGRATION_RE = re.compile(r"^(\d{3})_[a-z0-9_]+\.sql$")
+_SQL_DIR = Path(__file__).resolve().parents[1] / "sql"
 
 
 def _normalize_dsn(raw: str) -> str:
@@ -52,6 +58,13 @@ async def _check(conn: Any) -> list[tuple[str, bool, str]]:
         "status_pages",
         "service_accounts",
         "embedding_vectors",
+        "security_signals",
+        "correlation_receipts",
+        "playbook_runs",
+        "playbook_action_results",
+        "tenant_erase_receipts",
+        "ingest_processing_batches",
+        "forjd_schema_migrations",
     )
     for table in needed:
         exists = await conn.fetchval(
@@ -74,6 +87,14 @@ async def _check(conn: Any) -> list[tuple[str, bool, str]]:
         "crypto_sessions",
         "service_accounts",
         "embedding_vectors",
+        "projection_checkpoints",
+        "projection_dlq",
+        "security_signals",
+        "correlation_receipts",
+        "playbook_runs",
+        "playbook_action_results",
+        "tenant_erase_receipts",
+        "ingest_processing_batches",
     )
     for table in rls_tables:
         enabled = await conn.fetchval(
@@ -86,6 +107,164 @@ async def _check(conn: Any) -> list[tuple[str, bool, str]]:
             table,
         )
         results.append((f"rls_{table}", bool(enabled), "on" if enabled else "OFF"))
+        if enabled:
+            policies = await conn.fetchval(
+                """
+                SELECT COUNT(*) FROM pg_policies
+                WHERE schemaname = 'public' AND tablename = $1
+                """,
+                table,
+            )
+            results.append(
+                (
+                    f"policy_{table}",
+                    bool(policies),
+                    f"{int(policies or 0)} policy(s)",
+                )
+            )
+
+    # --- Reliability columns and indexes introduced by migrations 021-025 ---
+    required_columns = {
+        "telemetry_events": ("ciphertext_bytes", "ingest_fingerprint"),
+        "stream_results": ("projection_result_key", "projection_version"),
+        "projection_dlq": (
+            "dedupe_key",
+            "projection_version",
+            "next_attempt_at",
+            "locked_by",
+            "lease_expires_at",
+            "max_attempts",
+        ),
+        "tenant_erase_receipts": (
+            "erased_credential_prefix",
+            "erased_credential_hash",
+        ),
+        "ingest_processing_batches": (
+            "workflow_hash",
+            "workflow_snapshot",
+            "event_ids",
+            "tenant_ids",
+            "status",
+            "lease_owner",
+            "lease_expires_at",
+        ),
+        "security_signals": (
+            "processing_status",
+            "processing_result",
+            "processing_completed_at",
+        ),
+        "correlation_receipts": ("result_snapshot",),
+        "playbook_action_results": ("configuration_snapshot",),
+    }
+    for table, columns in required_columns.items():
+        for column in columns:
+            exists = await conn.fetchval(
+                """
+                SELECT EXISTS (
+                  SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'public'
+                    AND table_name = $1
+                    AND column_name = $2
+                )
+                """,
+                table,
+                column,
+            )
+            results.append(
+                (
+                    f"column_{table}_{column}",
+                    bool(exists),
+                    "ok" if exists else "MISSING",
+                )
+            )
+
+    for index in (
+        "stream_results_projection_result_uidx",
+        "projection_dlq_open_dedupe_uidx",
+        "telemetry_events_projector_cursor_idx",
+        "tenant_erase_receipts_credential_hash_uidx",
+        "ingest_processing_worker_idx",
+        "ingest_processing_event_ids_gin_idx",
+        "export_jobs_tenant_idempotency_idx",
+        "export_jobs_worker_idx",
+        "export_jobs_expiry_idx",
+        "export_jobs_artifact_cleanup_idx",
+        "security_signals_processing_idx",
+        "playbook_runs_continuation_ready_idx",
+    ):
+        exists = await conn.fetchval(
+            """
+            SELECT EXISTS (
+              SELECT 1 FROM pg_indexes
+              WHERE schemaname = 'public' AND indexname = $1
+            )
+            """,
+            index,
+        )
+        results.append((f"index_{index}", bool(exists), "ok" if exists else "MISSING"))
+
+    for trigger in (
+        "ingest_processing_identity_immutable",
+        "ingest_processing_tenant_integrity",
+    ):
+        exists = await conn.fetchval(
+            """
+            SELECT EXISTS (
+              SELECT 1
+              FROM pg_trigger t
+              JOIN pg_class c ON c.oid = t.tgrelid
+              JOIN pg_namespace n ON n.oid = c.relnamespace
+              WHERE n.nspname = 'public'
+                AND c.relname = 'ingest_processing_batches'
+                AND t.tgname = $1
+                AND NOT t.tgisinternal
+            )
+            """,
+            trigger,
+        )
+        results.append(
+            (
+                f"trigger_{trigger}",
+                bool(exists),
+                "ok" if exists else "MISSING",
+            )
+        )
+
+    # --- Migration ledger: every local migration must match its applied checksum ---
+    migration_paths: dict[int, Path] = {}
+    for path in _SQL_DIR.glob("*.sql"):
+        match = _MIGRATION_RE.fullmatch(path.name)
+        if match and int(match.group(1)) >= 3:
+            migration_paths[int(match.group(1))] = path
+    ledger_errors: list[str] = []
+    ledger_exists = await conn.fetchval(
+        "SELECT to_regclass('public.forjd_schema_migrations') IS NOT NULL"
+    )
+    if ledger_exists:
+        applied_rows = await conn.fetch(
+            """
+            SELECT version, name, checksum_sha256
+            FROM public.forjd_schema_migrations
+            ORDER BY version
+            """
+        )
+        applied = {int(row["version"]): row for row in applied_rows}
+        for version, path in sorted(migration_paths.items()):
+            row = applied.get(version)
+            checksum = hashlib.sha256(path.read_bytes()).hexdigest()
+            if row is None:
+                ledger_errors.append(f"{version:03d}:missing")
+            elif row["name"] != path.name or row["checksum_sha256"] != checksum:
+                ledger_errors.append(f"{version:03d}:drift")
+    else:
+        ledger_errors.append("table:missing")
+    results.append(
+        (
+            "migration_ledger",
+            not ledger_errors and bool(migration_paths),
+            "ok" if not ledger_errors else ", ".join(ledger_errors),
+        )
+    )
 
     # --- Realtime publication ---
     pub = await conn.fetchval(
@@ -110,9 +289,12 @@ async def _check(conn: Any) -> list[tuple[str, bool, str]]:
         """,
                 rel,
             )
-            # Optional — 015 may add them when publication exists
             results.append(
-                (f"realtime_{rel}", True, "published" if in_pub else "not_in_publication")
+                (
+                    f"realtime_{rel}",
+                    bool(in_pub),
+                    "published" if in_pub else "not_in_publication",
+                )
             )
 
     # --- Views ---
@@ -172,7 +354,12 @@ async def main() -> int:
         "extension_",
         "table_",
         "rls_",
+        "policy_",
+        "column_",
+        "index_",
+        "migration_ledger",
         "publication_supabase_realtime",
+        "realtime_",
         "view_",
     )
     failed = 0

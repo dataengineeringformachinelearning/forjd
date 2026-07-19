@@ -44,18 +44,36 @@ DEFAULT_SCOPES: tuple[str, ...] = (
     "status:read",
     "status:write",
     "analytics:read",
+    # DEML's read-only ML dashboard is part of the standard mapped contract.
+    # Training remains opt-in via ml:write.
+    "ml:read",
     # Partner product-domain adapters (sql/018) — remint existing tokens.
     "exports:read",
     "exports:write",
     "vulnerabilities:read",
     "vulnerabilities:write",
     "integrations:write",
+    # Headless SIEM/SOAR control surfaces (sql/020).
+    "siem:read",
+    "siem:write",
+    "cases:read",
+    "cases:write",
+    "playbooks:read",
+    "playbooks:write",
+    "playbooks:execute",
+    "threat-intel:read",
+    # Tenant-scoped report documents (sql/022) — remint existing tokens.
+    "reports:read",
+    "reports:write",
 )
 
 ALLOWED_SCOPES = frozenset(
     {
         *DEFAULT_SCOPES,
         "analytics:write",
+        "threat-intel:write",
+        "ml:read",
+        "ml:write",
         "tenants:erase",
         "*",
     }
@@ -81,9 +99,15 @@ async def ensure_schema(pool: asyncpg.Pool) -> None:
                 'replay:read', 'replay:write',
                 'status:read', 'status:write',
                 'analytics:read',
+                'ml:read',
                 'exports:read', 'exports:write',
                 'vulnerabilities:read', 'vulnerabilities:write',
-                'integrations:write'
+                'integrations:write',
+                'siem:read', 'siem:write',
+                'cases:read', 'cases:write',
+                'playbooks:read', 'playbooks:write', 'playbooks:execute',
+                'threat-intel:read',
+                'reports:read', 'reports:write'
             ]::text[],
             is_active BOOLEAN NOT NULL DEFAULT TRUE,
             revoked_at TIMESTAMPTZ,
@@ -96,16 +120,19 @@ async def ensure_schema(pool: asyncpg.Pool) -> None:
     )
 
 
-def _normalize_scopes(scopes: list[str] | None) -> list[str]:
+def _normalize_scopes(scopes: list[str] | None, *, include_tenant_erase: bool = False) -> list[str]:
     if not scopes:
-        return list(DEFAULT_SCOPES)
-    out: list[str] = []
-    for s in scopes:
-        key = str(s).strip()
-        if key not in ALLOWED_SCOPES:
-            raise ValueError(f"unknown scope: {key!r}")
-        if key not in out:
-            out.append(key)
+        out = list(DEFAULT_SCOPES)
+    else:
+        out = []
+        for s in scopes:
+            key = str(s).strip()
+            if key not in ALLOWED_SCOPES:
+                raise ValueError(f"unknown scope: {key!r}")
+            if key not in out:
+                out.append(key)
+    if include_tenant_erase and "tenants:erase" not in out:
+        out.append("tenants:erase")
     return out
 
 
@@ -170,6 +197,44 @@ async def authenticate_opaque(
     return dict(row)
 
 
+async def authenticate_erased_opaque(
+    pool: asyncpg.Pool,
+    *,
+    tenant_id: UUID,
+    prefix: str,
+    token: str,
+) -> dict[str, Any] | None:
+    """Authenticate only a completed erase receipt's credential tombstone.
+
+    The caller in ``app.core.auth`` route-gates this lookup to the exact erase
+    retry endpoint. This persistence layer additionally binds the hash to the
+    requested tenant and refuses pending receipts.
+    """
+    row = await pool.fetchrow(
+        """
+        SELECT tenant_id::text, requested_by, erased_credential_prefix,
+               erased_credential_hash, completed_at
+        FROM tenant_erase_receipts
+        WHERE tenant_id = $1::uuid
+          AND status = 'completed'
+          AND completed_at IS NOT NULL
+          AND erased_credential_prefix = $2
+        """,
+        str(tenant_id),
+        prefix,
+    )
+    if row is None:
+        return None
+    expected = row["erased_credential_hash"]
+    if (
+        not isinstance(expected, str)
+        or len(expected) != 64
+        or not hmac.compare_digest(hash_service_token(token), expected)
+    ):
+        return None
+    return dict(row)
+
+
 async def authenticate_auth_user(pool: asyncpg.Pool, *, auth_user_id: str) -> dict[str, Any] | None:
     row = await pool.fetchrow(
         """
@@ -195,6 +260,7 @@ async def create_service_account(
     name: str,
     subprocessor: str = "",
     scopes: list[str] | None = None,
+    include_tenant_erase: bool = False,
     auth_user_id: UUID | None = None,
     mint_opaque_token: bool = True,
 ) -> dict[str, Any]:
@@ -206,7 +272,7 @@ async def create_service_account(
         min_roles=frozenset({"owner", "admin"}),
     )
     await ensure_schema(pool)
-    clean_scopes = _normalize_scopes(scopes)
+    clean_scopes = _normalize_scopes(scopes, include_tenant_erase=include_tenant_erase)
     if not mint_opaque_token and auth_user_id is None:
         raise ValueError("auth_user_id required when mint_opaque_token is false")
 
@@ -247,7 +313,7 @@ async def create_service_account(
         ) from exc
 
     assert row is not None
-    await audit.record(
+    await audit.record_required(
         pool,
         action="service_account.create",
         actor_user_id=user.actor_id,
@@ -329,7 +395,7 @@ async def revoke_service_account(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="service account not found",
         )
-    await audit.record(
+    await audit.record_required(
         pool,
         action="service_account.revoke",
         actor_user_id=user.actor_id,

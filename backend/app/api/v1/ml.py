@@ -36,8 +36,15 @@ async def _require_tenant(
     *,
     write: bool,
 ) -> None:
+    required_scope = frozenset({"ml:write" if write else "ml:read"})
     if tenant_id is None:
-        # Allow platform PoC without DB write; warn via response later.
+        # Retain the human-only PoC while preventing a service principal from
+        # escaping its tenant binding by omitting tenant_id.
+        if user.is_service:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="tenant_id is required for service principals",
+            )
         return
     pool = pool_from_request(request)
     if pool is None:
@@ -52,7 +59,17 @@ async def _require_tenant(
         principal=user,
         tenant_id=tenant_id,
         min_roles=roles,
+        required_scopes=required_scope,
     )
+
+
+def _require_catalog_scope(user: AuthUser) -> None:
+    """Keep the global model catalog readable to humans but scoped for M2M."""
+    if user.is_service and "*" not in user.scopes and "ml:read" not in user.scopes:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="insufficient service scope",
+        )
 
 
 # --- Catalog ---
@@ -60,7 +77,7 @@ async def _require_tenant(
 async def list_ml_models(
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
-    _ = user
+    _require_catalog_scope(user)
     return {
         "ok": True,
         "models": ml_registry.list_models(),
@@ -138,7 +155,7 @@ async def score_ml_model(
     body: MlScoreRequest,
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
-    await _require_tenant(request, user, body.tenant_id, write=False)
+    await _require_tenant(request, user, body.tenant_id, write=True)
     pool = pool_from_request(request)
     kwargs: dict[str, Any] = {
         "tenant_id": str(body.tenant_id) if body.tenant_id else None,

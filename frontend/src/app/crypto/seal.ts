@@ -1,10 +1,6 @@
 /**
- * Client-side AES-256-GCM seal matching backend `app.core.crypto`.
- *
- * AAD = `${tenantId}|${clientEventId}` (UTF-8).
- * Derive message keys via X25519 ECDH + HKDF (`x25519.ts`), then seal here.
- * Double Ratchet headers are opaque base64 — clients own key material;
- * the API never decrypts (server-minimal / zero-knowledge of plaintext).
+ * Client-side AES-256-GCM sealing matching backend `app.core.crypto`.
+ * Private keys and plaintext remain in the browser; FORJD receives only the envelope.
  */
 
 export const ALGO_AES_256_GCM = 'aes-256-gcm';
@@ -19,61 +15,47 @@ export interface SealedEnvelope {
   ciphertextSha256: string;
 }
 
-// --- Encoding / hashing helpers ---
+// --- Encoding and hashing ---
 function b64Encode(bytes: ArrayBuffer | Uint8Array): string {
-  const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-  let s = '';
-  for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]!);
-  return btoa(s);
+  const value = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  let binary = '';
+  for (const byte of value) binary += String.fromCharCode(byte);
+  return btoa(binary);
 }
 
-function b64Decode(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
+function b64Decode(value: string): Uint8Array {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
 }
 
 async function sha256Hex(data: Uint8Array): Promise<string> {
-  const copy = new Uint8Array(data);
-  const digest = await crypto.subtle.digest('SHA-256', copy);
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  const digest = await crypto.subtle.digest('SHA-256', asBufferSource(data));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 function asBufferSource(data: Uint8Array): BufferSource {
-  // TS 6 / DOM lib: narrow away SharedArrayBuffer-backed views.
   return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
 }
 
-// --- AAD + AES key helpers ---
+// --- AAD and AES key helpers ---
 export function associatedData(tenantId: string, clientEventId: string): Uint8Array {
   return new TextEncoder().encode(`${tenantId}|${clientEventId}`);
 }
 
 export async function generateAesKey(): Promise<CryptoKey> {
-  return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
-    'encrypt',
-    'decrypt',
-  ]);
+  return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
 }
 
 export async function importAesKeyRaw(raw: Uint8Array): Promise<CryptoKey> {
-  const copy = new Uint8Array(raw);
-  return crypto.subtle.importKey('raw', copy, { name: 'AES-GCM' }, false, [
+  return crypto.subtle.importKey('raw', asBufferSource(raw), { name: 'AES-GCM' }, false, [
     'encrypt',
     'decrypt',
   ]);
 }
 
-export async function exportAesKeyRaw(key: CryptoKey): Promise<Uint8Array> {
-  return new Uint8Array(await crypto.subtle.exportKey('raw', key));
-}
-
-// --- Seal / open (AES-256-GCM) ---
-/**
- * Seal plaintext for FORJD ingest. `ratchetHeader` is opaque (base64); pass a
- * client-generated ratchet blob or a PoC placeholder.
- */
+// --- Sealing boundary ---
 export async function seal(
   plaintext: string | Uint8Array,
   opts: {
@@ -88,7 +70,7 @@ export async function seal(
     typeof plaintext === 'string' ? new TextEncoder().encode(plaintext) : new Uint8Array(plaintext);
   const nonce = crypto.getRandomValues(new Uint8Array(12));
   const aad = associatedData(opts.tenantId, opts.clientEventId);
-  const ct = new Uint8Array(
+  const ciphertext = new Uint8Array(
     await crypto.subtle.encrypt(
       {
         name: 'AES-GCM',
@@ -104,29 +86,26 @@ export async function seal(
     algo: ALGO_AES_256_GCM,
     keyId: opts.keyId,
     nonce: b64Encode(nonce),
-    ciphertext: b64Encode(ct),
+    ciphertext: b64Encode(ciphertext),
     ratchetHeader: opts.ratchetHeader ?? null,
-    ciphertextSha256: await sha256Hex(ct),
+    ciphertextSha256: await sha256Hex(ciphertext),
   };
 }
 
-/** Local decrypt for demos — never used by the server E2EE path. */
+/** Browser-only test/demo open path. The server never calls or receives key material from it. */
 export async function openEnvelope(
   envelope: SealedEnvelope,
   opts: { key: CryptoKey; tenantId: string; clientEventId: string },
 ): Promise<Uint8Array> {
-  const nonce = b64Decode(envelope.nonce);
-  const ct = b64Decode(envelope.ciphertext);
-  const aad = associatedData(opts.tenantId, opts.clientEventId);
-  const pt = await crypto.subtle.decrypt(
+  const plaintext = await crypto.subtle.decrypt(
     {
       name: 'AES-GCM',
-      iv: asBufferSource(nonce),
-      additionalData: asBufferSource(aad),
+      iv: asBufferSource(b64Decode(envelope.nonce)),
+      additionalData: asBufferSource(associatedData(opts.tenantId, opts.clientEventId)),
       tagLength: 128,
     },
     opts.key,
-    asBufferSource(ct),
+    asBufferSource(b64Decode(envelope.ciphertext)),
   );
-  return new Uint8Array(pt);
+  return new Uint8Array(plaintext);
 }

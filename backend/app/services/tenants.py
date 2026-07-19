@@ -6,6 +6,7 @@ Services: hard-bound to one `tenant_id` + capability scopes (see sql/014).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 from uuid import UUID
@@ -15,24 +16,70 @@ from fastapi import HTTPException, status
 
 from app.core.auth import AuthUser, PrincipalKind
 from app.core.config import settings
+from app.core.request_context import bind_principal_context
 
 logger = logging.getLogger("forjd.tenants")
 
-# Tables that must exist with RLS when REQUIRE_RLS is set.
+# Every migrated tenant/security table must exist with RLS when REQUIRE_RLS is
+# set. Keeping this exhaustive prevents a feature-specific ensure_* helper from
+# silently creating an unconstrained table after readiness already passed.
 _RLS_TABLES = (
-    "tenants",
-    "tenant_members",
-    "telemetry_events",
+    "aggregated_analytics",
+    "assets",
+    "audit_events",
     "crypto_sessions",
-    "stream_results",
+    "correlation_receipts",
+    "daemon_api_keys",
+    "discovered_endpoints",
+    "embedding_vectors",
+    "endpoint_observations",
+    "export_jobs",
+    "health_probe_observations",
+    "honeypot_endpoints",
+    "honeypot_interactions",
+    "incident_cases",
+    "ingest_processing_batches",
+    "lighthouse_scans",
+    "ml_scores",
+    "outbox_events",
+    "playbook_action_results",
+    "playbook_actions",
+    "playbook_runs",
+    "playbooks",
     "projection_checkpoints",
     "projection_dlq",
+    "report_archives",
+    "report_documents",
+    "scheduled_task_runs",
+    "security_signals",
+    "service_accounts",
+    "status_incidents",
     "status_pages",
+    "status_services",
+    "stream_results",
+    "telemetry_events",
+    "telemetry_ingest_receipts",
+    "tenant_erase_receipts",
+    "tenant_members",
+    "tenants",
+    "threat_intelligence",
+    "threat_reports",
+    "training_runs",
+    "use_cases",
+    "validated_sites",
+    "vulnerabilities",
+    "web_technology_observations",
 )
+
+# Cache only successful work for the lifetime of a concrete pool. The pool
+# object is retained alongside its id so Python id reuse cannot inherit a prior
+# result. Tests and lifecycle code can invalidate explicitly.
+_SCHEMA_SUCCESS: dict[tuple[int, str, bool, bool], object] = {}
+_SCHEMA_LOCKS: dict[tuple[int, str, bool, bool], tuple[object, asyncio.Lock]] = {}
 
 
 # --- Schema readiness (fail closed in production) ---
-async def assert_secure_schema(pool: asyncpg.Pool) -> None:
+async def _assert_secure_schema_uncached(pool: asyncpg.Pool) -> None:
     """Ensure required tables exist; optionally require RLS enabled."""
     missing: list[str] = []
     for table in _RLS_TABLES:
@@ -49,7 +96,8 @@ async def assert_secure_schema(pool: asyncpg.Pool) -> None:
             missing.append(table)
     if missing:
         raise RuntimeError(
-            "secure schema incomplete — apply backend/sql/003–019; missing: " + ", ".join(missing)
+            "secure schema incomplete — apply every migration in backend/sql; missing: "
+            + ", ".join(missing)
         )
 
     if not settings.REQUIRE_RLS:
@@ -72,14 +120,14 @@ async def assert_secure_schema(pool: asyncpg.Pool) -> None:
 
 
 # --- Local soft-migrate (shapes only; full RLS needs sql/003–019) ---
-async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
+async def _ensure_secure_schema_uncached(pool: asyncpg.Pool) -> None:
     """Ensure schema for local/dev; production asserts migrations + RLS.
 
     Soft-migrate creates table shapes without policies — never used when
     ENVIRONMENT=production (SOFT_MIGRATE_SCHEMA forced false).
     """
     if not settings.SOFT_MIGRATE_SCHEMA:
-        await assert_secure_schema(pool)
+        await _assert_secure_schema_uncached(pool)
         return
 
     try:
@@ -141,6 +189,18 @@ async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
     # Additive columns when an older soft-migrate shape already exists.
     await pool.execute("ALTER TABLE telemetry_events ADD COLUMN IF NOT EXISTS event_type TEXT")
     await pool.execute("ALTER TABLE telemetry_events ADD COLUMN IF NOT EXISTS workflow_id TEXT")
+    await pool.execute("ALTER TABLE telemetry_events ADD COLUMN IF NOT EXISTS ciphertext_bytes INT")
+    await pool.execute(
+        "ALTER TABLE telemetry_events ADD COLUMN IF NOT EXISTS ingest_fingerprint TEXT"
+    )
+    await pool.execute(
+        """
+        UPDATE telemetry_events
+        SET ciphertext_bytes = octet_length(decode(ciphertext, 'base64'))
+        WHERE ciphertext_bytes IS NULL
+        """
+    )
+    await pool.execute("ALTER TABLE telemetry_events ALTER COLUMN ciphertext_bytes SET NOT NULL")
     await pool.execute(
         """
         CREATE TABLE IF NOT EXISTS embedding_vectors (
@@ -185,6 +245,38 @@ async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
         """
         ALTER TABLE stream_results
         ADD COLUMN IF NOT EXISTS projection_version INT NOT NULL DEFAULT 1
+        """
+    )
+    await pool.execute(
+        "ALTER TABLE stream_results ADD COLUMN IF NOT EXISTS projection_result_key TEXT"
+    )
+    await pool.execute(
+        """
+        UPDATE stream_results
+        SET projection_name = COALESCE(
+          NULLIF(projection_name, ''),
+          NULLIF(metadata ->> 'projection_name', ''),
+          'sealed.default'
+        )
+        WHERE projection_name IS NULL OR projection_name = ''
+        """
+    )
+    await pool.execute("ALTER TABLE stream_results ALTER COLUMN projection_name SET NOT NULL")
+    await pool.execute(
+        """
+        UPDATE stream_results
+        SET projection_result_key = encode(digest(id::text, 'sha256'), 'hex')
+        WHERE projection_result_key IS NULL
+        """
+    )
+    await pool.execute("ALTER TABLE stream_results ALTER COLUMN projection_result_key SET NOT NULL")
+    await pool.execute("DROP INDEX IF EXISTS stream_results_proj_idem_uidx")
+    await pool.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS stream_results_projection_result_uidx
+          ON stream_results (
+            tenant_id, projection_name, projection_version, projection_result_key
+          )
         """
     )
     await pool.execute(
@@ -253,12 +345,142 @@ async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
             source_event_id UUID,
             workflow_id TEXT,
             projection_name TEXT NOT NULL,
+            projection_version INT NOT NULL DEFAULT 1
+                CHECK (projection_version >= 1),
             error TEXT NOT NULL,
             payload_meta JSONB NOT NULL DEFAULT '{}'::jsonb,
             attempts INT NOT NULL DEFAULT 0,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             resolved_at TIMESTAMPTZ
         )
+        """
+    )
+    await pool.execute(
+        """
+        ALTER TABLE projection_dlq
+        ADD COLUMN IF NOT EXISTS projection_version INT NOT NULL DEFAULT 1
+        """
+    )
+    await pool.execute("ALTER TABLE projection_dlq ADD COLUMN IF NOT EXISTS dedupe_key TEXT")
+    await pool.execute(
+        """
+        ALTER TABLE projection_dlq
+        ADD COLUMN IF NOT EXISTS error_class TEXT NOT NULL DEFAULT 'processing_error'
+        """
+    )
+    await pool.execute(
+        "ALTER TABLE projection_dlq ADD COLUMN IF NOT EXISTS max_attempts INT NOT NULL DEFAULT 10"
+    )
+    await pool.execute(
+        """
+        ALTER TABLE projection_dlq
+        ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        """
+    )
+    await pool.execute(
+        "ALTER TABLE projection_dlq ADD COLUMN IF NOT EXISTS last_attempt_at TIMESTAMPTZ"
+    )
+    await pool.execute("ALTER TABLE projection_dlq ADD COLUMN IF NOT EXISTS locked_at TIMESTAMPTZ")
+    await pool.execute("ALTER TABLE projection_dlq ADD COLUMN IF NOT EXISTS locked_by TEXT")
+    await pool.execute(
+        "ALTER TABLE projection_dlq ADD COLUMN IF NOT EXISTS lease_expires_at TIMESTAMPTZ"
+    )
+    await pool.execute(
+        """
+        ALTER TABLE projection_dlq
+        ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        """
+    )
+    await pool.execute(
+        """
+        UPDATE projection_dlq
+        SET dedupe_key = encode(digest(id::text, 'sha256'), 'hex')
+        WHERE dedupe_key IS NULL
+        """
+    )
+    await pool.execute("ALTER TABLE projection_dlq ALTER COLUMN dedupe_key SET NOT NULL")
+    await pool.execute(
+        """
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conname = 'projection_dlq_projection_version_positive'
+              AND conrelid = 'projection_dlq'::regclass
+          ) THEN
+            ALTER TABLE projection_dlq
+              ADD CONSTRAINT projection_dlq_projection_version_positive
+              CHECK (projection_version >= 1);
+          END IF;
+        END $$
+        """
+    )
+    await pool.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS projection_dlq_open_dedupe_uidx
+          ON projection_dlq (tenant_id, dedupe_key)
+          WHERE resolved_at IS NULL
+        """
+    )
+    await pool.execute(
+        """
+        CREATE INDEX IF NOT EXISTS projection_dlq_retry_ready_idx
+          ON projection_dlq (next_attempt_at, created_at)
+          WHERE resolved_at IS NULL
+        """
+    )
+    await pool.execute(
+        """
+        CREATE TABLE IF NOT EXISTS ingest_processing_batches (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            acceptance_id UUID NOT NULL,
+            group_ordinal INT NOT NULL,
+            dedupe_key TEXT NOT NULL UNIQUE,
+            requested_by TEXT NOT NULL,
+            workflow_id TEXT NOT NULL,
+            workflow_version INT NOT NULL,
+            workflow_hash TEXT NOT NULL,
+            workflow_snapshot JSONB NOT NULL,
+            projection_name TEXT NOT NULL,
+            projection_version INT NOT NULL,
+            content_type TEXT NOT NULL,
+            event_type TEXT,
+            events JSONB NOT NULL,
+            event_ids UUID[] NOT NULL,
+            tenant_ids UUID[] NOT NULL,
+            status TEXT NOT NULL DEFAULT 'queued'
+                CHECK (status IN (
+                    'queued', 'running', 'retry_scheduled', 'completed', 'failed'
+                )),
+            attempts INT NOT NULL DEFAULT 0,
+            max_attempts INT NOT NULL DEFAULT 10,
+            next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            last_attempt_at TIMESTAMPTZ,
+            lease_owner UUID,
+            lease_expires_at TIMESTAMPTZ,
+            error_class TEXT,
+            error TEXT,
+            result_summary JSONB NOT NULL DEFAULT '{}'::jsonb,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            completed_at TIMESTAMPTZ,
+            UNIQUE (acceptance_id, group_ordinal)
+        )
+        """
+    )
+    await pool.execute(
+        """
+        CREATE INDEX IF NOT EXISTS ingest_processing_worker_idx
+          ON ingest_processing_batches (
+            next_attempt_at, created_at, acceptance_id, group_ordinal
+          )
+          WHERE status IN ('queued', 'retry_scheduled')
+        """
+    )
+    await pool.execute(
+        """
+        CREATE INDEX IF NOT EXISTS ingest_processing_event_ids_gin_idx
+          ON ingest_processing_batches USING GIN (event_ids)
         """
     )
     await pool.execute(
@@ -431,9 +653,15 @@ async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
                 'replay:read', 'replay:write',
                 'status:read', 'status:write',
                 'analytics:read',
+                'ml:read',
                 'exports:read', 'exports:write',
                 'vulnerabilities:read', 'vulnerabilities:write',
-                'integrations:write'
+                'integrations:write',
+                'siem:read', 'siem:write',
+                'cases:read', 'cases:write',
+                'playbooks:read', 'playbooks:write', 'playbooks:execute',
+                'threat-intel:read',
+                'reports:read', 'reports:write'
             ]::text[],
             is_active BOOLEAN NOT NULL DEFAULT TRUE,
             revoked_at TIMESTAMPTZ,
@@ -444,6 +672,109 @@ async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
         )
         """
     )
+
+    await pool.execute(
+        """
+        CREATE TABLE IF NOT EXISTS tenant_erase_receipts (
+            tenant_id UUID PRIMARY KEY,
+            requested_by TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',
+            deleted_counts JSONB NOT NULL DEFAULT '{}'::jsonb,
+            erased_credential_prefix TEXT,
+            erased_credential_hash TEXT,
+            requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            completed_at TIMESTAMPTZ,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """
+    )
+    await pool.execute(
+        """
+        ALTER TABLE tenant_erase_receipts
+        ADD COLUMN IF NOT EXISTS erased_credential_prefix TEXT
+        """
+    )
+    await pool.execute(
+        """
+        ALTER TABLE tenant_erase_receipts
+        ADD COLUMN IF NOT EXISTS erased_credential_hash TEXT
+        """
+    )
+    await pool.execute(
+        """
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conname = 'tenant_erase_receipts_credential_tombstone_shape'
+              AND conrelid = 'tenant_erase_receipts'::regclass
+          ) THEN
+            ALTER TABLE tenant_erase_receipts
+              ADD CONSTRAINT tenant_erase_receipts_credential_tombstone_shape
+              CHECK (
+                (erased_credential_prefix IS NULL AND erased_credential_hash IS NULL)
+                OR (
+                  erased_credential_prefix IS NOT NULL
+                  AND erased_credential_hash IS NOT NULL
+                  AND char_length(erased_credential_prefix) = 8
+                  AND erased_credential_hash ~ '^[0-9a-f]{64}$'
+                )
+              );
+          END IF;
+        END $$
+        """
+    )
+    await pool.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS tenant_erase_receipts_credential_hash_uidx
+          ON tenant_erase_receipts (erased_credential_hash)
+          WHERE erased_credential_hash IS NOT NULL
+        """
+    )
+
+
+def reset_secure_schema_cache(pool: asyncpg.Pool | None = None) -> None:
+    """Invalidate cached schema success (test isolation and pool lifecycle)."""
+    if pool is None:
+        _SCHEMA_SUCCESS.clear()
+        _SCHEMA_LOCKS.clear()
+        return
+    pool_id = id(pool)
+    for key in [key for key in _SCHEMA_SUCCESS if key[0] == pool_id]:
+        _SCHEMA_SUCCESS.pop(key, None)
+    for key in [key for key in _SCHEMA_LOCKS if key[0] == pool_id]:
+        _SCHEMA_LOCKS.pop(key, None)
+
+
+async def _run_schema_once(
+    pool: asyncpg.Pool,
+    *,
+    mode: str,
+    operation: Any,
+) -> None:
+    key = (id(pool), mode, bool(settings.SOFT_MIGRATE_SCHEMA), bool(settings.REQUIRE_RLS))
+    if _SCHEMA_SUCCESS.get(key) is pool:
+        return
+
+    lock_entry = _SCHEMA_LOCKS.get(key)
+    if lock_entry is None or lock_entry[0] is not pool:
+        lock_entry = (pool, asyncio.Lock())
+        _SCHEMA_LOCKS[key] = lock_entry
+    async with lock_entry[1]:
+        if _SCHEMA_SUCCESS.get(key) is pool:
+            return
+        await operation(pool)
+        _SCHEMA_SUCCESS[key] = pool
+
+
+async def assert_secure_schema(pool: asyncpg.Pool) -> None:
+    """Verify the production schema once per pool/configuration signature."""
+    await _run_schema_once(pool, mode="assert", operation=_assert_secure_schema_uncached)
+
+
+async def ensure_secure_schema(pool: asyncpg.Pool) -> None:
+    """Apply local soft-DDL or assert production schema once per pool."""
+    await _run_schema_once(pool, mode="ensure", operation=_ensure_secure_schema_uncached)
 
 
 # --- Membership checks ---
@@ -492,6 +823,11 @@ async def require_tenant_access(
 
     Services cannot cross tenants — `principal.tenant_id` must equal `tenant_id`.
     """
+    if principal.kind == PrincipalKind.ERASE_TOMBSTONE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="erased credential is valid only for its completed erase receipt",
+        )
     if principal.kind == PrincipalKind.SERVICE:
         if not principal.tenant_id or principal.tenant_id != str(tenant_id):
             raise HTTPException(
@@ -503,14 +839,25 @@ async def require_tenant_access(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="insufficient service scope",
             )
+        bind_principal_context(
+            principal_kind=principal.kind.value,
+            principal_id=principal.user_id,
+            tenant_id=str(tenant_id),
+        )
         return "service"
 
-    return await require_member(
+    role = await require_member(
         pool,
         tenant_id=tenant_id,
         user_id=principal.user_id,
         min_roles=min_roles,
     )
+    bind_principal_context(
+        principal_kind=principal.kind.value,
+        principal_id=principal.user_id,
+        tenant_id=str(tenant_id),
+    )
+    return role
 
 
 # --- Tenant CRUD ---

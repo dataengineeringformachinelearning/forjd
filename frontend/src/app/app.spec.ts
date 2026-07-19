@@ -1,13 +1,15 @@
-import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
+
 import { App } from './app';
+import { routes } from './app.routes';
+import { Landing } from './landing/landing';
 
 describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideRouter([])],
     }).compileComponents();
   });
 
@@ -16,10 +18,15 @@ describe('App', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
-  it('should render the FORJD brand', async () => {
+  it('should host routed pages without coupling the landing to the console', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.fj-brand')?.textContent).toContain('FORJD');
+    expect(compiled.querySelector('router-outlet')).toBeTruthy();
+  });
+
+  it('should render the landing eagerly and isolate the console behind a lazy route', () => {
+    expect(routes.find(({ path }) => path === '')?.component).toBe(Landing);
+    expect(routes.find(({ path }) => path === 'console')?.loadComponent).toBeTypeOf('function');
   });
 });

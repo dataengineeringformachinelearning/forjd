@@ -1,15 +1,17 @@
 //! Data-plane HTTP routes (ingest edge + optional CPE) — merged into forjd-engine.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use axum::{
     Json, Router,
     extract::{DefaultBodyLimit, State},
-    http::{HeaderMap, StatusCode},
+    http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
     routing::post,
 };
-use serde::{Deserialize, Serialize};
+use base64::{Engine as _, engine::general_purpose::STANDARD};
+use serde::Deserialize;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
@@ -33,13 +35,6 @@ struct IngestPayload {
     records: Vec<Value>,
 }
 
-#[derive(Debug, Serialize)]
-struct IngestResponse {
-    status: &'static str,
-    message: &'static str,
-    processed_records: usize,
-}
-
 struct AuthenticatedAccount {
     account_id: Uuid,
     rate_limit_rpm: i32,
@@ -50,7 +45,13 @@ pub struct ApiError(pub StatusCode, pub String);
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        (self.0, Json(json!({"detail": self.1}))).into_response()
+        let mut response = (self.0, Json(json!({"detail": self.1}))).into_response();
+        if self.0 == StatusCode::TOO_MANY_REQUESTS {
+            response
+                .headers_mut()
+                .insert(header::RETRY_AFTER, HeaderValue::from_static("60"));
+        }
+        response
     }
 }
 
@@ -96,16 +97,32 @@ pub async fn data_plane_ready(state: &DataPlaneState) -> (StatusCode, Json<Value
     if state.cpe_only {
         return cpe::ready_cpe(state).await;
     }
-    match sqlx::query_scalar::<_, i32>("SELECT 1")
+    let postgres = sqlx::query_scalar::<_, i32>("SELECT 1")
         .fetch_one(&state.pool)
         .await
-    {
-        Ok(_) => (StatusCode::OK, Json(json!({"status": "ready"}))),
-        Err(_) => (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(json!({"status": "not_ready", "reason": "postgres"})),
-        ),
-    }
+        .is_ok();
+    let redis = match state.redis.as_ref() {
+        Some(client) => match client.get_multiplexed_async_connection().await {
+            Ok(mut connection) => redis::cmd("PING")
+                .query_async::<String>(&mut connection)
+                .await
+                .is_ok_and(|reply| reply == "PONG"),
+            Err(_) => false,
+        },
+        None => false,
+    };
+    let ready = postgres && redis;
+    (
+        if ready {
+            StatusCode::OK
+        } else {
+            StatusCode::SERVICE_UNAVAILABLE
+        },
+        Json(json!({
+            "status": if ready { "ready" } else { "not_ready" },
+            "checks": {"postgres": postgres, "redis": redis},
+        })),
+    )
 }
 
 fn build_redis_client(
@@ -129,66 +146,28 @@ fn build_redis_client(
     Ok(Some(client))
 }
 
-// --- Edge ingest → durable outbox ---
+// --- Retired compatibility edge ---
+// The old handler published `app-events`, for which this repository has no
+// consumer. It must never claim acceptance. Authenticated callers receive a
+// fail-closed migration response and use the canonical FastAPI sealed batch.
 #[tracing::instrument(name = "rust_ingest", skip_all, fields(batch_id = %payload.batch_id))]
 async fn ingest(
     State(state): State<Arc<DataPlaneState>>,
     headers: HeaderMap,
     Json(payload): Json<IngestPayload>,
-) -> Result<(StatusCode, Json<IngestResponse>), ApiError> {
+) -> Result<Json<Value>, ApiError> {
     validate_payload(&payload)?;
     let account = authenticate(&state.pool, &headers).await?;
     enforce_rate_limit(&state, &account).await?;
-
-    let mut event = json!({
-        "batch_id": payload.batch_id,
-        "records": payload.records,
-        "account_id": account.account_id,
-        "event_type": "ingestion",
-        "version": "1.0",
-    });
-    let canonical = serde_json::to_vec(&event)
-        .map_err(|_| ApiError(StatusCode::BAD_REQUEST, "invalid JSON payload".to_string()))?;
-    let chain_hash = hex::encode(Sha256::digest(&canonical));
-    event["chain_of_custody_hash"] = Value::String(chain_hash);
-    let idempotency_key = format!("ingest:{}:{}", account.account_id, payload.batch_id);
-    let inserted = sqlx::query_scalar::<_, Uuid>(
-        r#"
-        INSERT INTO outbox_events
-            (id, topic, key, payload, headers, idempotency_key, created_at, available_at,
-             attempts, is_published)
-        VALUES ($1, 'app-events', $2, $3, $4, $5, NOW(), NOW(), 0, false)
-        ON CONFLICT (idempotency_key) DO NOTHING
-        RETURNING id
-        "#,
-    )
-    .bind(Uuid::new_v4())
-    .bind(account.account_id.to_string())
-    .bind(event)
-    .bind(json!({"version": "1.0", "event_type": "ingestion", "source": "forjd-engine"}))
-    .bind(idempotency_key)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|error| {
-        tracing::error!(%error, "ingest: outbox insert failed");
-        ApiError(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "ingestion queue unavailable".to_string(),
-        )
-    })?;
-
-    let duplicate = inserted.is_none();
-    Ok((
-        StatusCode::OK,
-        Json(IngestResponse {
-            status: "success",
-            message: if duplicate {
-                "Batch was already accepted."
-            } else {
-                "Batch durably accepted for processing."
-            },
-            processed_records: payload.records.len(),
-        }),
+    tracing::warn!(
+        tenant_id = %account.account_id,
+        records = payload.records.len(),
+        "retired Rust compatibility ingest rejected; use canonical FastAPI batch"
+    );
+    Err(ApiError(
+        StatusCode::GONE,
+        "Rust compatibility ingest is retired; use POST /api/v1/ingest/events:batch on backend.forjd.co"
+            .to_string(),
     ))
 }
 
@@ -215,6 +194,7 @@ fn validate_payload(payload: &IngestPayload) -> Result<(), ApiError> {
             "records must contain between 1 and 10000 items".to_string(),
         ));
     }
+    let mut nonces = HashSet::new();
     for record in &payload.records {
         let Some(obj) = record.as_object() else {
             return Err(ApiError(
@@ -231,22 +211,78 @@ fn validate_payload(payload: &IngestPayload) -> Result<(), ApiError> {
                 ));
             }
         }
-        let has_cipher = obj
+        let cipher = obj
             .get("ciphertext")
             .and_then(|v| v.as_str())
-            .is_some_and(|s| !s.is_empty());
-        let has_nonce = obj
+            .filter(|s| !s.is_empty());
+        let nonce = obj
             .get("nonce")
             .and_then(|v| v.as_str())
-            .is_some_and(|s| !s.is_empty());
-        let has_key = obj
+            .filter(|s| !s.is_empty());
+        let key_id = obj
             .get("key_id")
             .and_then(|v| v.as_str())
-            .is_some_and(|s| !s.is_empty());
-        if !(has_cipher && has_nonce && has_key) {
+            .filter(|s| !s.is_empty());
+        let (Some(cipher), Some(nonce), Some(key_id)) = (cipher, nonce, key_id) else {
             return Err(ApiError(
                 StatusCode::BAD_REQUEST,
                 "each record requires ciphertext, nonce, and key_id (E2EE envelope)".to_string(),
+            ));
+        };
+        if key_id.len() > 256 || key_id.chars().any(char::is_whitespace) {
+            return Err(ApiError(
+                StatusCode::BAD_REQUEST,
+                "key_id must be a non-whitespace token of at most 256 characters".to_string(),
+            ));
+        }
+        if obj
+            .get("algo")
+            .and_then(Value::as_str)
+            .is_some_and(|algo| algo != "aes-256-gcm")
+        {
+            return Err(ApiError(
+                StatusCode::BAD_REQUEST,
+                "only aes-256-gcm envelopes are accepted".to_string(),
+            ));
+        }
+        let nonce_bytes = STANDARD.decode(nonce).map_err(|_| {
+            ApiError(
+                StatusCode::BAD_REQUEST,
+                "nonce must be standard base64".to_string(),
+            )
+        })?;
+        if nonce_bytes.len() != 12 {
+            return Err(ApiError(
+                StatusCode::BAD_REQUEST,
+                "aes-256-gcm nonce must decode to 12 bytes".to_string(),
+            ));
+        }
+        let ciphertext = STANDARD.decode(cipher).map_err(|_| {
+            ApiError(
+                StatusCode::BAD_REQUEST,
+                "ciphertext must be standard base64".to_string(),
+            )
+        })?;
+        if !(16..=786_432).contains(&ciphertext.len()) {
+            return Err(ApiError(
+                StatusCode::BAD_REQUEST,
+                "ciphertext decoded size is outside the accepted range".to_string(),
+            ));
+        }
+        if let Some(expected) = obj.get("ciphertext_sha256").and_then(Value::as_str) {
+            let actual = hex::encode(Sha256::digest(&ciphertext));
+            if expected.len() != 64 || expected.as_bytes().ct_eq(actual.as_bytes()).unwrap_u8() != 1
+            {
+                return Err(ApiError(
+                    StatusCode::BAD_REQUEST,
+                    "ciphertext_sha256 does not match ciphertext".to_string(),
+                ));
+            }
+        }
+        if !nonces.insert((key_id.to_string(), nonce_bytes)) {
+            return Err(ApiError(
+                StatusCode::CONFLICT,
+                "nonce reuse within a key_id is forbidden".to_string(),
             ));
         }
     }
@@ -273,8 +309,47 @@ async fn authenticate(
             "invalid API key".to_string(),
         ));
     }
-    let prefix = &token[..8];
+    let (prefix, service_principal) = credential_prefix(token)
+        .ok_or_else(|| ApiError(StatusCode::UNAUTHORIZED, "invalid API key".to_string()))?;
     let presented_hash = hex::encode(Sha256::digest(token.as_bytes()));
+    if service_principal {
+        let row = sqlx::query_as::<_, (String, Uuid)>(
+            r#"
+            SELECT key_hash, tenant_id
+            FROM service_accounts
+            WHERE prefix = $1
+              AND is_active = true
+              AND revoked_at IS NULL
+              AND ('ingest:write' = ANY(scopes) OR '*' = ANY(scopes))
+            "#,
+        )
+        .bind(prefix)
+        .fetch_optional(pool)
+        .await
+        .map_err(|_| {
+            ApiError(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "authentication unavailable".to_string(),
+            )
+        })?
+        .ok_or_else(|| ApiError(StatusCode::UNAUTHORIZED, "invalid API key".to_string()))?;
+        if row
+            .0
+            .as_bytes()
+            .ct_eq(presented_hash.as_bytes())
+            .unwrap_u8()
+            != 1
+        {
+            return Err(ApiError(
+                StatusCode::UNAUTHORIZED,
+                "invalid API key".to_string(),
+            ));
+        }
+        return Ok(AuthenticatedAccount {
+            account_id: row.1,
+            rate_limit_rpm: 1_000,
+        });
+    }
     let modern = sqlx::query_as::<_, (String, Uuid, i32)>(
         r#"
         SELECT key_hash, tenant_id, rate_limit_rpm
@@ -331,6 +406,17 @@ async fn authenticate(
         account_id,
         rate_limit_rpm: rpm.max(1),
     })
+}
+
+fn credential_prefix(token: &str) -> Option<(&str, bool)> {
+    if let Some(rest) = token.strip_prefix("fjsvc_") {
+        let (prefix, secret) = rest.split_once('_')?;
+        return (prefix.len() == 8 && !secret.is_empty()).then_some((prefix, true));
+    }
+    token
+        .get(..8)
+        .filter(|prefix| prefix.is_ascii())
+        .map(|prefix| (prefix, false))
 }
 
 fn tier_default_rpm(tier: &str) -> i32 {
@@ -397,7 +483,7 @@ async fn enforce_rate_limit(
 
 #[cfg(test)]
 mod tests {
-    use super::{IngestPayload, validate_payload};
+    use super::{IngestPayload, credential_prefix, validate_payload};
     use serde_json::json;
 
     #[test]
@@ -425,5 +511,43 @@ mod tests {
             records: vec![json!({"x": 1})],
         };
         assert!(validate_payload(&plaintext_shaped).is_err());
+    }
+
+    #[test]
+    fn parses_tenant_service_token_prefix_without_utf8_panics() {
+        assert_eq!(
+            credential_prefix("fjsvc_abcd1234_long-secret"),
+            Some(("abcd1234", true))
+        );
+        assert_eq!(
+            credential_prefix("legacy12_more-secret"),
+            Some(("legacy12", false))
+        );
+        assert_eq!(credential_prefix("éééééééé_more-secret"), None);
+        assert_eq!(credential_prefix("fjsvc_short_secret"), None);
+    }
+
+    #[test]
+    fn rejects_nonce_reuse_and_bad_base64() {
+        let sealed = json!({
+            "ciphertext": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYX",
+            "nonce": "AAECAwQFBgcICQoL",
+            "key_id": "sess-1",
+        });
+        let reused = IngestPayload {
+            batch_id: "batch-1234".to_string(),
+            records: vec![sealed.clone(), sealed],
+        };
+        assert!(validate_payload(&reused).is_err());
+
+        let invalid = IngestPayload {
+            batch_id: "batch-5678".to_string(),
+            records: vec![json!({
+                "ciphertext": "not-base64!",
+                "nonce": "AAECAwQFBgcICQoL",
+                "key_id": "sess-1",
+            })],
+        };
+        assert!(validate_payload(&invalid).is_err());
     }
 }

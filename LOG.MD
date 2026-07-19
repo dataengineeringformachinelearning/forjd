@@ -2,6 +2,11 @@
 
 ## Log
 
+- 2026-07-19: Removed service-account remint scope drift by adding an API `include_tenant_erase` flag over canonical defaults; remint now excludes erase by default, safely encodes its request, and runbooks reflect current `003`–`025` migrations and `ml:read` defaults.
+- 2026-07-19: Final polish pass — advertised `report_documents` in the public `/api/v1/capabilities` headless contract, added HTTP-level end-to-end tests for the reports lane (routing → auth → validation → SQL shape, PII rejection before DB), and cleared residual format drift. Gates green: full backend suite, engine 24 tests, frontend prod build + 4 UI tests.
+- 2026-07-19: Added tenant-scoped report documents for partner user reports (DEML issue reports off Firebase) — `sql/022` (`report_documents` + RLS + `reports:read`/`reports:write` default scopes), strict pydantic contract reusing the SIEM PII-minimized metadata validator, `POST/GET /api/v1/reports/documents`, tenant-erase coverage, and 9 new tests. 164 backend tests green; remint partner tokens after applying `022`.
+- 2026-07-19: Themed the interactive API docs — disabled stock Swagger UI and serve a FJORD dark-palette `GET /docs` (`app/core/docs_page.py`, swagger-ui-dist v5 with `--fj-*` color overrides + FORJD topbar). Frontend landing gained a six-tile capability grid; build, 4 UI tests, and 99 backend tests green.
+- 2026-07-19: Replaced the frontend pulse/secure-stream PoC with a simple static landing page (brand, headline, doc links) mirroring the backend `GET /` landing. Deleted `pulse-api`/`secure-api`/`supabase`/`crypto` PoC modules, dropped `@supabase/supabase-js`, and removed unused HttpClient/Supabase env config. Build + 3 app tests green.
 - 2026-07-19: Standardized the updated FORJD social/logo/favicon set across the frontend and API, removed superseded icon variants, and added complete canonical, Open Graph, Twitter, structured-data, manifest, robots, and sitemap coverage. Frontend production build and all 99 backend tests pass.
 - 2026-07-19: Completed the optional add-on system with env-over-YAML enablement, default-off and DEML-all profiles, isolated Prefect ingest lifecycle hooks, contributor docs, and focused coverage. Backend verification passes 99 tests (3 skipped), with add-on lint and format checks clean.
 - 2026-07-19: Add-on framework + Sentry + API landing. Added `app/addons/` registry (11 config-gated integrations, disabled by default; `FORJD_ADDONS=all` for partners) with `GET /api/v1/addons` and gated clients for OSV.dev, HoneyDB, go-cve-dictionary, nuclei, osv-scanner. Added optional Sentry (`uv sync --group sentry`, `SENTRY_DSN`) alongside Rollbar. Added a FJORD-styled `GET /` landing linking to Swagger `/docs`; frontend hero now links to the API docs. Backend gates green (93 tests).
@@ -179,7 +184,6 @@ Direct dependencies only. Star these on GitHub.
 
 ### Frontend (Angular / npm)
 - [angular](https://github.com/angular/angular) — UI framework (+ CLI / build tooling; includes `@angular/animations` for Storybook Vite)
-- [supabase-js](https://github.com/supabase/supabase-js) — Auth + Realtime client for sealed stream UI
 - [rxjs](https://github.com/ReactiveX/rxjs) — reactive streams
 - [tslib](https://github.com/microsoft/tslib) — TypeScript helpers
 - [vercel/analytics](https://github.com/vercel/analytics) — web analytics
@@ -224,3 +228,118 @@ Direct dependencies only. Star these on GitHub.
 - [Supabase](https://github.com/supabase/supabase) — hosted Postgres for FORJD
 - [pgvector](https://github.com/pgvector/pgvector) — vector extension for LSTM-AE latents (Supabase)
 - [Fly.io](https://github.com/superfly/fly) — Dragonfly + engine deployment target
+
+## 2026-07-19 — Headless SIEM/SOAR security foundation
+
+- Added sql/020 and `/api/v1/siem/signals`: strict, tenant-idempotent,
+  PII-minimized normalized signals kept separate from sealed evidence, with
+  bounded observables/metadata, search filters, correlation, cases, RLS, and
+  metadata-only mutation audit events.
+- Added scoped service-principal access for SIEM, cases, playbooks, tenant
+  threat-intel reads, and opt-in threat-intel/ML writes; completed case,
+  vulnerability, and versioned playbook PATCH surfaces.
+- Replaced fake deferred SOAR success with durable idempotent playbook runs and
+  per-action results. Webhooks require a real 2xx; partner-owned actions persist
+  as `awaiting_ack` until explicitly acknowledged.
+- Closed threat-intel tenant authorization gaps. Platform refresh/global TAXII
+  now require an admin-claimed human; tenant TAXII requires its bound tenant and
+  explicit scope. Custom TAXII/webhook egress is production HTTPS-only,
+  allowlisted (`OUTBOUND_HOST_ALLOWLIST`), redirect-free, timeout/size bounded,
+  and rejects non-public destinations.
+- Added focused security tests covering scopes, tenant isolation, idempotency,
+  strict signal validation, ownership-filtered updates, SSRF variants,
+  redirects/oversize responses, and truthful durable run states.
+- Added SaaS-grade SOAR retry delivery: immutable ordered run plans, stable
+  webhook idempotency keys, bounded exponential/`Retry-After` scheduling,
+  leased `SKIP LOCKED` worker claims, expired-lease recovery, and an explicit
+  tenant-scoped operator retry endpoint. Permanent `4xx` and control-plane
+  `awaiting_ack` actions never auto-retry.
+- Made ACK decisions conditional and exact-replay idempotent, added whole-operation
+  correlation receipts, routed the legacy alert bridge through normalized SIEM
+  idempotency, and made privileged audit writes fail closed with database-enforced
+  append-only audit rows.
+
+## 2026-07-19 — Ingest, projection, replay, and tenant-lifecycle reliability
+
+- Added sql/021 with canonical decoded ciphertext byte counts, immutable ingest
+  fingerprints, deterministic projection/DLQ identities, retry lease/backoff
+  state, and durable tenant-erasure receipts.
+- Made sealed batch acceptance transactional. Exact duplicates are returned but
+  not reprocessed; routing/encryption drift conflicts; processing failures return
+  `ok=false` and enqueue every newly accepted event for replay.
+- Replaced projection delete/insert writes with atomic versioned UPSERTs that
+  preserve multiple detectors, use deterministic aggregate keys, and advance a
+  monotonic `(created_at,event_id)` checkpoint under advisory leases.
+- Keyset-paginated the projection worker across all tenants; replay now measures
+  the same canonical byte count as live ingest, groups mixed workflows, and
+  retries the exact tenant/event using exclusive leases and bounded backoff.
+- Made tenant erase atomic and retry-idempotent without swallowing SQL errors in
+  an aborted transaction. A deleted opaque erase credential now leaves only a
+  prefix/SHA-256 tombstone and can authenticate solely to replay its completed
+  same-tenant erase receipt; it remains invalid on every other route.
+- Serialized canonical API acceptance against the matching projector snapshot
+  fence and stamps insert statement time, preventing a worker watermark from
+  passing an older uncommitted API event. Migration application is fail-fast
+  per file with checksums and a ledger; post-migration verification covers
+  reliability state.
+- Removed poison-event head-of-line blocking: a failed page is atomically moved
+  into a per-event, projection-versioned DLQ while the live cursor advances;
+  later pages proceed, successful live recovery closes only matching DLQ rows,
+  and retry fails closed rather than silently running a different version.
+- Added an ASGI-level 8 MiB canonical-ingest body cap (including chunked bodies),
+  reduced batches to 25 events, returns `413` before JSON validation, and
+  advertises both limits through the machine-readable capabilities endpoint.
+- Closed the post-commit ingest processing window with sql/024: acceptance now
+  atomically writes ordered ciphertext-free workflow receipts with complete
+  configuration snapshots and version/hash integrity. Replica-safe
+  `SKIP LOCKED` leases recover crashes/restarts, exact duplicate retries wake
+  original pending/failed groups, status is tenant-authorized, and one failed
+  receipt cannot block later receipts. The API remains synchronously attempted
+  and deliberately does not advertise a general `202` async contract.
+- Moved sealed-ingest compliance evidence into that same acceptance transaction:
+  a required, tenant-scoped metadata-only `ingest.batch` audit row now commits
+  with the event and receipt or rolls them all back, and tenant erase removes
+  every processing batch whose tenant array contains the erased tenant.
+- Added focused reliability regressions; final backend validation is recorded
+  after the concurrent SIEM/SOAR worker changes settle.
+
+## 2026-07-19 — Public landing plus restored secure console
+
+- Preserved the static product landing at `/` and restored the functional Angular
+  operational surface as a lazy `/console` route, keeping Supabase and console
+  code out of the public route chunk.
+- Restored user auth, tenant/session management, stack/pulse/anomaly controls,
+  ciphertext-only Realtime updates, and sealed ingest. The browser demo now uses
+  ephemeral X25519/HKDF-derived AES-GCM keys, unique session IDs, AAD binding,
+  prompt credential/key cleanup, and never renders plaintext or credentials.
+- Added focused routing, landing, console, auth-header, sealed-request, AES-GCM,
+  and X25519 tests; `npm test -- --watch=false`, production build, Prettier, and
+  production dependency audit pass.
+
+## 2026-07-19 — Replay-safe SIEM/SOAR completion and webhook authenticity
+
+- Added sql/025 completion snapshots for normalized signals and whole-operation
+  correlations. Exact completed retries now return the prior public result and
+  never evaluate a newer correlation rule or playbook definition; processing
+  retries remain able to heal pre-completion crashes.
+- Bound playbook idempotency to the original trigger inputs and resolve existing
+  runs before consulting a mutable current playbook version or active flag.
+  Control-plane action results now include only the allowlisted immutable
+  configuration operators need, and the DEML adapter preserves that contract.
+- Added env-backed HMAC-SHA256 webhook signing through opaque `secret_ref`
+  identifiers. Missing refs reject playbook writes or fail stored deliveries
+  without sending an unsigned request; key material is never persisted,
+  returned, or logged.
+- Made webhook result persistence and its required audit receipt one atomic SQL
+  statement, changed retry delivery to claim one row immediately before each
+  request, and added an indexed continuation reconciler for post-success and
+  post-ACK crash windows across multiple API replicas.
+- Extended the post-migration verifier and production docs through sql/025.
+  Focused validation passed: 58 FORJD SIEM/SOAR/worker/capability tests, 11 DEML
+  adapter tests, Python compilation, Ruff lint, and Ruff formatting.
+
+- 2026-07-19: Tightened durable runtime integrity and readiness: SQL/024 now
+  enforces singleton-tenant ingest receipts down to each event, long ingest work
+  heartbeats a fenced lease, Prefect fallback is decided before business work,
+  and readiness gates on migrated SIEM/export contracts plus successful worker
+  ticks rather than task liveness alone.

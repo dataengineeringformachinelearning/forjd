@@ -6,11 +6,12 @@ never loaded into Pathway. Failures land in projection_dlq for retry.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from datetime import datetime
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import asyncpg
 
@@ -21,6 +22,24 @@ from app.services import tenants as tenant_svc
 from app.workflows.registry import canonical_workflow_id, resolve_workflow
 
 logger = logging.getLogger("forjd.replay")
+
+
+def _meta_from_row(row: Any) -> dict[str, Any]:
+    return {
+        "event_id": row["id"],
+        "tenant_id": row["tenant_id"],
+        "key_id": row["key_id"],
+        "cipher_len": int(row["cipher_len"] or 0),
+        "content_type": row["content_type"] or "application/forjd-event+v1",
+        "event_type": row["event_type"] or "",
+        "workflow_id": row["workflow_id"] or "",
+        "created_at": row["created_at"],
+    }
+
+
+def _retry_backoff_seconds(attempts: int) -> int:
+    """Bounded exponential retry delay (30 seconds through one hour)."""
+    return min(3600, 30 * (2 ** max(0, min(attempts - 1, 7))))
 
 
 # --- Load metadata for a time / id range (no ciphertext bodies) ---
@@ -49,13 +68,14 @@ async def fetch_meta_range(
     if from_event_id is not None:
         args.append(str(from_event_id))
         clauses.append(
-            f"created_at >= (SELECT created_at FROM telemetry_events WHERE id = ${len(args)}::uuid)"
+            f"(created_at, id) >= (SELECT created_at, id FROM telemetry_events"
+            f" WHERE id = ${len(args)}::uuid AND tenant_id = $1::uuid)"
         )
     args.append(limit)
     rows = await pool.fetch(
         f"""
         SELECT id::text, tenant_id::text, key_id, content_type, event_type,
-               workflow_id, created_at, length(ciphertext) AS cipher_len
+               workflow_id, created_at, ciphertext_bytes AS cipher_len
         FROM telemetry_events
         WHERE {" AND ".join(clauses)}
         ORDER BY created_at ASC, id ASC
@@ -63,46 +83,50 @@ async def fetch_meta_range(
         """,
         *args,
     )
-    return [
-        {
-            "event_id": r["id"],
-            "tenant_id": r["tenant_id"],
-            "key_id": r["key_id"],
-            "cipher_len": int(r["cipher_len"] or 0),
-            "content_type": r["content_type"] or "application/forjd-event+v1",
-            "event_type": r["event_type"] or "",
-            "workflow_id": r["workflow_id"] or "",
-            "created_at": r["created_at"],
-        }
-        for r in rows
-    ]
+    return [_meta_from_row(row) for row in rows]
+
+
+async def fetch_meta_event(
+    pool: asyncpg.Pool | asyncpg.Connection,
+    *,
+    tenant_id: UUID,
+    event_id: UUID,
+) -> dict[str, Any] | None:
+    """Load exactly one tenant-bound event for DLQ retry."""
+    row = await pool.fetchrow(
+        """
+        SELECT id::text, tenant_id::text, key_id, content_type, event_type,
+               workflow_id, created_at, ciphertext_bytes AS cipher_len
+        FROM telemetry_events
+        WHERE tenant_id = $1::uuid AND id = $2::uuid
+        """,
+        str(tenant_id),
+        str(event_id),
+    )
+    return _meta_from_row(row) if row else None
 
 
 # --- DLQ helpers ---
 async def enqueue_dlq(
-    pool: asyncpg.Pool,
+    pool: asyncpg.Pool | asyncpg.Connection,
     *,
     tenant_id: str,
     source_event_id: str | None,
     workflow_id: str | None,
     projection_name: str,
+    projection_version: int,
     error: str,
     payload_meta: dict[str, Any],
-) -> None:
-    await pool.execute(
-        """
-        INSERT INTO projection_dlq (
-            tenant_id, source_event_id, workflow_id, projection_name,
-            error, payload_meta, attempts
-        )
-        VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::jsonb, 1)
-        """,
-        tenant_id,
-        source_event_id,
-        workflow_id,
-        projection_name,
-        error[:4000],
-        json.dumps(payload_meta),
+) -> str:
+    return await proj_svc.enqueue_projection_dlq(
+        pool,
+        tenant_id=tenant_id,
+        source_event_id=source_event_id,
+        workflow_id=workflow_id,
+        projection_name=projection_name,
+        projection_version=projection_version,
+        error=error,
+        payload_meta=payload_meta,
     )
 
 
@@ -124,8 +148,10 @@ async def list_dlq(
     rows = await pool.fetch(
         f"""
         SELECT id::text, tenant_id::text, source_event_id::text, workflow_id,
-               projection_name, error, payload_meta, attempts,
-               created_at, resolved_at
+               projection_name, projection_version, error, error_class,
+               payload_meta, attempts,
+               max_attempts, next_attempt_at, last_attempt_at, locked_at,
+               locked_by, lease_expires_at, created_at, updated_at, resolved_at
         FROM projection_dlq
         WHERE tenant_id = $1::uuid
         {clause}
@@ -147,10 +173,23 @@ async def list_dlq(
                 "source_event_id": r["source_event_id"],
                 "workflow_id": r["workflow_id"],
                 "projection_name": r["projection_name"],
+                "projection_version": r["projection_version"],
                 "error": r["error"],
+                "error_class": r["error_class"],
                 "payload_meta": meta,
                 "attempts": r["attempts"],
+                "max_attempts": r["max_attempts"],
+                "next_attempt_at": r["next_attempt_at"].isoformat(),
+                "last_attempt_at": (
+                    r["last_attempt_at"].isoformat() if r["last_attempt_at"] else None
+                ),
+                "locked_at": r["locked_at"].isoformat() if r["locked_at"] else None,
+                "locked_by": r["locked_by"],
+                "lease_expires_at": (
+                    r["lease_expires_at"].isoformat() if r["lease_expires_at"] else None
+                ),
                 "created_at": r["created_at"].isoformat(),
+                "updated_at": r["updated_at"].isoformat(),
                 "resolved_at": r["resolved_at"].isoformat() if r["resolved_at"] else None,
             }
         )
@@ -191,64 +230,90 @@ async def replay_events(
     if not meta:
         return {"ok": True, "matched": 0, "written": 0, "dry_run": dry_run}
 
-    content_type = meta[0]["content_type"]
-    wf = resolve_workflow(
-        content_type=content_type,
-        event_type=meta[0].get("event_type") or None,
-        workflow_id=workflow_id or meta[0].get("workflow_id") or None,
-    )
+    groups: dict[str, dict[str, Any]] = {}
+    for item in meta:
+        wf = resolve_workflow(
+            content_type=item["content_type"],
+            event_type=item.get("event_type") or None,
+            workflow_id=workflow_id or item.get("workflow_id") or None,
+        )
+        slot = groups.setdefault(wf.id, {"workflow": wf, "events": []})
+        slot["events"].append(item)
+
     if dry_run:
         return {
             "ok": True,
             "matched": len(meta),
             "written": 0,
             "dry_run": True,
-            "workflow_id": wf.id,
-            "projection_name": wf.pipeline.projection_name,
+            "workflows": [
+                {
+                    "workflow_id": item["workflow"].id,
+                    "projection_name": item["workflow"].pipeline.projection_name,
+                    "events": len(item["events"]),
+                }
+                for item in groups.values()
+            ],
             "sample_event_ids": [m["event_id"] for m in meta[:10]],
         }
 
-    try:
-        flow = run_project_flow(
-            tenant_id=str(tenant_id),
-            events=meta,
-            content_type=content_type,
-            event_type=meta[0].get("event_type") or None,
-            workflow_id=wf.id,
-        )
-        written = await proj_svc.upsert_stream_results(pool, flow.get("stream_results") or [])
-        return {
-            "ok": True,
-            "matched": len(meta),
-            "written": written,
-            "dry_run": False,
-            "workflow_id": wf.id,
-            "projection_name": wf.pipeline.projection_name,
-            "anomaly_count": (flow.get("pathway") or {}).get("anomaly_count", 0),
-        }
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("replay failed")
-        for m in meta[:20]:
-            await enqueue_dlq(
-                pool,
+    written = 0
+    anomaly_count = 0
+    dlq_enqueued = 0
+    errors: list[dict[str, str]] = []
+    for group in groups.values():
+        wf = group["workflow"]
+        events = group["events"]
+        try:
+            flow = await asyncio.to_thread(
+                run_project_flow,
                 tenant_id=str(tenant_id),
-                source_event_id=m["event_id"],
+                events=events,
+                content_type=events[0]["content_type"],
+                event_type=events[0].get("event_type") or None,
                 workflow_id=wf.id,
-                projection_name=wf.pipeline.projection_name,
-                error=str(exc),
-                payload_meta={
-                    "content_type": m.get("content_type"),
-                    "event_type": m.get("event_type"),
-                    "cipher_len": m.get("cipher_len"),
-                },
             )
-        return {
-            "ok": False,
-            "matched": len(meta),
-            "written": 0,
-            "error": str(exc),
-            "dlq_enqueued": min(len(meta), 20),
-        }
+            pathway = flow.get("pathway") or {}
+            if not pathway.get("ok"):
+                raise RuntimeError(
+                    str(pathway.get("error") or "processor reported an unsuccessful result")
+                )
+            event_ids = {str(item["event_id"]) for item in events}
+            written += await proj_svc.upsert_stream_results(
+                pool,
+                flow.get("stream_results") or [],
+                projection_version=wf.pipeline.projection.version,
+                aggregate_event_ids=sorted(event_ids),
+                expected_tenant_ids={str(tenant_id)},
+                expected_event_ids=event_ids,
+            )
+            anomaly_count += int(pathway.get("anomaly_count") or 0)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("replay failed workflow=%s", wf.id)
+            errors.append({"workflow_id": wf.id, "error": str(exc)})
+            for item in events:
+                await enqueue_dlq(
+                    pool,
+                    tenant_id=str(tenant_id),
+                    source_event_id=item["event_id"],
+                    workflow_id=wf.id,
+                    projection_name=wf.pipeline.projection_name,
+                    projection_version=wf.pipeline.projection.version,
+                    error=str(exc),
+                    payload_meta=item,
+                )
+                dlq_enqueued += 1
+
+    return {
+        "ok": not errors,
+        "matched": len(meta),
+        "written": written,
+        "dry_run": False,
+        "anomaly_count": anomaly_count,
+        "dlq_enqueued": dlq_enqueued,
+        "errors": errors,
+        "workflows": sorted(groups),
+    }
 
 
 # --- Retry one DLQ row ---
@@ -266,43 +331,126 @@ async def retry_dlq_item(
         min_roles=frozenset({"owner", "admin"}),
         required_scopes=frozenset({"replay:write"}),
     )
+    lease_owner = f"{user.actor_id}:{uuid4()}"
     row = await pool.fetchrow(
         """
-        SELECT id, source_event_id::text, workflow_id, projection_name, payload_meta
-        FROM projection_dlq
-        WHERE id = $1::uuid AND tenant_id = $2::uuid AND resolved_at IS NULL
+        UPDATE projection_dlq
+        SET attempts = attempts + 1,
+            last_attempt_at = NOW(),
+            locked_at = NOW(),
+            locked_by = $3,
+            lease_expires_at = NOW() + INTERVAL '5 minutes',
+            updated_at = NOW()
+        WHERE id = $1::uuid
+          AND tenant_id = $2::uuid
+          AND resolved_at IS NULL
+          AND attempts < max_attempts
+          AND next_attempt_at <= NOW()
+          AND (lease_expires_at IS NULL OR lease_expires_at <= NOW())
+        RETURNING id, source_event_id::text, workflow_id, projection_name,
+                  projection_version, payload_meta, attempts, max_attempts
         """,
         str(dlq_id),
         str(tenant_id),
+        lease_owner,
     )
     if row is None:
-        raise ValueError("dlq item not found or already resolved")
+        raise ValueError("dlq item is missing, resolved, exhausted, leased, or not retry-ready")
 
     source_id = row["source_event_id"]
     if not source_id:
         raise ValueError("dlq item has no source_event_id")
 
-    result = await replay_events(
-        pool,
-        user=user,
-        tenant_id=tenant_id,
-        from_event_id=UUID(source_id),
-        workflow_id=row["workflow_id"],
-        limit=1,
-        dry_run=False,
-    )
-    if result.get("ok"):
+    try:
+        meta = await fetch_meta_event(
+            pool,
+            tenant_id=tenant_id,
+            event_id=UUID(source_id),
+        )
+        if meta is None:
+            raise RuntimeError("source event no longer exists in this tenant")
+        wf = resolve_workflow(
+            content_type=meta["content_type"],
+            event_type=meta.get("event_type") or None,
+            workflow_id=row["workflow_id"] or meta.get("workflow_id") or None,
+        )
+        queued_projection_version = int(row["projection_version"])
+        queued_projection_name = str(row["projection_name"])
+        if (
+            wf.pipeline.projection_name != queued_projection_name
+            or wf.pipeline.projection.version != queued_projection_version
+        ):
+            raise RuntimeError(
+                "DLQ projection contract no longer matches the active workflow; "
+                "restore that projection name/version or perform an explicit range replay"
+            )
+        flow = await asyncio.to_thread(
+            run_project_flow,
+            tenant_id=str(tenant_id),
+            events=[meta],
+            content_type=meta["content_type"],
+            event_type=meta.get("event_type") or None,
+            workflow_id=wf.id,
+        )
+        pathway = flow.get("pathway") or {}
+        if not pathway.get("ok"):
+            raise RuntimeError(
+                str(pathway.get("error") or "processor reported an unsuccessful result")
+            )
+        written = await proj_svc.upsert_stream_results(
+            pool,
+            flow.get("stream_results") or [],
+            projection_version=queued_projection_version,
+            aggregate_event_ids=[source_id],
+            expected_tenant_ids={str(tenant_id)},
+            expected_event_ids={source_id},
+        )
+        completion = await pool.execute(
+            """
+            UPDATE projection_dlq
+            SET resolved_at = NOW(), locked_at = NULL, locked_by = NULL,
+                lease_expires_at = NULL, updated_at = NOW()
+            WHERE id = $1::uuid AND tenant_id = $2::uuid AND locked_by = $3
+            """,
+            str(dlq_id),
+            str(tenant_id),
+            lease_owner,
+        )
+        if str(completion) != "UPDATE 1":
+            raise RuntimeError("DLQ retry lease was lost before completion")
+        return {
+            "ok": True,
+            "dlq_id": str(dlq_id),
+            "source_event_id": source_id,
+            "written": written,
+            "attempts": row["attempts"],
+        }
+    except Exception as exc:  # noqa: BLE001
+        delay = _retry_backoff_seconds(int(row["attempts"]))
         await pool.execute(
             """
             UPDATE projection_dlq
-            SET resolved_at = NOW(), attempts = attempts + 1
-            WHERE id = $1::uuid
+            SET error = $4,
+                error_class = 'retry_error',
+                next_attempt_at = NOW() + ($5 * INTERVAL '1 second'),
+                locked_at = NULL,
+                locked_by = NULL,
+                lease_expires_at = NULL,
+                updated_at = NOW()
+            WHERE id = $1::uuid AND tenant_id = $2::uuid AND locked_by = $3
             """,
             str(dlq_id),
+            str(tenant_id),
+            lease_owner,
+            str(exc)[:4000],
+            delay,
         )
-    else:
-        await pool.execute(
-            "UPDATE projection_dlq SET attempts = attempts + 1 WHERE id = $1::uuid",
-            str(dlq_id),
-        )
-    return {"ok": bool(result.get("ok")), "dlq_id": str(dlq_id), "replay": result}
+        return {
+            "ok": False,
+            "dlq_id": str(dlq_id),
+            "source_event_id": source_id,
+            "attempts": row["attempts"],
+            "max_attempts": row["max_attempts"],
+            "retry_after_seconds": delay,
+            "error": str(exc),
+        }

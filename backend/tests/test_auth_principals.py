@@ -5,14 +5,18 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import unittest
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID
 
 from fastapi import HTTPException
+from starlette.requests import Request
 
 from app.core.auth import (
     SERVICE_TOKEN_PREFIX,
     AuthUser,
     PrincipalKind,
+    _authenticate_opaque_service,
     _forjd_metadata,
     _principal_from_claims,
     hash_service_token,
@@ -20,7 +24,10 @@ from app.core.auth import (
     require_user_principal,
     service_token_prefix,
 )
-from app.services.service_accounts import ALLOWED_SCOPES, DEFAULT_SCOPES
+from app.core.config import settings
+from app.models.service_account import ServiceAccountCreate
+from app.services import service_accounts as service_account_svc
+from app.services.service_accounts import ALLOWED_SCOPES, DEFAULT_SCOPES, _normalize_scopes
 from app.services.tenants import require_tenant_access
 
 
@@ -32,6 +39,7 @@ class TestServiceScopes(unittest.TestCase):
             "replay:write",
             "status:write",
             "analytics:read",
+            "ml:read",
             "exports:read",
             "vulnerabilities:read",
             "integrations:write",
@@ -42,6 +50,34 @@ class TestServiceScopes(unittest.TestCase):
         # Least privilege: erase is allowlisted but opt-in at mint/remint.
         self.assertNotIn("tenants:erase", DEFAULT_SCOPES)
         self.assertIn("tenants:erase", ALLOWED_SCOPES)
+
+    def test_create_body_uses_canonical_defaults_and_erase_is_opt_in(self) -> None:
+        tenant_id = UUID("33333333-3333-3333-3333-333333333333")
+        ordinary = ServiceAccountCreate(tenant_id=tenant_id, name="partner")
+        self.assertFalse(ordinary.include_tenant_erase)
+        self.assertEqual(_normalize_scopes(ordinary.scopes), list(DEFAULT_SCOPES))
+
+        erase = ServiceAccountCreate(
+            tenant_id=tenant_id,
+            name="partner-delete",
+            include_tenant_erase=True,
+        )
+        resolved = _normalize_scopes(
+            erase.scopes,
+            include_tenant_erase=erase.include_tenant_erase,
+        )
+        self.assertEqual(resolved[:-1], list(DEFAULT_SCOPES))
+        self.assertEqual(resolved[-1], "tenants:erase")
+        self.assertEqual(resolved.count("tenants:erase"), 1)
+
+    def test_erase_flag_extends_an_explicit_scope_list(self) -> None:
+        self.assertEqual(
+            _normalize_scopes(
+                ["ingest:write", "tenants:erase"],
+                include_tenant_erase=True,
+            ),
+            ["ingest:write", "tenants:erase"],
+        )
 
 
 class TestServiceTokenShape(unittest.TestCase):
@@ -60,6 +96,130 @@ class TestServiceTokenShape(unittest.TestCase):
             hash_service_token(token),
             hashlib.sha256(token.encode()).hexdigest(),
         )
+
+
+def _request_for_route(*, method: str, route_path: str, tenant_id: UUID) -> Request:
+    scope = {
+        "type": "http",
+        "http_version": "1.1",
+        "method": method,
+        "scheme": "https",
+        "path": route_path.replace("{tenant_id}", str(tenant_id)),
+        "raw_path": b"",
+        "query_string": b"",
+        "headers": [],
+        "client": ("127.0.0.1", 1234),
+        "server": ("test", 443),
+        "route": SimpleNamespace(path=route_path),
+        "path_params": {"tenant_id": str(tenant_id)},
+        "app": MagicMock(),
+    }
+    return Request(scope)
+
+
+class TestErasedCredentialAuthentication(unittest.IsolatedAsyncioTestCase):
+    async def test_completed_tombstone_authenticates_exact_erase_retry_only(self) -> None:
+        tenant_id = UUID("33333333-3333-3333-3333-333333333333")
+        token = f"{SERVICE_TOKEN_PREFIX}abcd1234_secret"
+        route_path = f"{settings.API_V1_STR}/tenants/{{tenant_id}}/erase"
+        request = _request_for_route(
+            method="POST",
+            route_path=route_path,
+            tenant_id=tenant_id,
+        )
+        tombstone = {
+            "tenant_id": str(tenant_id),
+            "requested_by": "svc:deleted",
+            "erased_credential_prefix": "abcd1234",
+            "completed_at": object(),
+        }
+        active = AsyncMock(return_value=None)
+        erased = AsyncMock(return_value=tombstone)
+        with (
+            patch.object(service_account_svc, "authenticate_opaque", active),
+            patch.object(service_account_svc, "authenticate_erased_opaque", erased),
+        ):
+            principal = await _authenticate_opaque_service(
+                MagicMock(),
+                token,
+                request=request,
+            )
+
+        self.assertEqual(principal.kind, PrincipalKind.ERASE_TOMBSTONE)
+        self.assertEqual(principal.tenant_id, str(tenant_id))
+        self.assertFalse(principal.scopes)
+        erased.assert_awaited_once()
+
+    async def test_tombstone_is_not_consulted_for_any_other_route(self) -> None:
+        tenant_id = UUID("33333333-3333-3333-3333-333333333333")
+        token = f"{SERVICE_TOKEN_PREFIX}abcd1234_secret"
+        request = _request_for_route(
+            method="POST",
+            route_path=f"{settings.API_V1_STR}/ingest",
+            tenant_id=tenant_id,
+        )
+        active = AsyncMock(return_value=None)
+        erased = AsyncMock()
+        with (
+            patch.object(service_account_svc, "authenticate_opaque", active),
+            patch.object(service_account_svc, "authenticate_erased_opaque", erased),
+            self.assertRaises(HTTPException) as raised,
+        ):
+            await _authenticate_opaque_service(MagicMock(), token, request=request)
+
+        self.assertEqual(raised.exception.status_code, 401)
+        erased.assert_not_awaited()
+
+    async def test_tombstone_is_not_consulted_for_get_on_erase_route(self) -> None:
+        tenant_id = UUID("33333333-3333-3333-3333-333333333333")
+        token = f"{SERVICE_TOKEN_PREFIX}abcd1234_secret"
+        request = _request_for_route(
+            method="GET",
+            route_path=f"{settings.API_V1_STR}/tenants/{{tenant_id}}/erase",
+            tenant_id=tenant_id,
+        )
+        erased = AsyncMock()
+        with (
+            patch.object(service_account_svc, "authenticate_opaque", AsyncMock(return_value=None)),
+            patch.object(service_account_svc, "authenticate_erased_opaque", erased),
+            self.assertRaises(HTTPException) as raised,
+        ):
+            await _authenticate_opaque_service(MagicMock(), token, request=request)
+
+        self.assertEqual(raised.exception.status_code, 401)
+        erased.assert_not_awaited()
+
+    async def test_live_opaque_principal_carries_hash_not_raw_token(self) -> None:
+        tenant_id = UUID("33333333-3333-3333-3333-333333333333")
+        token = f"{SERVICE_TOKEN_PREFIX}abcd1234_secret"
+        request = _request_for_route(
+            method="POST",
+            route_path=f"{settings.API_V1_STR}/tenants/{{tenant_id}}/erase",
+            tenant_id=tenant_id,
+        )
+        active = AsyncMock(
+            return_value={
+                "id": UUID("55555555-5555-5555-5555-555555555555"),
+                "tenant_id": tenant_id,
+                "subprocessor": "partner",
+                "scopes": ["tenants:erase"],
+            }
+        )
+        with patch.object(service_account_svc, "authenticate_opaque", active):
+            principal = await _authenticate_opaque_service(
+                MagicMock(),
+                token,
+                request=request,
+            )
+
+        self.assertEqual(principal.opaque_token_prefix, "abcd1234")
+        self.assertEqual(principal.opaque_token_hash, hash_service_token(token))
+        self.assertNotIn(token, repr(principal.raw_claims))
+
+        with patch.object(service_account_svc, "authenticate_opaque", active):
+            ordinary = await _authenticate_opaque_service(MagicMock(), token)
+        self.assertIsNone(ordinary.opaque_token_prefix)
+        self.assertIsNone(ordinary.opaque_token_hash)
 
 
 class TestJwtClaimShaping(unittest.TestCase):

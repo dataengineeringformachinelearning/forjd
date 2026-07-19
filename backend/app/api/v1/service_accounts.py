@@ -37,6 +37,7 @@ async def create_service_account(
             name=body.name,
             subprocessor=body.subprocessor,
             scopes=body.scopes,
+            include_tenant_erase=body.include_tenant_erase,
             auth_user_id=body.auth_user_id,
             mint_opaque_token=body.mint_opaque_token,
         )

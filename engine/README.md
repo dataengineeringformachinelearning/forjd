@@ -6,7 +6,7 @@ One crate, one binary, one Fly app: **Arrow/Parquet process + data plane**.
 |---------|------------|------|
 | Library / PyO3 | `python` / `extension-module` | In-process from FastAPI (maturin) |
 | HTTP process/summarize | `server` | `/v1/process`, `/v1/summarize` |
-| Data plane | `data-plane` (implies `server`) | Outbox relay, ingest edge, probes, normalizer, scheduler |
+| Data plane | `data-plane` (implies `server`) | Outbox relay, probes, normalizer, scheduler, retired-edge guard |
 
 Fly/Compose build: `--features server,data-plane`.
 
@@ -20,7 +20,7 @@ Fly/Compose build: `--features server,data-plane`.
 | POST | `/v1/process` | always | Validate/enrich event |
 | POST | `/v1/summarize` | always | Arrow/Parquet summary |
 | POST | `/v1/sealed/pipeline` | always | Ciphertext-safe detectors → `stream_results` rows |
-| POST | `/api/v1/ingest` | `FORJD_ROLE` includes ingest/`all` | Sealed edge → `outbox_events` (ciphertext required) |
+| POST | `/api/v1/ingest` | `FORJD_ROLE` includes ingest/`all` | Retired compatibility route; authenticated valid calls receive `410 Gone` with the canonical FastAPI route |
 | POST | `/unique` | `FORJD_ROLE=cpe` only | Optional CPE lookup |
 
 ## `FORJD_ROLE`
@@ -28,8 +28,9 @@ Fly/Compose build: `--features server,data-plane`.
 | Value | Behavior |
 |-------|----------|
 | unset / `engine` / `none` | Process HTTP only |
-| `all` | Relay + scheduler + probe + normalizer + ingest |
-| `relay` / `scheduler` / `probe` / `normalizer` / `ingest` | Single background role |
+| `all` | Relay + scheduler + probe + normalizer + retired-ingest guard |
+| `relay` / `scheduler` / `probe` / `normalizer` | Single background role |
+| `ingest` | Retired-ingest guard only; migrate clients to FastAPI `/api/v1/ingest/events:batch` |
 | `cpe` | Optional CPE plugin (not included in `all`) |
 
 Secrets when the data plane is active: `DATABASE_URL` (or `POSTGRES_DSN`), `REDIS_URL` (Dragonfly).
@@ -102,7 +103,7 @@ Apply `backend/sql/009`–`010` for outbox / API keys / audit before enabling `F
 | Role | Needs | Stable when |
 |------|-------|-------------|
 | `engine` | `ENGINE_API_TOKEN` | Process `/v1/process` + `/v1/summarize` only |
-| `ingest` | DB + Redis | Sealed edge → `outbox_events` |
+| `ingest` | DB + Redis | Compatibility requests fail closed with `410`; no acceptance or outbox publication |
 | `relay` / `scheduler` / `normalizer` | DB + Redis + internode keys | Bus encrypt/decrypt works |
 | `all` | All of the above | `/ready` reports ok; logs show `data plane role=All` |
 | `probe` | DB | Probe loop without bus |
@@ -114,4 +115,4 @@ Rollback: `fly secrets set FORJD_ROLE=engine -a forjd-engine`.
 - Multi-stage image (`rust:1.97.0-bookworm` → `debian:bookworm-slim`), `USER 1001`.
 - PyO3 path stays lean (no `data-plane` deps).
 - Arrow/Parquet **59**, edition **2024**, rustc **1.97**.
-- Data-plane roles live in `src/data_plane/` (outbox, ingest, probes, scheduler).
+- Data-plane roles live in `src/data_plane/` (outbox, retired-ingest guard, probes, scheduler).

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 from uuid import UUID
 
@@ -15,6 +16,7 @@ from app.services import tenant_erase as erase_svc
 from app.services import tenants as tenant_svc
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
+logger = logging.getLogger("forjd.api.tenants")
 
 
 class TenantEraseBody(BaseModel):
@@ -113,7 +115,8 @@ async def erase_tenant(
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
+        logger.exception("tenant erase failed tenant_id=%s", tenant_id)
         raise HTTPException(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"tenant erase failed: {exc}",
+            detail="tenant erase failed",
         ) from exc

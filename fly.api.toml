@@ -26,6 +26,8 @@ primary_region = 'iad'
   ENGINE_TIMEOUT_SECONDS = '10'
   # Prefect optional — soft-fail when unreachable
   PREFECT_API_URL = ''
+  # Durable projection catch-up. DB leases make concurrent API machines safe.
+  PROJECTION_TICK_SECONDS = '5'
   PREFECT_HOME = '/home/forjd/.prefect'
   HOME = '/home/forjd'
   # LSTM-AE checkpoints (Fly volume mount)
@@ -52,10 +54,10 @@ primary_region = 'iad'
 
   [[http_service.checks]]
     interval = '15s'
-    timeout = '5s'
+    timeout = '10s'
     grace_period = '90s'
     method = 'GET'
-    path = '/health'
+    path = '/ready'
 
 [mounts]
   source = 'ml_models'

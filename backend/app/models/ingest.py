@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
+import math
 import re
 from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.crypto import ALGO_AES_256_GCM, SealedEnvelope
+from app.core.ingest_limits import (
+    MAX_CIPHERTEXT_BASE64_CHARACTERS,
+    MAX_INGEST_BATCH_EVENTS,
+)
 
 # --- Metadata allowlist (routing tags only — never plaintext payloads) ---
 _ALLOWED_METADATA_KEYS = frozenset(
@@ -109,7 +116,12 @@ class EncryptedEnvelope(BaseModel):
     algo: str = Field(default=ALGO_AES_256_GCM, max_length=32)
     key_id: str = Field(..., min_length=1, max_length=256)
     nonce: str = Field(..., min_length=8, max_length=64, description="base64 12-byte nonce")
-    ciphertext: str = Field(..., min_length=24, max_length=1_048_576, description="base64")
+    ciphertext: str = Field(
+        ...,
+        min_length=24,
+        max_length=MAX_CIPHERTEXT_BASE64_CHARACTERS,
+        description="base64",
+    )
     ratchet_header: str | None = Field(
         default=None,
         max_length=8192,
@@ -164,7 +176,11 @@ class IngestEventRequest(BaseModel):
 
 
 class IngestBatchRequest(BaseModel):
-    events: list[IngestEventRequest] = Field(..., min_length=1, max_length=100)
+    events: list[IngestEventRequest] = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_INGEST_BATCH_EVENTS,
+    )
 
 
 class IngestEventResult(BaseModel):
@@ -179,7 +195,22 @@ class IngestEventResult(BaseModel):
 class IngestResponse(BaseModel):
     ok: bool
     accepted: int
+    new_events: int = 0
+    duplicates: int = 0
     results: list[IngestEventResult]
+    processing_state: Literal["not_required", "completed", "failed"] = "not_required"
+    processing_recovery_state: Literal[
+        "not_required",
+        "queued",
+        "running",
+        "retry_scheduled",
+        "completed",
+        "failed",
+    ] = "not_required"
+    processing_batches: list[dict[str, Any]] = Field(default_factory=list)
+    processing_mode: Literal["synchronous"] = "synchronous"
+    async_processing_available: bool = False
+    durable_processing_recovery: bool = True
     prefect: dict[str, Any] | None = None
 
 
@@ -194,10 +225,13 @@ class EmbeddingIngestRequest(BaseModel):
     )
     series_id: str = Field(default="default", max_length=128)
     model_version: str = Field(..., min_length=1, max_length=64)
-    embedding: list[float] | None = Field(default=None, max_length=64)
-    reconstruction_error: float | None = None
+    embedding: list[float] | None = Field(default=None, min_length=16, max_length=16)
+    reconstruction_error: float | None = Field(default=None, ge=0)
     is_anomaly: bool = False
-    context_ciphertext: str | None = Field(default=None, max_length=1_048_576)
+    context_ciphertext: str | None = Field(
+        default=None,
+        max_length=MAX_CIPHERTEXT_BASE64_CHARACTERS,
+    )
     context_nonce: str | None = Field(default=None, max_length=64)
     context_key_id: str | None = Field(default=None, max_length=256)
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -206,3 +240,27 @@ class EmbeddingIngestRequest(BaseModel):
     @classmethod
     def _metadata_routing_only(cls, value: dict[str, Any]) -> dict[str, Any]:
         return validate_routing_metadata(value)
+
+    @model_validator(mode="after")
+    def _validate_vector_and_context(self) -> EmbeddingIngestRequest:
+        if self.embedding is not None and any(not math.isfinite(value) for value in self.embedding):
+            raise ValueError("embedding values must be finite")
+        if self.reconstruction_error is not None and not math.isfinite(self.reconstruction_error):
+            raise ValueError("reconstruction_error must be finite")
+
+        context = (self.context_ciphertext, self.context_nonce, self.context_key_id)
+        if any(value is not None for value in context) and not all(context):
+            raise ValueError(
+                "context_ciphertext, context_nonce, and context_key_id must be supplied together"
+            )
+        if all(context):
+            try:
+                nonce = base64.b64decode(self.context_nonce or "", validate=True)
+                ciphertext = base64.b64decode(self.context_ciphertext or "", validate=True)
+            except (ValueError, binascii.Error) as exc:
+                raise ValueError("sealed context fields must be valid base64") from exc
+            if len(nonce) != 12:
+                raise ValueError("context_nonce must decode to exactly 12 bytes")
+            if len(ciphertext) < 16:
+                raise ValueError("context_ciphertext must include an authentication tag")
+        return self

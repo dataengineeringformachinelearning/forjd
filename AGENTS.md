@@ -50,7 +50,7 @@ Backend Python is pinned to **3.12** with Pathway ≥0.31 (`beartype<0.16` via u
 
 Last updated: 2026-07-19
 
-**Deploy:** [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md) + [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md) — SQL `003`–`019`, mint `fjsvc_`, Fly backend/engine + Vercel frontend. Partners integrate via YAML workflows and tenant-bound service tokens.
+**Deploy:** [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md) + [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md) — SQL `003`–`025`, mint `fjsvc_`, Fly backend/engine + Vercel frontend. Partners integrate via YAML workflows and tenant-bound service tokens.
 
 ## Cursor Cloud specific instructions
 

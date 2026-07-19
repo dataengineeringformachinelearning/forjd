@@ -1,0 +1,79 @@
+name: Backend and data-plane CI
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "engine/**"
+      - "fly.api.toml"
+      - ".github/workflows/backend-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "engine/**"
+      - "fly.api.toml"
+      - ".github/workflows/backend-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: forjd-backend-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: FastAPI lint and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned Rust toolchain for the PyO3 dependency
+        run: rustup toolchain install 1.97.0 --profile minimal
+
+      - name: Install uv
+        run: python -m pip install --disable-pip-version-check uv
+
+      - name: Sync locked dependencies
+        run: uv sync --locked
+
+      - name: Ruff
+        run: uv run ruff check .
+
+      - name: Unit tests
+        run: uv run python -m unittest discover -s tests
+
+  rust:
+    name: Rust engine format, lint, and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.97.0 --profile minimal --component rustfmt,clippy
+
+      - name: Check formatting
+        run: cargo +1.97.0 fmt --all -- --check
+
+      - name: Clippy production feature set
+        run: cargo +1.97.0 clippy --no-default-features --features server,data-plane -- -D warnings
+
+      - name: Test production feature set
+        run: cargo +1.97.0 test --no-default-features --features server,data-plane

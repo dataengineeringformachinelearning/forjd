@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import ipaddress
+from datetime import UTC, datetime
 from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.auth import AuthUser, get_current_user, pool_from_request
+from app.models.domain import UpdateVulnerabilityRequest
+from app.models.siem import validate_signal_metadata
 from app.services import analytics as analytics_svc
 from app.services import assets as assets_svc
 from app.services import compliance as compliance_svc
@@ -55,10 +59,10 @@ class AssetCreateRequest(BaseModel):
 class VulnCreateRequest(BaseModel):
     tenant_id: UUID
     title: str = Field(..., min_length=1, max_length=255)
-    description: str = ""
+    description: str = Field(default="", max_length=4096)
     severity: Literal["low", "medium", "high", "critical"] = "medium"
     status: Literal["triage", "open", "in_progress", "resolved", "false_positive"] = "triage"
-    cve_id: str | None = None
+    cve_id: str | None = Field(default=None, max_length=64)
     asset_id: UUID | None = None
 
 
@@ -108,12 +112,45 @@ class ReportRequest(BaseModel):
 
 
 class SecurityAlertRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
     tenant_id: UUID
-    source: str = Field(..., min_length=1, max_length=128)
+    client_alert_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=96,
+        pattern=r"^[A-Za-z0-9_.:-]+$",
+    )
+    observed_at: datetime
+    source: str = Field(
+        ...,
+        min_length=1,
+        max_length=128,
+        pattern=r"^[a-z0-9][a-z0-9_.-]*$",
+    )
     severity: Literal["low", "medium", "high", "critical"] = "high"
     title: str = Field(..., min_length=1, max_length=255)
-    ip_address: str | None = None
-    raw: dict[str, Any] = Field(default_factory=dict)
+    ip_address: str | None = Field(default=None, max_length=64)
+    raw: dict[str, Any] = Field(default_factory=dict, max_length=32)
+
+    @field_validator("raw")
+    @classmethod
+    def _safe_metadata(cls, value: dict[str, Any]) -> dict[str, Any]:
+        # Legacy field name retained for compatibility; contents are normalized
+        # metadata only and are never persisted as a raw payload.
+        return validate_signal_metadata(value)
+
+    @field_validator("ip_address")
+    @classmethod
+    def _valid_ip(cls, value: str | None) -> str | None:
+        return str(ipaddress.ip_address(value)) if value else None
+
+    @field_validator("observed_at")
+    @classmethod
+    def _observed_at_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("observed_at must include a timezone")
+        return value.astimezone(UTC)
 
 
 class SlaTrainRequest(BaseModel):
@@ -245,6 +282,23 @@ async def create_vuln(
         asset_id=body.asset_id,
     )
     return {"ok": True, "vulnerability": vuln}
+
+
+@router.patch("/vulnerabilities/{vulnerability_id}")
+async def update_vuln(
+    request: Request,
+    vulnerability_id: UUID,
+    body: UpdateVulnerabilityRequest,
+    user: AuthUser = Depends(get_current_user),
+) -> dict[str, Any]:
+    vulnerability = await assets_svc.update_vulnerability(
+        _pool(request),
+        user=user,
+        tenant_id=body.tenant_id,
+        vulnerability_id=vulnerability_id,
+        updates=body.model_dump(exclude={"tenant_id"}, exclude_unset=True),
+    )
+    return {"ok": True, "vulnerability": vulnerability}
 
 
 # --- Firecrawl / tech ---
@@ -418,6 +472,8 @@ async def security_alert(
         _pool(request),
         user=user,
         tenant_id=body.tenant_id,
+        client_alert_id=body.client_alert_id,
+        observed_at=body.observed_at,
         source=body.source,
         severity=body.severity,
         title=body.title,

@@ -56,43 +56,80 @@ async def record(
     """Persist an audit event. Swallows DB errors so audit never breaks ingest."""
     safe = _sanitize_details(details or {})
     try:
-        await pool.execute(
-            """
-            INSERT INTO audit_events (
-                actor_user_id, tenant_id, action,
-                resource_type, resource_id, details
-            )
-            VALUES ($1, $2::uuid, $3, $4, $5, $6::jsonb)
-            """,
-            actor_user_id,
-            str(tenant_id) if tenant_id else None,
-            action[:128],
-            (resource_type or "")[:64],
-            (resource_id or "")[:256],
-            json.dumps(safe),
+        await _insert_record(
+            pool,
+            action=action,
+            actor_user_id=actor_user_id,
+            tenant_id=tenant_id,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            details=safe,
         )
     except Exception as exc:  # noqa: BLE001
         # Table may be missing before sql/010 — try soft-create once, then retry.
         logger.debug("audit write failed (will soft-create): %s", exc)
         try:
             await ensure_audit_schema(pool)
-            await pool.execute(
-                """
-                INSERT INTO audit_events (
-                    actor_user_id, tenant_id, action,
-                    resource_type, resource_id, details
-                )
-                VALUES ($1, $2::uuid, $3, $4, $5, $6::jsonb)
-                """,
-                actor_user_id,
-                str(tenant_id) if tenant_id else None,
-                action[:128],
-                (resource_type or "")[:64],
-                (resource_id or "")[:256],
-                json.dumps(safe),
+            await _insert_record(
+                pool,
+                action=action,
+                actor_user_id=actor_user_id,
+                tenant_id=tenant_id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                details=safe,
             )
         except Exception as retry_exc:  # noqa: BLE001
             logger.warning("audit write dropped: %s", retry_exc)
+
+
+async def record_required(
+    pool: asyncpg.Pool | asyncpg.Connection,
+    *,
+    action: str,
+    actor_user_id: str | None = None,
+    tenant_id: UUID | str | None = None,
+    resource_type: str = "",
+    resource_id: str = "",
+    details: dict[str, Any] | None = None,
+) -> None:
+    """Write a privileged audit receipt and propagate any persistence failure."""
+    await _insert_record(
+        pool,
+        action=action,
+        actor_user_id=actor_user_id,
+        tenant_id=tenant_id,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        details=_sanitize_details(details or {}),
+    )
+
+
+async def _insert_record(
+    pool: asyncpg.Pool | asyncpg.Connection,
+    *,
+    action: str,
+    actor_user_id: str | None,
+    tenant_id: UUID | str | None,
+    resource_type: str,
+    resource_id: str,
+    details: dict[str, Any],
+) -> None:
+    await pool.execute(
+        """
+        INSERT INTO audit_events (
+            actor_user_id, tenant_id, action,
+            resource_type, resource_id, details
+        )
+        VALUES ($1, $2::uuid, $3, $4, $5, $6::jsonb)
+        """,
+        actor_user_id,
+        str(tenant_id) if tenant_id else None,
+        action[:128],
+        (resource_type or "")[:64],
+        (resource_id or "")[:256],
+        json.dumps(details),
+    )
 
 
 # --- Strip anything that looks like ciphertext / keys ---

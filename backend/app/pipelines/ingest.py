@@ -17,6 +17,7 @@ from prefect import flow, task
 
 from app.addons.hooks import HookPoint, run_hooks, run_hooks_task
 from app.pipelines.soft_fail import run_with_local_fallback
+from app.workflows.models import WorkflowDefinition
 from app.workflows.processors import get_processor
 from app.workflows.registry import resolve_workflow
 
@@ -29,12 +30,17 @@ def process_with_workflow(
     content_type: str,
     event_type: str | None = None,
     workflow_id: str | None = None,
+    workflow_snapshot: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run the workflow's processor on sealed metadata only."""
-    workflow = resolve_workflow(
-        content_type=content_type,
-        event_type=event_type,
-        workflow_id=workflow_id,
+    workflow = (
+        WorkflowDefinition.model_validate(workflow_snapshot)
+        if workflow_snapshot is not None
+        else resolve_workflow(
+            content_type=content_type,
+            event_type=event_type,
+            workflow_id=workflow_id,
+        )
     )
     processor = get_processor(workflow.pipeline.processor)
     try:
@@ -96,6 +102,7 @@ def ingest_flow(
     content_type: str = "application/forjd-event+v1",
     event_type: str | None = None,
     workflow_id: str | None = None,
+    workflow_snapshot: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     hook_context = {
         "workflow_id": workflow_id,
@@ -110,6 +117,7 @@ def ingest_flow(
         content_type=content_type,
         event_type=event_type,
         workflow_id=workflow_id,
+        workflow_snapshot=workflow_snapshot,
     )
     after_hooks = run_hooks_task(
         HookPoint.AFTER_WORKFLOW.value,
@@ -143,6 +151,7 @@ def run_ingest_flow(
     content_type: str = "application/forjd-event+v1",
     event_type: str | None = None,
     workflow_id: str | None = None,
+    workflow_snapshot: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     def _local(exc: Exception) -> dict[str, Any]:
         hook_context = {
@@ -158,6 +167,7 @@ def run_ingest_flow(
             content_type=content_type,
             event_type=event_type,
             workflow_id=workflow_id,
+            workflow_snapshot=workflow_snapshot,
         )
         after_hooks = run_hooks_task.fn(
             HookPoint.AFTER_WORKFLOW.value,
@@ -194,5 +204,6 @@ def run_ingest_flow(
         content_type,
         event_type,
         workflow_id,
+        workflow_snapshot,
         fallback=_local,
     )

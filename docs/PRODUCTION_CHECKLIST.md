@@ -16,28 +16,55 @@ partner repo. Deploy commands: [`PRODUCTION_DEPLOY.md`](./PRODUCTION_DEPLOY.md).
 
 | Step | Action |
 |------|--------|
-| A1 | Apply SQL `003` → `019` |
+| A1 | Run `apply_sql_migrations.py` for `003` → `025`; confirm `forjd_schema_migrations` checksum parity (run once on SQL-editor-managed DBs to backfill ledger) |
 | A2 | Mint `fjsvc_` (`scripts/remint_service_account.sh` or mint API) |
 | A3 | Confirm `/ready` reports `schema_rls=true` |
+| A4 | Set `OUTBOUND_HOST_ALLOWLIST` to exact custom TAXII/webhook hosts (or deliberate `*.` suffixes); empty fails closed in production |
+| A5 | Put webhook HMAC keys in the deployment secret manager as `WEBHOOK_SIGNING_SECRETS_JSON`; playbooks store only opaque `secret_ref` keys |
+| A6 | Configure a private S3-compatible export bucket, least-privilege list/get/put/delete credentials, encryption/retention policy, and `OBJECT_STORAGE_*`; production `/ready` must report `object_storage=true` |
 
 ```bash
 ./scripts/remint_service_account.sh partner-production
+# Dedicated account-deletion credential only; erase is excluded by default:
+FORJD_INCLUDE_ERASE=1 ./scripts/remint_service_account.sh partner-deletion
 ```
 
 ## B. Fly deploy
 
 | Step | Action |
 |------|--------|
-| B1 | Secrets on `forjd-backend` (`POSTGRES_DSN`, `REDIS_URL`, `SUPABASE_*`, `ENGINE_*`, `ENVIRONMENT=prod`) |
+| B1 | Secrets on `forjd-backend` (`POSTGRES_DSN`, `REDIS_URL`, `SUPABASE_*`, `ENGINE_*`, `OBJECT_STORAGE_*`, `ENVIRONMENT=prod`) |
 | B2 | Deploy API + engine (`FORJD_ROLE=all` + internode keys) |
 | B3 | Confirm `https://backend.forjd.co/ready` |
 | B4 | Optional `verify_supabase_post_migration.py` after schema apply |
 
 ## C. Partner smoke
 
-1. Mint service account → sealed ingest → projections list.
+1. Mint service account → canonical sealed `POST /api/v1/ingest/events:batch` → projections list.
+   Confirm `/api/v1/capabilities` advertises 25 events / 8 MiB, and both an
+   oversized `Content-Length` request and an oversized chunked request return `413`.
+   Kill the API after acceptance but before synchronous processing; after
+   restart verify the leased ingest worker completes the returned receipt and
+   `GET /api/v1/ingest/processing/{batch_id}` reports `completed`.
 2. Analytics overview → status page CRUD → exports/vulns as scoped.
-3. Staging tenant erase: `POST /api/v1/tenants/{id}/erase`.
+3. Normalized signal exact retry → one signal, one correlated case, idempotent playbook runs.
+4. Case/vulnerability/playbook PATCH; manual execute; idempotent control-plane ACK; leased webhook retry and explicit operator retry.
+5. Edit a playbook while a run is paused and verify its immutable action plan is unchanged; verify correlation and legacy alert exact replay/conflict behavior.
+6. Wrong-tenant, missing-scope, private-egress, redirect, and oversized TAXII requests fail closed; audit write failure also fails privileged SIEM/SOAR requests and atomically rolls back sealed-ingest events plus processing receipts.
+7. Staging tenant erase: `POST /api/v1/tenants/{id}/erase`; repeat it with the
+   now-deleted opaque credential and verify the completed receipt is returned,
+   verify multi-tenant `ingest_processing_batches` metadata containing that
+   tenant was removed, then verify that credential still gets `401` on another
+   route and tenant.
+8. Force one projector page to fail; verify its events enter the versioned DLQ,
+   the next page proceeds, and retry either succeeds at the stored version or
+   fails closed on deliberate workflow-version drift.
+9. Retry an exact accepted batch whose processing receipt is pending/failed;
+   verify it wakes the original stored workflow snapshot and does not create a
+   differently grouped processing job.
+10. Create the same export twice with one idempotency key; verify one leased
+    job, checksum/byte count, short-lived signed download, expiry cleanup, and
+    artifact deletion during tenant erase.
 
 ## D. Separation invariants
 
@@ -45,7 +72,8 @@ partner repo. Deploy commands: [`PRODUCTION_DEPLOY.md`](./PRODUCTION_DEPLOY.md).
 |---------|---------|-------|
 | End-user auth | Partner IdP (e.g. Firebase) | Supabase Auth (platform) / `fjsvc_` (partners) |
 | Browser API | Partner BFF only | Never called with partner end-user tokens |
-| Ingest / projections / ML | BFF → FORJD | Owns storage + processing |
+| Sealed evidence | BFF → FORJD `/ingest/events:batch` | Ciphertext storage + metadata projections |
+| Normalized SIEM / SOAR | BFF → FORJD `/siem/signals` | PII-minimized signals, cases, durable playbook runs |
 | Cache | Optional / none | Fly Dragonfly |
 | Tenant erase | Calls FORJD erase then local teardown | `POST /api/v1/tenants/{id}/erase` |
 

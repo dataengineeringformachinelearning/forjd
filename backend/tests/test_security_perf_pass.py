@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 from app.services import sessions as session_svc
-from app.services.service_accounts import authenticate_opaque
+from app.services.service_accounts import authenticate_erased_opaque, authenticate_opaque
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -46,6 +46,49 @@ class TestAuthHotPath(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(out)
         ensure.assert_not_called()
         pool.execute.assert_awaited()  # debounced last_used_at touch
+
+    async def test_erased_credential_lookup_hashes_in_process_and_binds_tenant(self) -> None:
+        tenant_id = uuid4()
+        token = "fjsvc_abcd1234_secret"
+        token_hash = "d" * 64
+        pool = MagicMock()
+        pool.fetchrow = AsyncMock(
+            return_value={
+                "tenant_id": str(tenant_id),
+                "requested_by": "svc:deleted",
+                "erased_credential_prefix": "abcd1234",
+                "erased_credential_hash": token_hash,
+                "completed_at": object(),
+            }
+        )
+        with patch(
+            "app.services.service_accounts.hash_service_token",
+            return_value=token_hash,
+        ):
+            out = await authenticate_erased_opaque(
+                pool,
+                tenant_id=tenant_id,
+                prefix="abcd1234",
+                token=token,
+            )
+
+        self.assertIsNotNone(out)
+        query_args = pool.fetchrow.await_args.args
+        self.assertEqual(query_args[1:], (str(tenant_id), "abcd1234"))
+        self.assertNotIn(token, query_args)
+        self.assertIn("status = 'completed'", query_args[0])
+
+        with patch(
+            "app.services.service_accounts.hash_service_token",
+            return_value="wrong",
+        ):
+            rejected = await authenticate_erased_opaque(
+                pool,
+                tenant_id=tenant_id,
+                prefix="abcd1234",
+                token=token,
+            )
+        self.assertIsNone(rejected)
 
 
 class TestSessionBatchCheck(unittest.IsolatedAsyncioTestCase):

@@ -57,7 +57,13 @@ def _client() -> Any:
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
         region_name=region,
-        config=Config(signature_version="s3v4", s3={"addressing_style": addressing}),
+        config=Config(
+            signature_version="s3v4",
+            connect_timeout=2,
+            read_timeout=5,
+            retries={"max_attempts": 2, "mode": "standard"},
+            s3={"addressing_style": addressing},
+        ),
     )
 
 
@@ -79,6 +85,12 @@ def is_configured() -> bool:
         _client()
     except ObjectStorageNotConfiguredError:
         return False
+    return True
+
+
+def probe_bucket() -> bool:
+    """Verify credentials and bucket reachability without mutating storage."""
+    _client().head_bucket(Bucket=exports_bucket())
     return True
 
 
@@ -109,13 +121,23 @@ def generate_presigned_get(
     key: str,
     expires_in: int = DEFAULT_PRESIGN_SECONDS,
     bucket: str | None = None,
+    filename: str | None = None,
+    content_type: str | None = None,
 ) -> str:
     client = _client()
     name = bucket or exports_bucket()
+    params: dict[str, str] = {"Bucket": name, "Key": key}
+    if filename:
+        safe_name = filename.replace('"', "").replace("\r", "").replace("\n", "")[:255]
+        params["ResponseContentDisposition"] = f'attachment; filename="{safe_name}"'
+    if content_type:
+        params["ResponseContentType"] = content_type[:255]
     return client.generate_presigned_url(
         "get_object",
-        Params={"Bucket": name, "Key": key},
-        ExpiresIn=max(60, min(expires_in, 86400)),
+        Params=params,
+        # A download must never outlive the artifact's own retention window.
+        # S3 accepts one-second expirations, which matters close to expiry.
+        ExpiresIn=max(1, min(expires_in, 86400)),
     )
 
 
@@ -123,3 +145,24 @@ def delete_object(*, key: str, bucket: str | None = None) -> None:
     client = _client()
     name = bucket or exports_bucket()
     client.delete_object(Bucket=name, Key=key)
+
+
+def delete_objects(*, keys: list[str], bucket: str | None = None) -> None:
+    """Delete private objects in S3's bounded 1,000-key batches."""
+    clean = [key for key in dict.fromkeys(keys) if key]
+    if not clean:
+        return
+    client = _client()
+    name = bucket or exports_bucket()
+    for offset in range(0, len(clean), 1000):
+        response = client.delete_objects(
+            Bucket=name,
+            Delete={
+                "Objects": [{"Key": key} for key in clean[offset : offset + 1000]],
+                "Quiet": True,
+            },
+        )
+        errors = response.get("Errors") or []
+        if errors:
+            codes = sorted({str(item.get("Code") or "Unknown") for item in errors})
+            raise RuntimeError(f"object deletion failed: {', '.join(codes)}")

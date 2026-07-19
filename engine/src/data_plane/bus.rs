@@ -3,7 +3,10 @@
 use anyhow::{Context, Result, bail};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use redis::aio::MultiplexedConnection;
-use redis::streams::{StreamId, StreamKey, StreamReadOptions, StreamReadReply};
+use redis::streams::{
+    StreamAutoClaimOptions, StreamAutoClaimReply, StreamId, StreamKey, StreamReadOptions,
+    StreamReadReply,
+};
 use redis::{AsyncCommands, Client, Value as RedisValue};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -19,6 +22,8 @@ pub struct BusMessage {
     pub payload: Vec<u8>,
     #[allow(dead_code)] // reserved for consumer-side header routing
     pub headers: Value,
+    /// True when recovered from another consumer's stale pending set.
+    pub reclaimed: bool,
 }
 
 // --- Client factory ---
@@ -84,6 +89,9 @@ pub async fn publish(
     let headers_json = serde_json::to_string(headers).context("headers must serialize")?;
     let id: String = redis::cmd("XADD")
         .arg(stream)
+        .arg("MAXLEN")
+        .arg("~")
+        .arg(1_000_000)
         .arg("*")
         .arg("payload")
         .arg(encoded)
@@ -120,11 +128,43 @@ pub async fn read_group(
     let mut messages = Vec::new();
     for StreamKey { key, ids } in reply.keys {
         for StreamId { id, map } in ids {
-            match decode_message(&key, &id, &map) {
+            match decode_message(&key, &id, &map, false) {
                 Ok(message) => messages.push(message),
                 Err(error) => {
                     tracing::error!(stream = %key, id = %id, %error, "bus: skip undecodable message");
                 }
+            }
+        }
+    }
+    Ok(messages)
+}
+
+/// Recover messages abandoned by crashed consumers after `min_idle_ms`.
+pub async fn claim_stale(
+    conn: &mut MultiplexedConnection,
+    stream: &str,
+    group: &str,
+    consumer: &str,
+    min_idle_ms: usize,
+    count: usize,
+) -> Result<Vec<BusMessage>> {
+    let reply: StreamAutoClaimReply = conn
+        .xautoclaim_options(
+            stream,
+            group,
+            consumer,
+            min_idle_ms,
+            "0-0",
+            StreamAutoClaimOptions::default().count(count),
+        )
+        .await
+        .context("Dragonfly XAUTOCLAIM failed")?;
+    let mut messages = Vec::new();
+    for StreamId { id, map } in reply.claimed {
+        match decode_message(stream, &id, &map, true) {
+            Ok(message) => messages.push(message),
+            Err(error) => {
+                tracing::error!(%stream, %id, %error, "bus: stale message cannot be decoded");
             }
         }
     }
@@ -161,7 +201,12 @@ fn redis_value_as_string(value: &RedisValue) -> Result<String> {
     }
 }
 
-fn decode_message(stream: &str, id: &str, map: &HashMap<String, RedisValue>) -> Result<BusMessage> {
+fn decode_message(
+    stream: &str,
+    id: &str,
+    map: &HashMap<String, RedisValue>,
+    reclaimed: bool,
+) -> Result<BusMessage> {
     let encoded = map
         .get("payload")
         .context("stream message missing payload field")?;
@@ -185,5 +230,6 @@ fn decode_message(stream: &str, id: &str, map: &HashMap<String, RedisValue>) -> 
         key,
         payload,
         headers,
+        reclaimed,
     })
 }

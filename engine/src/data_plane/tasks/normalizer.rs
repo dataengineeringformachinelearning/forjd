@@ -81,19 +81,38 @@ pub async fn run(pool: PgPool, client: Client, cfg: Config) -> Result<()> {
     );
 
     loop {
-        let messages = match bus::read_group(
+        // Recover work abandoned by crashed consumers before reading new entries.
+        let recovered = bus::claim_stale(
             &mut conn,
             TELEMETRY_STREAM,
             &cfg.normalizer_group_id,
             &consumer,
+            60_000,
             cfg.batch_size as usize,
-            5_000,
         )
-        .await
-        {
-            Ok(messages) => messages,
+        .await;
+        let messages = match recovered {
+            Ok(messages) if !messages.is_empty() => messages,
+            Ok(_) => match bus::read_group(
+                &mut conn,
+                TELEMETRY_STREAM,
+                &cfg.normalizer_group_id,
+                &consumer,
+                cfg.batch_size as usize,
+                5_000,
+            )
+            .await
+            {
+                Ok(messages) => messages,
+                Err(error) => {
+                    warn!(%error, "normalizer: consume error");
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    conn = bus::connect(&client).await?;
+                    continue;
+                }
+            },
             Err(error) => {
-                warn!(%error, "normalizer: consume error");
+                warn!(%error, "normalizer: stale-claim error");
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                 conn = bus::connect(&client).await?;
                 continue;
@@ -126,10 +145,17 @@ pub async fn run(pool: PgPool, client: Client, cfg: Config) -> Result<()> {
                         error = %processing_error,
                         "normalizer: event failed"
                     );
+                    // First failure stays pending for a delayed retry. A failure after
+                    // stale recovery is quarantined so poison events cannot loop forever.
+                    if !message.reclaimed {
+                        warn!(id = %message.id, "normalizer: event left pending for retry");
+                        continue;
+                    }
                     let headers = serde_json::json!({
                         "x-forjd-error": processing_error.to_string().chars().take(500).collect::<String>(),
                         "x-forjd-source-stream": message.stream,
                         "x-forjd-source-id": message.id,
+                        "x-forjd-retried": true,
                     });
                     match bus::publish(
                         &mut conn,
