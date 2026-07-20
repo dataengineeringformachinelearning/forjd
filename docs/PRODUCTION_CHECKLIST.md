@@ -16,7 +16,7 @@ partner repo. Deploy commands: [`PRODUCTION_DEPLOY.md`](./PRODUCTION_DEPLOY.md).
 
 | Step | Action |
 |------|--------|
-| A1 | Run `apply_sql_migrations.py` for `003` → `025`; confirm `forjd_schema_migrations` checksum parity (run once on SQL-editor-managed DBs to backfill ledger) |
+| A1 | Run `apply_sql_migrations.py` for `003` → `026`; confirm `forjd_schema_migrations` checksum parity (run once on SQL-editor-managed DBs to backfill ledger) |
 | A2 | Mint `fjsvc_` (`scripts/remint_service_account.sh` or mint API) |
 | A3 | Confirm `/ready` reports `schema_rls=true` |
 | A4 | Set `OUTBOUND_HOST_ALLOWLIST` to exact custom TAXII/webhook hosts (or deliberate `*.` suffixes); empty fails closed in production |

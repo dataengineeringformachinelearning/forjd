@@ -39,7 +39,7 @@ idempotent migrations are reapplied to backfill the ledger.
 ## Secure path (`003`–`026`)
 
 1. Enable extensions **vector** and **pgcrypto** (Dashboard → Database → Extensions).
-2. Run `uv run python scripts/apply_sql_migrations.py` for `003` → `025` and
+2. Run `uv run python scripts/apply_sql_migrations.py` for `003` → `026` and
    confirm the migration ledger/checksums.
 3. Realtime: `015`/`016` add `stream_results`, `telemetry_events`, `ml_scores`, `training_runs` when publication exists.
 4. Set backend env: `SUPABASE_URL`, `SUPABASE_JWT_SECRET` (or rely on JWKS), `POSTGRES_DSN` (Supabase only — not Neon).

@@ -19,7 +19,7 @@ partner's own deploy runbook.
 ```bash
 cd backend
 # Requires POSTGRES_DSN / DATABASE_URL in env (never commit)
-uv run python scripts/apply_sql_migrations.py   # 003 → 025
+uv run python scripts/apply_sql_migrations.py   # 003 → 026
 
 POSTGRES_DSN='…' uv run python scripts/verify_supabase_post_migration.py
 ```
