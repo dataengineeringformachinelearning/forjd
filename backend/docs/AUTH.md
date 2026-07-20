@@ -310,6 +310,8 @@ response bodies.
 - Service tokens cannot create tenants or mint other service accounts.
 - Service tokens cannot access any tenant other than their bound `tenant_id`.
 - Global `API_KEY` (if set) is a platform gate only — not a tenant credential.
+- Partner bootstrap: `POST /api/v1/partner/provision` uses `FORJD_PROVISION_TOKEN`
+  (not `fjsvc_`) so DEML can auto-mint per-account tenants without end-user FORJD access.
 - Rust `daemon_api_keys` remain a separate edge for `forjd-engine` ingest.
 - Audit actors: humans = Supabase `sub`; services = `svc:<service_accounts.id>`.
 

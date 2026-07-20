@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     # --- Optional shared API key (empty = disabled) ---
     # Prefer X-API-Key. Bearer JWTs are not treated as the API key (see security.py).
     API_KEY: str = ""
+    # Bootstrap token for DEML partner tenant provisioning (not a tenant fjsvc_).
+    # Empty disables POST /api/v1/partner/provision.
+    FORJD_PROVISION_TOKEN: str = ""
 
     # --- Supabase Auth (JWKS and/or HS256 secret) ---
     SUPABASE_URL: str = ""

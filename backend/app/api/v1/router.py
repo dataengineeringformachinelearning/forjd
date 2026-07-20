@@ -17,6 +17,7 @@ from app.api.v1 import (
     exports,
     ingest,
     ml,
+    partner,
     playbooks,
     projections,
     replay,
@@ -41,6 +42,8 @@ api_router.include_router(capabilities.router)
 # Subprocessors (partner SaaS): service-accounts → sessions → ingest → projections.
 api_router.include_router(tenants.router)
 api_router.include_router(service_accounts.router)
+# DEML bootstrap: provision tenant + fjsvc_ without end-user FORJD access.
+api_router.include_router(partner.router)
 api_router.include_router(ingest.router)
 api_router.include_router(sessions.router)
 api_router.include_router(workflows.router)

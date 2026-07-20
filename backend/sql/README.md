@@ -34,8 +34,9 @@ idempotent migrations are reapplied to backfill the ledger.
 | `023_durable_exports.sql` | Idempotent queued exports, worker leases, private object artifacts, and expiry |
 | `024_durable_ingest_processing.sql` | Atomic sealed-acceptance processing receipts, immutable workflow snapshots, leased restart recovery, and status state |
 | `025_siem_soar_replay_continuation.sql` | Immutable completed SIEM/correlation result snapshots and indexed SOAR continuation recovery |
+| `026_partner_provisions.sql` | Idempotent partner (DEML) tenant + service-account provision ledger |
 
-## Secure path (`003`–`025`)
+## Secure path (`003`–`026`)
 
 1. Enable extensions **vector** and **pgcrypto** (Dashboard → Database → Extensions).
 2. Run `uv run python scripts/apply_sql_migrations.py` for `003` → `025` and

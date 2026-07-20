@@ -2,7 +2,10 @@
 
 ## Log
 
-- 2026-07-19: Analytics overview now returns 24h rollup series (`time_series`, `uptime_series`, `threat_series`, `threat_severity`, `unique_visitors`, spiking forecast) so partner dashboards can chart latency/uptime/threats instead of scalars-only.
+- 2026-07-20: Deployed partner provision end-to-end — applied `sql/026` on Fly, shipped `forjd-backend` + `deml-backend`; smoke confirmed idempotent `POST /api/v1/partner/provision`, DEML sealed per-account mapping for demo, and analytics overview 200 for both Joe (env token) and demo (sealed).
+- 2026-07-19: Added partner provision API (`POST /api/v1/partner/provision` + `sql/026`) so DEML can auto-mint per-account FORJD tenants with `FORJD_PROVISION_TOKEN` — end users never hold `fjsvc_` tokens.
+- 2026-07-19: Analytics overview now returns 24h rollup series
+ (`time_series`, `uptime_series`, `threat_series`, `threat_severity`, `unique_visitors`, spiking forecast) so partner dashboards can chart latency/uptime/threats instead of scalars-only.
 - 2026-07-19: Fixed empty landing CTAs — `FjButton` projected labels via a single `ng-template` + `NgTemplateOutlet` so href anchors show “API docs” / “ReDoc” (Angular drops `<ng-content>` inside `@if`/`@else` branches).
 - 2026-07-19: Borrowed OpenBB’s Fetcher TET pattern (not the OpenBB package) for OSINT scanners — `app/services/fetchers/` with typed `FetchResult` envelope; crt.sh + HIBP migrated behind query→extract→transform while keeping existing HTTP façades. Addons stay the lean-core extension surface.
 - 2026-07-19: Regression pass — backend 270 tests OK, engine `server,data-plane` 24 tests OK, frontend unit tests OK; live `/ready` green (postgres/redis/workers/engine). Pending deploy still required for Swagger-at-root and public status `tenant_id` omission.
