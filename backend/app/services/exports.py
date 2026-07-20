@@ -702,7 +702,8 @@ async def _process_claimed_job(
             durable_object_key,
             digest,
             len(artifact),
-            settings.EXPORT_TTL_SECONDS,
+            # $6 is cast ::text — asyncpg rejects int for text params.
+            str(settings.EXPORT_TTL_SECONDS),
         )
         if not str(updated).endswith(" 1"):
             # Every attempt has a unique key, so lease-loss cleanup cannot
@@ -805,7 +806,8 @@ async def _load_source_rows(
 ) -> list[dict[str, Any]]:
     bounded_limit = max(1, min(limit, 100_000))
     bounded_offset = max(0, min(offset, 100_000))
-    days = max(1, min(int(filters.get("days") or 7), 90))
+    # $2 is cast ::text in every query below — asyncpg rejects int for text params.
+    days = str(max(1, min(int(filters.get("days") or 7), 90)))
     site_url = str(filters.get("site_url") or "")[:2048]
     if source_kind == "stream_results":
         rows = await pool.fetch(

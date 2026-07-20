@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, patch
 
 from app import main
 from app.core.worker_health import WorkerHealthRegistry
-from app.services import exports, ingest_processing, playbooks, siem
+from app.services import analytics_worker, exports, ingest_processing, playbooks, siem
 
 
 class TestWorkerSupervision(unittest.IsolatedAsyncioTestCase):
@@ -66,10 +66,16 @@ class TestWorkerSupervision(unittest.IsolatedAsyncioTestCase):
             kwargs["health"].succeeded("exports")
             await state.worker_stop.wait()
 
+        async def rollup_worker(*_args, **kwargs) -> None:
+            started.append("analytics-rollup")
+            kwargs["health"].succeeded("analytics-rollup")
+            await state.worker_stop.wait()
+
         with (
             patch.object(ingest_processing, "run_ingest_processing_worker", ingest_worker),
             patch.object(playbooks, "run_playbook_retry_worker", soar_worker),
             patch.object(exports, "run_export_worker", export_worker),
+            patch.object(analytics_worker, "run_analytics_worker", rollup_worker),
             patch.object(main.settings, "PROJECTION_TICK_SECONDS", 0),
         ):
             await main._ensure_background_workers(app, object())
@@ -79,10 +85,13 @@ class TestWorkerSupervision(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(
                 set(state.worker_tasks),
-                {"ingest-processing", "soar-retries", "exports"},
+                {"ingest-processing", "soar-retries", "exports", "analytics-rollup"},
             )
             self.assertEqual(original, state.worker_tasks)
-            self.assertEqual(sorted(started), ["exports", "ingest-processing", "soar-retries"])
+            self.assertEqual(
+                sorted(started),
+                ["analytics-rollup", "exports", "ingest-processing", "soar-retries"],
+            )
             self.assertTrue(main._worker_health(app)[0])
 
         state.worker_stop.set()
@@ -102,7 +111,10 @@ class TestWorkerSupervision(unittest.IsolatedAsyncioTestCase):
             registry.failed("ingest-processing", RuntimeError("database unavailable"))
         app = SimpleNamespace(state=SimpleNamespace(worker_tasks=tasks, worker_health=registry))
 
-        with patch.object(main.settings, "PROJECTION_TICK_SECONDS", 0):
+        with (
+            patch.object(main.settings, "PROJECTION_TICK_SECONDS", 0),
+            patch.object(main.settings, "ANALYTICS_ROLLUP_INTERVAL_SECONDS", 0),
+        ):
             healthy, detail = main._worker_health(app)
 
         self.assertFalse(healthy)

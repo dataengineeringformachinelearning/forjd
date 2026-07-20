@@ -54,6 +54,40 @@ class TestPrefectSoftFail(unittest.TestCase):
         flow.assert_not_called()
         fallback.assert_not_called()
 
+    def test_empty_prefect_api_url_falls_back_without_probing(self) -> None:
+        """Production runs with PREFECT_API_URL='' — never boot the ephemeral server."""
+        flow = MagicMock()
+        fallback = MagicMock(return_value={"mode": "local-fallback"})
+
+        with (
+            patch.object(soft_fail.settings, "PREFECT_API_URL", ""),
+            patch.dict(soft_fail.os.environ, {}, clear=False),
+            patch.object(soft_fail, "get_client") as probe,
+        ):
+            soft_fail.os.environ.pop("PREFECT_API_URL", None)
+            result = soft_fail.run_with_local_fallback(flow, fallback=fallback)
+
+        self.assertEqual(result, {"mode": "local-fallback"})
+        probe.assert_not_called()
+        flow.assert_not_called()
+        fallback.assert_called_once()
+
+    def test_empty_env_var_beats_pydantic_default(self) -> None:
+        """env_ignore_empty makes settings fall back to localhost — env '' must win."""
+        flow = MagicMock()
+        fallback = MagicMock(return_value={"mode": "local-fallback"})
+
+        with (
+            patch.object(soft_fail.settings, "PREFECT_API_URL", "http://127.0.0.1:4200/api"),
+            patch.dict(soft_fail.os.environ, {"PREFECT_API_URL": ""}),
+            patch.object(soft_fail, "get_client") as probe,
+        ):
+            result = soft_fail.run_with_local_fallback(flow, fallback=fallback)
+
+        self.assertEqual(result, {"mode": "local-fallback"})
+        probe.assert_not_called()
+        fallback.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

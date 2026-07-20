@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from threading import Lock
 from time import monotonic
@@ -10,6 +11,8 @@ from typing import Any
 import httpx
 from prefect.client.orchestration import get_client
 
+from app.core.config import settings
+
 _PREFECT_HEALTH_CACHE_SECONDS = 5.0
 _PREFECT_HEALTH_TIMEOUT_SECONDS = 0.5
 _health_lock = Lock()
@@ -17,9 +20,26 @@ _health_checked_at = 0.0
 _health_error: Exception | None = None
 
 
+def _configured_prefect_url() -> str:
+    """Effective Prefect URL — raw env wins because pydantic ignores empty env.
+
+    Production sets ``PREFECT_API_URL=''`` (no orchestrator); ``env_ignore_empty``
+    would silently substitute the localhost default, so read the env directly.
+    """
+    raw = os.environ.get("PREFECT_API_URL")
+    if raw is not None:
+        return raw.strip()
+    return (settings.PREFECT_API_URL or "").strip()
+
+
 def _prefect_api_error() -> Exception | None:
     """Probe orchestration before business work so fallback cannot duplicate it."""
     global _health_checked_at, _health_error
+    if not _configured_prefect_url():
+        # No orchestrator configured (production default): deterministic local
+        # fallback. Probing would boot Prefect's ephemeral server, whose import
+        # chain (docket → key_value.aio) breaks under the Pathway beartype pin.
+        return httpx.ConnectError("PREFECT_API_URL is not configured")
     now = monotonic()
     with _health_lock:
         if now - _health_checked_at < _PREFECT_HEALTH_CACHE_SECONDS:

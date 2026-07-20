@@ -155,6 +155,9 @@ class Settings(BaseSettings):
     INGEST_PROCESSING_BATCH_SIZE: int = Field(default=10, ge=1, le=100)
     SOAR_WORKER_INTERVAL_SECONDS: float = Field(default=5.0, ge=1.0, le=60.0)
     SOAR_WORKER_BATCH_SIZE: int = Field(default=50, ge=1, le=200)
+    # Continuous analytics rollups + ML score refresh (0 disables the worker).
+    ANALYTICS_ROLLUP_INTERVAL_SECONDS: float = Field(default=300.0, ge=0.0, le=3600.0)
+    ANALYTICS_ML_REFRESH_SECONDS: float = Field(default=3600.0, ge=60.0, le=86400.0)
 
     @property
     def ADDONS_ENABLED(self) -> list[str]:

@@ -122,6 +122,19 @@ async def _ensure_background_workers(app: FastAPI, pool: Any | None) -> None:
         ),
         stale_after_seconds=max(600.0, settings.EXPORT_WORKER_INTERVAL_SECONDS * 4),
     )
+    if settings.ANALYTICS_ROLLUP_INTERVAL_SECONDS > 0:
+        from app.services.analytics_worker import run_analytics_worker
+
+        _start_worker(
+            app,
+            "analytics-rollup",
+            lambda: run_analytics_worker(
+                pool,
+                app.state.worker_stop,
+                health=app.state.worker_health,
+            ),
+            stale_after_seconds=max(600.0, settings.ANALYTICS_ROLLUP_INTERVAL_SECONDS * 4),
+        )
     if settings.PROJECTION_TICK_SECONDS > 0:
         from app.services.projection_worker import run_projection_worker
 
@@ -162,6 +175,8 @@ def _worker_health(app: FastAPI) -> tuple[bool, dict[str, dict[str, Any]]]:
     expected = {"ingest-processing", "soar-retries", "exports"}
     if settings.PROJECTION_TICK_SECONDS > 0:
         expected.add("projection-catchup")
+    if settings.ANALYTICS_ROLLUP_INTERVAL_SECONDS > 0:
+        expected.add("analytics-rollup")
     tasks: dict[str, asyncio.Task[None]] = app.state.worker_tasks
     detail: dict[str, dict[str, Any]] = {}
     healthy = True

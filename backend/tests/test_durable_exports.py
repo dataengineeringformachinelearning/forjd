@@ -356,7 +356,10 @@ class TestExportIdempotency(unittest.IsolatedAsyncioTestCase):
         ):
             await exports._process_claimed_job(pool, owner=owner, row=row)
 
-        self.assertIn("status = 'completed'", pool.execute.await_args_list[2].args[0])
+        completed = pool.execute.await_args_list[2]
+        self.assertIn("status = 'completed'", completed.args[0])
+        # $6 (expires_at TTL) is cast ::text — asyncpg rejects int for text params.
+        self.assertIsInstance(completed.args[6], str)
 
     async def test_failed_cleanup_retains_durable_artifact_pointer(self) -> None:
         owner = uuid4()
@@ -459,6 +462,29 @@ class TestExportIdempotency(unittest.IsolatedAsyncioTestCase):
                 artifact_version="2-worker-b",
             )
         self.assertNotEqual(first, second)
+
+
+# --- Source query parameter typing (regression: asyncpg rejects int for ::text) ---
+class TestLoadSourceRowParams(unittest.IsolatedAsyncioTestCase):
+    async def test_days_binds_as_text_for_every_source_kind(self) -> None:
+        pool = MagicMock()
+        pool.fetch = AsyncMock(return_value=[])
+        for source_kind in (
+            "stream_results",
+            "analytics",
+            "threat",
+            "lighthouse",
+            "vulnerabilities",
+        ):
+            await exports._load_source_rows(
+                pool,
+                tenant_id=TENANT_ID,
+                source_kind=source_kind,
+                filters={"days": 7, "site_url": ""},
+                limit=10,
+            )
+            args = pool.fetch.await_args.args
+            self.assertIsInstance(args[2], str, f"{source_kind}: $2 (days) must bind as text")
 
 
 if __name__ == "__main__":
