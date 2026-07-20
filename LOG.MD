@@ -2,6 +2,8 @@
 
 ## Log
 
+- 2026-07-19: Analytics overview now returns 24h rollup series (`time_series`, `uptime_series`, `threat_series`, `threat_severity`, `unique_visitors`, spiking forecast) so partner dashboards can chart latency/uptime/threats instead of scalars-only.
+- 2026-07-19: Fixed empty landing CTAs — `FjButton` projected labels via a single `ng-template` + `NgTemplateOutlet` so href anchors show “API docs” / “ReDoc” (Angular drops `<ng-content>` inside `@if`/`@else` branches).
 - 2026-07-19: Borrowed OpenBB’s Fetcher TET pattern (not the OpenBB package) for OSINT scanners — `app/services/fetchers/` with typed `FetchResult` envelope; crt.sh + HIBP migrated behind query→extract→transform while keeping existing HTTP façades. Addons stay the lean-core extension surface.
 - 2026-07-19: Regression pass — backend 270 tests OK, engine `server,data-plane` 24 tests OK, frontend unit tests OK; live `/ready` green (postgres/redis/workers/engine). Pending deploy still required for Swagger-at-root and public status `tenant_id` omission.
 - 2026-07-19: Landing polish — API root (`/` and `/docs`) serves FJORD-themed Swagger UI; Angular product landing uses forjd-ui `FjButton` (href) + `FjPanel` (card) primitives; removed the separate backend HTML marketing card.

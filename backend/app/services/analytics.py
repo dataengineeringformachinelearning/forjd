@@ -176,6 +176,41 @@ async def aggregate_hour(
     return {"ok": True, "bucket": dict(row)}
 
 
+# --- Overview series helpers ---
+def _bucket_label(bucket_start: Any) -> str:
+    if hasattr(bucket_start, "strftime"):
+        return bucket_start.strftime("%H:%M")
+    text = str(bucket_start or "")
+    return text[11:16] if len(text) >= 16 else text
+
+
+def _spiking_temporal_forecast(rollups: list[Any]) -> float:
+    """Simple half-window spike score from threats + error rate (0–100).
+
+    Expects newest-first rollup rows (matching overview SQL order).
+    """
+    if len(rollups) < 2:
+        return 0.0
+    chronological = list(reversed(rollups))
+    mid = max(1, len(chronological) // 2)
+    older, newer = chronological[:mid], chronological[mid:]
+
+    def _pressure(rows: list[Any]) -> float:
+        if not rows:
+            return 0.0
+        threats = sum(int(r["threats_detected"] or 0) for r in rows) / len(rows)
+        errors = sum(float(r["error_rate_percent"] or 0) for r in rows) / len(rows)
+        return threats * 10.0 + errors
+
+    older_p = _pressure(older)
+    newer_p = _pressure(newer)
+    if older_p <= 0 and newer_p <= 0:
+        return 0.0
+    delta = max(0.0, newer_p - older_p)
+    baseline = max(older_p, 1.0)
+    return round(min(100.0, (newer_p / baseline) * 40.0 + delta * 2.0), 1)
+
+
 async def overview(
     pool: asyncpg.Pool,
     *,
@@ -192,8 +227,8 @@ async def overview(
     since = datetime.now(UTC) - timedelta(hours=24)
     rollups = await pool.fetch(
         """
-        SELECT total_requests, avg_latency_ms, p99_latency_ms, error_rate_percent,
-               threats_detected, active_incidents
+        SELECT bucket_start, total_requests, avg_latency_ms, p99_latency_ms,
+               error_rate_percent, threats_detected, active_incidents, unique_visitors
         FROM aggregated_analytics
         WHERE tenant_id = $1::uuid AND bucket_start >= $2
         ORDER BY bucket_start DESC
@@ -204,18 +239,57 @@ async def overview(
     total_req = sum(int(r["total_requests"] or 0) for r in rollups)
     threats = sum(int(r["threats_detected"] or 0) for r in rollups)
     incidents = sum(int(r["active_incidents"] or 0) for r in rollups)
+    visitors = sum(int(r["unique_visitors"] or 0) for r in rollups)
     p99 = max((float(r["p99_latency_ms"] or 0) for r in rollups), default=0.0)
     err_sum = sum(float(r["error_rate_percent"] or 0) for r in rollups)
     uptime = max(0.0, 100.0 - (err_sum / max(1, len(rollups))))
     ces = ces_composite(uptime_pct=uptime, incidents=incidents, p99_ms=p99)
+
+    # --- Chronological series for partner dashboards (oldest → newest) ---
+    chronological = list(reversed(rollups))
+    time_series: list[dict[str, Any]] = []
+    uptime_series: list[dict[str, Any]] = []
+    threat_series: list[dict[str, Any]] = []
+    for row in chronological:
+        label = _bucket_label(row["bucket_start"])
+        bucket_uptime = max(0.0, 100.0 - float(row["error_rate_percent"] or 0))
+        time_series.append(
+            {
+                "label": label,
+                "time": label,
+                "latency": float(row["p99_latency_ms"] or 0),
+                "requests": int(row["total_requests"] or 0),
+            }
+        )
+        uptime_series.append({"label": label, "time": label, "uptime": bucket_uptime})
+        threat_series.append(
+            {
+                "label": label,
+                "time": label,
+                "count": int(row["threats_detected"] or 0),
+            }
+        )
+
+    threat_severity: list[dict[str, Any]] = []
+    if threats > 0:
+        threat_severity.append({"severity": "Detected", "count": threats})
+
     return {
         "ok": True,
         "window_hours": 24,
         "total_requests": total_req,
         "threats_detected": threats,
         "active_incidents": incidents,
+        "unique_visitors": visitors,
         "p99_latency_ms": p99,
         "uptime_pct": uptime,
         "status": uptime_status(uptime / 100.0),
-        "ces": ces,
+        "ces": {
+            **ces,
+            "spiking_temporal_forecast": _spiking_temporal_forecast(list(rollups)),
+        },
+        "time_series": time_series,
+        "uptime_series": uptime_series,
+        "threat_series": threat_series,
+        "threat_severity": threat_severity,
     }

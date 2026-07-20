@@ -30,3 +30,22 @@ describe('FjButton', () => {
     expect(fixture.nativeElement.querySelector('button')).toBeNull();
   });
 });
+
+describe('FjButton projected label', () => {
+  it('projects label text into an href anchor', async () => {
+    const { Component } = await import('@angular/core');
+    @Component({
+      imports: [FjButton],
+      template: `<forjd-button variant="primary" href="https://backend.forjd.co/docs">API docs</forjd-button>`,
+    })
+    class Host {}
+
+    await TestBed.configureTestingModule({ imports: [Host] }).compileComponents();
+    const hostFixture = TestBed.createComponent(Host);
+    hostFixture.detectChanges();
+
+    const anchor = hostFixture.nativeElement.querySelector('a') as HTMLAnchorElement;
+    expect(anchor).toBeTruthy();
+    expect(anchor.textContent?.trim()).toBe('API docs');
+  });
+});
