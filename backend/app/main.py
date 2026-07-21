@@ -203,6 +203,10 @@ def _worker_health(app: FastAPI) -> tuple[bool, dict[str, dict[str, Any]]]:
         expected.add("projection-catchup")
     if settings.ANALYTICS_ROLLUP_INTERVAL_SECONDS > 0:
         expected.add("analytics-rollup")
+    if settings.TRAINING_TICK_SECONDS > 0:
+        expected.add("ml-training")
+    if settings.RETENTION_SWEEP_INTERVAL_SECONDS > 0:
+        expected.add("retention")
     tasks: dict[str, asyncio.Task[None]] = app.state.worker_tasks
     detail: dict[str, dict[str, Any]] = {}
     healthy = True
