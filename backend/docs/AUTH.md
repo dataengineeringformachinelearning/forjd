@@ -9,6 +9,18 @@ FORJD is a **universal secure streaming backend**. It serves:
 
 FORJD never accepts a partner's end-user tokens.
 
+## CSRF vs XSS (browser threat model)
+
+FORJD is a **header-authenticated API**, not a cookie-session app.
+
+| Threat | Control |
+|--------|---------|
+| **CSRF** | Mutating routes require `Authorization: Bearer …` (Supabase JWT or `fjsvc_…`) and/or `X-API-Key`. Browsers do not auto-attach those headers on cross-site form posts, so classic CSRF tokens are **not** used. Do not introduce cookie-only write authority. |
+| **XSS / clickjacking** | API responses set a strict `Content-Security-Policy` (`default-src 'none'; frame-ancestors 'none'`), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cross-Origin-Opener-Policy`, and HSTS in production (`app.core.security.SecurityHeadersMiddleware`). The static landing SPA on Vercel ships its own CSP + the same browser hardening headers in `frontend/vercel.json`. |
+| **CORS** | Exact `CORS_ORIGINS` allowlist; never `*` with credentials. Cross-origin readable XHR is constrained by CORS; CSRF protection remains header auth. |
+
+Partner BFFs (e.g. DEML) never call FORJD with end-user browser cookies; they exchange partner identity for a tenant-bound `fjsvc_` service token server-side.
+
 ## Principal kinds
 
 | Kind | Credential | Tenant binding |

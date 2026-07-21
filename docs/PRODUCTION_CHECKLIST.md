@@ -76,6 +76,16 @@ FORJD_INCLUDE_ERASE=1 ./scripts/remint_service_account.sh partner-deletion
 | Normalized SIEM / SOAR | BFF → FORJD `/siem/signals` | PII-minimized signals, cases, durable playbook runs |
 | Cache | Optional / none | Fly Dragonfly |
 | Tenant erase | Calls FORJD erase then local teardown | `POST /api/v1/tenants/{id}/erase` |
+| CSRF | Partner CSRF + header auth at BFF | Header credentials only (no CSRF tokens) |
+| XSS headers | Partner CSP | API CSP `default-src 'none'` + SPA CSP on Vercel |
+
+## D2. Security headers smoke
+
+| Step | Action |
+|------|--------|
+| D2.1 | `curl -sI https://backend.forjd.co/health` includes `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` |
+| D2.2 | Landing (`https://forjd.co`) responses include CSP and HSTS from `frontend/vercel.json` |
+| D2.3 | Unauthenticated mutating `POST /api/v1/*` returns `401` (no cookie-only success path) |
 
 ## E. Rollback
 

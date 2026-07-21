@@ -29,6 +29,12 @@ def _is_mutating(method: str) -> bool:
     return method.upper() in {"POST", "PUT", "PATCH", "DELETE"}
 
 
+# API responses are JSON/docs — strict CSP; browsers that render docs stay locked down.
+# CSRF is not token-based here: mutating routes require Authorization / X-API-Key
+# (header credentials are not auto-attached by browsers the way cookies are).
+_API_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+
+
 # --- Response security headers ---
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(
@@ -42,6 +48,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "Permissions-Policy",
             "geolocation=(), microphone=(), camera=()",
         )
+        response.headers.setdefault("Content-Security-Policy", _API_CSP)
+        response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+        response.headers.setdefault("Cross-Origin-Resource-Policy", "same-site")
         response.headers.setdefault("Cache-Control", "no-store")
         # HSTS only when clearly behind TLS / production.
         if settings.ENVIRONMENT.lower() in {"production", "prod"}:

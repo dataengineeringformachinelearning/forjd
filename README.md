@@ -159,7 +159,9 @@ docker compose up --build
 
 ### Frontend → Vercel
 
-Domain: [https://forjd.co](https://forjd.co). `frontend/vercel.json` is set up. Production `apiBaseUrl` is `https://backend.forjd.co` — point that hostname at Fly (`forjd-backend`) and keep `https://forjd.co` in backend `CORS_ORIGINS`.
+Domain: [https://forjd.co](https://forjd.co). `frontend/vercel.json` ships CSP and browser hardening headers. Production `apiBaseUrl` is `https://backend.forjd.co` — point that hostname at Fly (`forjd-backend`) and keep `https://forjd.co` in backend `CORS_ORIGINS`.
+
+API CSRF is **header auth** (`Authorization` / `X-API-Key`), not CSRF tokens; XSS hardening is middleware CSP on the API plus SPA headers — see [`backend/docs/AUTH.md`](backend/docs/AUTH.md).
 
 Production deploy (SQL, mint `fjsvc_`, Fly/Vercel checklist): see [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md) and [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md).
 

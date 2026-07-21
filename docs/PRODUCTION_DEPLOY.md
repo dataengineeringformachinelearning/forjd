@@ -60,6 +60,8 @@ fly deploy -a forjd-backend -c fly.api.toml
 ```bash
 curl -fsS https://backend.forjd.co/health
 curl -fsS https://backend.forjd.co/ready
+# Security headers (XSS hardening; CSRF = Bearer / X-API-Key, not tokens)
+curl -sI https://backend.forjd.co/health | grep -Ei 'content-security-policy|x-content-type-options|x-frame-options'
 fly checks list -a forjd-backend
 ```
 
