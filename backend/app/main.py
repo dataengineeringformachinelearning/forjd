@@ -135,6 +135,32 @@ async def _ensure_background_workers(app: FastAPI, pool: Any | None) -> None:
             ),
             stale_after_seconds=max(600.0, settings.ANALYTICS_ROLLUP_INTERVAL_SECONDS * 4),
         )
+    if settings.TRAINING_TICK_SECONDS > 0:
+        from app.services.training_worker import run_training_worker
+
+        _start_worker(
+            app,
+            "ml-training",
+            lambda: run_training_worker(
+                pool,
+                app.state.worker_stop,
+                health=app.state.worker_health,
+            ),
+            stale_after_seconds=max(7200.0, settings.TRAINING_TICK_SECONDS * 4),
+        )
+    if settings.RETENTION_SWEEP_INTERVAL_SECONDS > 0:
+        from app.services.retention import run_retention_worker
+
+        _start_worker(
+            app,
+            "retention",
+            lambda: run_retention_worker(
+                pool,
+                app.state.worker_stop,
+                health=app.state.worker_health,
+            ),
+            stale_after_seconds=max(7200.0, settings.RETENTION_SWEEP_INTERVAL_SECONDS * 4),
+        )
     if settings.PROJECTION_TICK_SECONDS > 0:
         from app.services.projection_worker import run_projection_worker
 

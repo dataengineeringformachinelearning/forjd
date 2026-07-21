@@ -40,6 +40,7 @@ dev = [
 ]
 # Optional ML suite (anomaly / threat / forecast / embeddings). Install: uv sync --group ml
 ml = [
+    "huggingface-hub>=1.0.0",
     "numpy>=2.0.0",
     "scikit-learn>=1.5.0",
     "torch>=2.6.0",

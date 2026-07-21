@@ -32,6 +32,8 @@ Agents: read this briefing first, then enforce constraints in `.cursorrules`.
 | Workflows | YAML under `backend/workflows/` → Prefect + **Rust sealed pipeline** (Pathway fallback) + pluggable detectors |
 | Projections | Checkpointed durable `stream_results` + replay/DLQ (`/api/v1/projections`, `/api/v1/replay`) |
 | Rollups / ML refresh | Supervised `analytics-rollup` worker — hourly `aggregated_analytics` upserts + throttled `classical_anomaly` `ml_scores` refresh (`ANALYTICS_ROLLUP_INTERVAL_SECONDS`) |
+| Scheduled training | Supervised `ml-training` worker — daily SLA/threat/temporal retrains per active tenant (`TRAINING_*`); optional Hugging Face publish (`HF_MODEL_REPO_ID` + `HF_TOKEN`, hashed tenant paths) |
+| Data retention | Supervised `retention` worker — bounded deletes for aged `telemetry_events`/`stream_results`, expired `crypto_sessions`, completed ingest receipts (`RETENTION_*`) |
 | Reports / exports / ingest durability | Report documents (`sql/022`); durable exports (`sql/023`); durable ingest-processing receipts (`sql/024`) |
 | Status | Tenant status pages (`/api/v1/status`) — public when published |
 | Audit | Metadata-only `audit_events` (`sql/010`) — never ciphertext/keys |

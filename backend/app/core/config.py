@@ -158,6 +158,16 @@ class Settings(BaseSettings):
     # Continuous analytics rollups + ML score refresh (0 disables the worker).
     ANALYTICS_ROLLUP_INTERVAL_SECONDS: float = Field(default=300.0, ge=0.0, le=3600.0)
     ANALYTICS_ML_REFRESH_SECONDS: float = Field(default=3600.0, ge=60.0, le=86400.0)
+    # Scheduled ML training + optional Hugging Face publishing (0 tick disables).
+    TRAINING_TICK_SECONDS: float = Field(default=3600.0, ge=0.0, le=86400.0)
+    TRAINING_REFRESH_SECONDS: float = Field(default=86400.0, ge=3600.0, le=604800.0)
+    HF_MODEL_REPO_ID: str = ""
+    HF_TOKEN: str = ""
+    # Data retention sweep (0 interval disables; days bound the sealed data plane).
+    RETENTION_SWEEP_INTERVAL_SECONDS: float = Field(default=3600.0, ge=0.0, le=86400.0)
+    RETENTION_TELEMETRY_DAYS: int = Field(default=90, ge=7, le=3650)
+    RETENTION_RESULTS_DAYS: int = Field(default=90, ge=7, le=3650)
+    RETENTION_RECEIPTS_DAYS: int = Field(default=30, ge=1, le=365)
 
     @property
     def ADDONS_ENABLED(self) -> list[str]:

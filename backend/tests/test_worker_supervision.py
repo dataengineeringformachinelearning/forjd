@@ -10,7 +10,15 @@ from unittest.mock import AsyncMock, patch
 
 from app import main
 from app.core.worker_health import WorkerHealthRegistry
-from app.services import analytics_worker, exports, ingest_processing, playbooks, siem
+from app.services import (
+    analytics_worker,
+    exports,
+    ingest_processing,
+    playbooks,
+    retention,
+    siem,
+    training_worker,
+)
 
 
 class TestWorkerSupervision(unittest.IsolatedAsyncioTestCase):
@@ -71,11 +79,23 @@ class TestWorkerSupervision(unittest.IsolatedAsyncioTestCase):
             kwargs["health"].succeeded("analytics-rollup")
             await state.worker_stop.wait()
 
+        async def training_task(*_args, **kwargs) -> None:
+            started.append("ml-training")
+            kwargs["health"].succeeded("ml-training")
+            await state.worker_stop.wait()
+
+        async def retention_task(*_args, **kwargs) -> None:
+            started.append("retention")
+            kwargs["health"].succeeded("retention")
+            await state.worker_stop.wait()
+
         with (
             patch.object(ingest_processing, "run_ingest_processing_worker", ingest_worker),
             patch.object(playbooks, "run_playbook_retry_worker", soar_worker),
             patch.object(exports, "run_export_worker", export_worker),
             patch.object(analytics_worker, "run_analytics_worker", rollup_worker),
+            patch.object(training_worker, "run_training_worker", training_task),
+            patch.object(retention, "run_retention_worker", retention_task),
             patch.object(main.settings, "PROJECTION_TICK_SECONDS", 0),
         ):
             await main._ensure_background_workers(app, object())
@@ -85,12 +105,26 @@ class TestWorkerSupervision(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(
                 set(state.worker_tasks),
-                {"ingest-processing", "soar-retries", "exports", "analytics-rollup"},
+                {
+                    "ingest-processing",
+                    "soar-retries",
+                    "exports",
+                    "analytics-rollup",
+                    "ml-training",
+                    "retention",
+                },
             )
             self.assertEqual(original, state.worker_tasks)
             self.assertEqual(
                 sorted(started),
-                ["analytics-rollup", "exports", "ingest-processing", "soar-retries"],
+                [
+                    "analytics-rollup",
+                    "exports",
+                    "ingest-processing",
+                    "ml-training",
+                    "retention",
+                    "soar-retries",
+                ],
             )
             self.assertTrue(main._worker_health(app)[0])
 

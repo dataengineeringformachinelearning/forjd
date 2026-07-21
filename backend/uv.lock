@@ -717,6 +717,7 @@ etl = [
     { name = "psycopg", extra = ["binary"] },
 ]
 ml = [
+    { name = "huggingface-hub" },
     { name = "numpy" },
     { name = "scikit-learn" },
     { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
@@ -761,6 +762,7 @@ dev = [
 ]
 etl = [{ name = "psycopg", extras = ["binary"], specifier = ">=3.2.0" }]
 ml = [
+    { name = "huggingface-hub", specifier = ">=1.0.0" },
     { name = "numpy", specifier = ">=2.0.0" },
     { name = "scikit-learn", specifier = ">=1.5.0" },
     { name = "torch", specifier = ">=2.6.0", index = "https://download.pytorch.org/whl/cpu" },

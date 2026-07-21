@@ -75,9 +75,7 @@ def main() -> None:
     ok = 0
     for i in range(count):
         event_id = f"smoke-{uuid4()}"
-        payload = json.dumps(
-            {"kind": "telemetry.smoke", "seq": i, "ts": time.time()}
-        ).encode()
+        payload = json.dumps({"kind": "telemetry.smoke", "seq": i, "ts": time.time()}).encode()
         env = seal(
             payload,
             key=key,

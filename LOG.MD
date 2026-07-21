@@ -2,6 +2,7 @@
 
 ## Log
 
+- 2026-07-20: Added supervised `ml-training` worker (daily SLA/threat/temporal retrains per active tenant + config-gated Hugging Face publishing under hashed tenant paths) and `retention` worker (bounded deletes for aged telemetry/results, expired crypto sessions, completed ingest receipts). Replaces the retired DEML-local daily training loop; `huggingface_hub` added to the ml group.
 - 2026-07-20: Deployed partner provision end-to-end — applied `sql/026` on Fly, shipped `forjd-backend` + `deml-backend`; smoke confirmed idempotent `POST /api/v1/partner/provision`, DEML sealed per-account mapping for demo, and analytics overview 200 for both Joe (env token) and demo (sealed).
 - 2026-07-19: Added partner provision API (`POST /api/v1/partner/provision` + `sql/026`) so DEML can auto-mint per-account FORJD tenants with `FORJD_PROVISION_TOKEN` — end users never hold `fjsvc_` tokens.
 - 2026-07-19: Analytics overview now returns 24h rollup series
@@ -155,6 +156,7 @@ Direct dependencies only. Star these on GitHub.
 
 ### Backend (Python)
 - [fastapi](https://github.com/fastapi/fastapi) — API framework
+- [huggingface_hub](https://github.com/huggingface/huggingface_hub) — scheduled model artifact publishing (ml group)
 - [uvicorn](https://github.com/Kludex/uvicorn) — ASGI server
 - [pydantic-settings](https://github.com/pydantic/pydantic-settings) — settings from env
 - [python-dotenv](https://github.com/theskumar/python-dotenv) — `.env` loading
