@@ -34,7 +34,7 @@ Dragonfly                   Streams bus · rate limits · cache
 |---------|--------|
 | Auth / principals | Supabase Auth users + `service_accounts` (sql/014); see `backend/docs/AUTH.md` |
 | Sealed ingest API | FastAPI `/api/v1/ingest/events:batch` → Postgres (ciphertext-only); canonical partner/DEML contract |
-| Retired Rust ingest edge | `/api/v1/ingest` returns `410 Gone`; it never claims acceptance or publishes to an unconsumed stream |
+| Rust ingest edge (fail-closed) | `/api/v1/ingest` returns `410 Gone`; the guard exists so stale integrations receive a hard rejection rather than a silent loss — FastAPI `/api/v1/ingest/events:batch` is the sole active ingest path |
 | Crypto sessions / replay / status / analytics | FastAPI + `require_tenant_access` (human member **or** scoped `fjsvc_`) |
 | Daemon/partner ingest | FastAPI canonical sealed batch with scoped `fjsvc_` token; durable acceptance and processing receipts |
 | Rollup + size/rate detectors | Rust `run_sealed_pipeline` (Pathway fallback) |
@@ -118,15 +118,16 @@ Product names never belong in engine/API code.
 
 ## SQL apply order
 
-`003` → `025` under `backend/sql/` (see that folder’s README). Production forces
+`003` → `026` under `backend/sql/` (see that folder’s README). Production forces
 `SOFT_MIGRATE_SCHEMA=false`, `REQUIRE_RLS=true`, `REQUIRE_CRYPTO_SESSION=true`.
 Realtime + `projection_feed` land in `015`; ML scores/runs in `016`; service-principal
 session actor + expanded default scopes in `017`; partner domain scopes + erase in `018`;
 erase opt-in defaults in `019`; normalized SIEM/SOAR and scoped defaults in
 `020`; sealed-ingest/projection/replay reliability state in `021`; report
 documents in `022`; durable exports in `023`; durable ingest-processing
-recovery in `024`; and immutable SIEM/SOAR replay plus continuation recovery
-in `025`.
+recovery in `024`; immutable SIEM/SOAR replay plus continuation recovery
+in `025`; and partner provision / service-principal cutover support
+(`sql/026_partner_provisions.sql`) in `026`.
 
 Postgres host is **Supabase** (`POSTGRES_DSN`). Partner control-plane databases may
 optionally co-locate in the same project under a non-`public` schema — see

@@ -1,11 +1,11 @@
 """Continuous analytics rollup + ML score refresh worker.
 
-Replicates the retired DEML-local aggregation loop inside FORJD: each tick
-finds tenants with fresh ``stream_results`` and (a) upserts current + previous
-hour rollups into ``aggregated_analytics`` so the overview / CES / temporal
-forecast stay live, and (b) refreshes classical-anomaly ``ml_scores`` so threat
-reports have model output without a manual /ml call. Metadata only — the
-worker never touches sealed ciphertext.
+Each tick finds tenants with fresh ``stream_results`` and (a) upserts current +
+previous hour rollups into ``aggregated_analytics`` so the overview / CES /
+temporal forecast stay live, and (b) refreshes classical-anomaly ``ml_scores``
+so threat reports have model output without a manual /ml call. Metadata only —
+the worker never touches sealed ciphertext. (Supersedes the former DEML-local
+aggregation loop.)
 """
 
 from __future__ import annotations

@@ -20,6 +20,7 @@ class TestAnalyticsFormulas(unittest.TestCase):
 
     def test_uptime_status(self) -> None:
         self.assertEqual(uptime_status(1.0), "operational")
+        self.assertEqual(uptime_status(0.995), "degraded")
         self.assertEqual(uptime_status(0.96), "partial_outage")
         self.assertEqual(uptime_status(0.5), "major_outage")
 

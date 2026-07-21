@@ -70,6 +70,8 @@ def ces_composite(
 def uptime_status(ratio: float) -> str:
     if ratio >= 1.0:
         return "operational"
+    if ratio >= 0.99:
+        return "degraded"
     if ratio >= 0.95:
         return "partial_outage"
     return "major_outage"
@@ -241,8 +243,35 @@ async def overview(
     incidents = sum(int(r["active_incidents"] or 0) for r in rollups)
     visitors = sum(int(r["unique_visitors"] or 0) for r in rollups)
     p99 = max((float(r["p99_latency_ms"] or 0) for r in rollups), default=0.0)
+
+    # No rollups ⇒ unknown availability (never invent 100% uptime / healthy CES).
+    if not rollups:
+        return {
+            "ok": True,
+            "window_hours": 24,
+            "total_requests": 0,
+            "threats_detected": 0,
+            "active_incidents": 0,
+            "unique_visitors": 0,
+            "p99_latency_ms": 0.0,
+            "uptime_pct": None,
+            "status": "unknown",
+            "data_available": False,
+            "ces": {
+                "ces_threat": 0.0,
+                "ces_sla": 0.0,
+                "ces_stability": 0.0,
+                "ces_level": 0.0,
+                "spiking_temporal_forecast": 0.0,
+            },
+            "time_series": [],
+            "uptime_series": [],
+            "threat_series": [],
+            "threat_severity": [],
+        }
+
     err_sum = sum(float(r["error_rate_percent"] or 0) for r in rollups)
-    uptime = max(0.0, 100.0 - (err_sum / max(1, len(rollups))))
+    uptime = max(0.0, 100.0 - (err_sum / len(rollups)))
     ces = ces_composite(uptime_pct=uptime, incidents=incidents, p99_ms=p99)
 
     # --- Chronological series for partner dashboards (oldest → newest) ---
@@ -284,6 +313,7 @@ async def overview(
         "p99_latency_ms": p99,
         "uptime_pct": uptime,
         "status": uptime_status(uptime / 100.0),
+        "data_available": True,
         "ces": {
             **ces,
             "spiking_temporal_forecast": _spiking_temporal_forecast(list(rollups)),

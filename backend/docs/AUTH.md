@@ -2,7 +2,7 @@
 
 FORJD is a **universal secure streaming backend**. It serves:
 
-1. **Enterprise / direct users** — humans on Supabase Auth (FORJD console / API).
+1. **Enterprise / direct users** — humans on Supabase Auth (FORJD API / admin paths).
 2. **Trusted subprocessors** — machine callers (partner SaaS backends) that keep
    their **own** end-user identity and call FORJD with a **tenant-scoped
    service token**.
@@ -71,12 +71,12 @@ POST /api/v1/sessions
 Authorization: Bearer fjsvc_…
 {"tenant_id":"<uuid>","session_id":"device-1","identity_public_key":"<b64>"}
 
-# 3) Partner ingests a sealed envelope (ciphertext only)
-POST /api/v1/ingest
+# 3) Partner submits a sealed batch (canonical partner contract)
+POST /api/v1/ingest/events:batch
 Authorization: Bearer fjsvc_…
-{"tenant_id":"<uuid>","client_event_id":"evt-1","content_type":"application/forjd-event+v1",
+{"tenant_id":"<uuid>","events":[{"client_event_id":"evt-1","content_type":"application/forjd-event+v1",
  "encryption":{"mode":"e2ee","algo":"aes-256-gcm"},
- "envelope":{"algo":"aes-256-gcm","key_id":"device-1","nonce":"<b64>","ciphertext":"<b64>"}}
+ "envelope":{"algo":"aes-256-gcm","key_id":"device-1","nonce":"<b64>","ciphertext":"<b64>"}}]}
 
 # 4) Partner polls live projections (or Realtime-subscribes to stream_results)
 GET /api/v1/projections?tenant_id=<uuid>&since=2026-07-17T00:00:00Z
@@ -243,9 +243,10 @@ Exact ACK replays are idempotent; a conflicting ACK returns `409`.
 `POST /api/v1/threat-intel/correlate` binds the complete operation to a
 tenant-scoped idempotency key and request fingerprint. Exact replays heal the
 same case and playbook receipts; changed content under the key returns `409`.
-The legacy `/integrations/security-alert` bridge requires `client_alert_id` and
-timezone-aware `observed_at` and uses the normalized signal fingerprint rather
-than inserting a second non-idempotent alert path.
+The `/integrations/security-alert` route is a **compatibility bridge**
+(`deprecated_contract: true`); it requires `client_alert_id` and timezone-aware
+`observed_at` and delegates to the same idempotent normalized-signal core.
+Partners integrating directly should use `POST /api/v1/siem/signals` instead.
 
 ## Platform administration and outbound egress
 
@@ -337,9 +338,10 @@ domain scopes). `tenants:erase` is **allowlisted but opt-in** (`sql/019` /
 `DEFAULT_SCOPES`); normalized SIEM/SOAR tables and scopes land in `sql/020`.
 Apply `sql/021` for sealed-ingest/projection/replay reliability state, `sql/022`
 for report documents and scopes, `sql/023` for durable exports, `sql/024`
-for durable ingest-processing recovery, and `sql/025` for immutable SIEM/SOAR
-replay snapshots and continuation recovery. Mint or rotate opaque `fjsvc_` tokens
-after `017`–`025` (`scripts/remint_service_account.sh`; erase is opt-in via
+for durable ingest-processing recovery, `sql/025` for immutable SIEM/SOAR
+replay snapshots and continuation recovery, and `sql/026` for partner provision /
+service-principal cutover support. Mint or rotate opaque `fjsvc_` tokens
+after `017`–`026` (`scripts/remint_service_account.sh`; erase is opt-in via
 `FORJD_INCLUDE_ERASE=1`) — existing rows keep previously stored scopes until
 rotated. Durable partner deletion: `POST /api/v1/tenants/{id}/erase`.
 Full deploy sequence: [`docs/PRODUCTION_DEPLOY.md`](../../docs/PRODUCTION_DEPLOY.md) and

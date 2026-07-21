@@ -166,7 +166,7 @@ pub fn validate_values(values: &[f64]) -> Result<(), EngineError> {
     Ok(())
 }
 
-/// Summarize values with an Arrow → Parquet → Arrow round-trip (columnar I/O PoC).
+/// Summarize values with an Arrow → Parquet → Arrow round-trip (columnar I/O reference implementation).
 pub fn summarize_values(values: &[f64]) -> Result<SummarizeResult, EngineError> {
     validate_values(values)?;
 

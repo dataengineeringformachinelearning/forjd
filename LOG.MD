@@ -1,5 +1,7 @@
 # FORJD Development Log
 
+> **Engineering journal (historical).** Current architecture lives in `ARCHITECTURE.md` and `AGENTS.md`. Entries below may describe superseded experiments (console PoC, cutover diary, rejected stacks). Do not treat this file as the deploy contract.
+
 ## Log
 
 - 2026-07-20: Added supervised `ml-training` worker (daily SLA/threat/temporal retrains per active tenant + config-gated Hugging Face publishing under hashed tenant paths) and `retention` worker (bounded deletes for aged telemetry/results, expired crypto sessions, completed ingest receipts). Replaces the retired DEML-local daily training loop; `huggingface_hub` added to the ml group.
@@ -362,3 +364,4 @@ Direct dependencies only. Star these on GitHub.
 - 2026-07-20: Doc-drift fix — bumped the production migration range from `003`–`025` to `003`–`026` (partner provision ledger) across `backend/sql/README.md`, `docs/PRODUCTION_DEPLOY.md`, `docs/PRODUCTION_CHECKLIST.md`, `AGENTS.md`, and `.cursorrules`; feature-specific `sql/025` citations left as-is.
 - 2026-07-20: Aligned data-plane retention with the platform compliance promise — RETENTION_TELEMETRY_DAYS and RETENTION_RESULTS_DAYS defaults dropped from 90 to 30 so the marketing "30-Day Retention" claim is true by default (receipts already 30). Aggregated_analytics rollups persist, so dashboards keep longer horizons while raw sealed rows purge on schedule.
 - 2026-07-20: Renamed the PDF report header lockup to "DATA ENGINEERING FOR MACHINE LEARNING" (pdf_report.py) to match the DEML tagline rename; redeployed forjd-backend via `fly deploy --config fly.api.toml --strategy rolling`.
+- 2026-07-21: Modernization scrub — aligned docs to SQL `026` (partner provision / service-principal cutover), demoted LOG.MD to engineering journal (primary architecture is ARCHITECTURE.md + AGENTS.md), unified quality gates across backend/engine/frontend with DEML-style clarity, added frontend CI job, and softened PoC/DEML-local framing in production-facing comments.

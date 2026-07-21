@@ -67,7 +67,7 @@ def synthetic_feature_matrix(
     seed: int = 7,
     anomaly_frac: float = 0.1,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Labeled tabular features for classical / ensemble PoCs."""
+    """Labeled tabular features for classical / ensemble model training."""
     rng = np.random.default_rng(seed)
     x = rng.normal(0.0, 1.0, size=(n, n_features)).astype(np.float32)
     n_anom = max(1, int(n * anomaly_frac))
@@ -82,7 +82,7 @@ def synthetic_series(
     length: int = 64,
     seed: int = 11,
 ) -> np.ndarray:
-    """Latency-like series with mild seasonality for forecasting PoCs."""
+    """Latency-like series with mild seasonality for forecasting model training."""
     rng = np.random.default_rng(seed)
     t = np.arange(length, dtype=np.float32)
     base = 40.0 + 8.0 * np.sin(t / 6.0) + 3.0 * np.cos(t / 13.0)

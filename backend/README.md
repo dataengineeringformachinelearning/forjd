@@ -24,7 +24,7 @@ uv run forjd
 
 1. Create a project and copy the connection string (prefer pooler for serverless; direct is fine for this API).
 2. Set `POSTGRES_DSN=postgresql+asyncpg://…` in `.env` (keep the `+asyncpg` form — clients normalize it).
-3. Apply SQL `003`→`025` (see [`sql/README.md`](sql/README.md)). Enable the **vector** extension for optional ML.
+3. Apply SQL `003`→`026` (see [`sql/README.md`](sql/README.md)). Enable the **vector** extension for optional ML.
 4. For the ML catalog: install torch with `uv sync --group ml`.
 
 ### Endpoints
@@ -70,7 +70,7 @@ configured source/artifact byte budgets, without silent truncation.
 
 ### Secure streaming (Supabase Auth + E2EE)
 
-1. Run SQL `003`→`025` (see [`sql/README.md`](sql/README.md)).
+1. Run SQL `003`→`026` (see [`sql/README.md`](sql/README.md)).
 2. Set `SUPABASE_URL` and/or `SUPABASE_JWT_SECRET` in `.env`.
 3. **Enterprise users:** Supabase Auth → `Authorization: Bearer <access_token>`.
 4. **Subprocessors:** admin mints `POST /api/v1/service-accounts` → the partner calls with `Bearer fjsvc_…` (see [`docs/AUTH.md`](docs/AUTH.md)). Partners keep their own end-user auth.
@@ -174,7 +174,7 @@ fly secrets set POSTGRES_DSN='…' REDIS_URL='redis://:…@forjd-dragonfly.inter
 fly deploy --config fly.api.toml --ha=false
 ```
 
-Set matching `ENGINE_URL=http://forjd-engine.internal:8080` (already in `fly.api.toml`) and the same `ENGINE_API_TOKEN` on `forjd-engine`. For optional ML scoring in prod: enable Supabase **vector**, apply `sql/016` (with the rest of `003`–`025`), install `uv sync --group ml`, and use `/api/v1/ml` (`sql/002_anomaly_embeddings.sql` is historical/unused).
+Set matching `ENGINE_URL=http://forjd-engine.internal:8080` (already in `fly.api.toml`) and the same `ENGINE_API_TOKEN` on `forjd-engine`. For optional ML scoring in prod: enable Supabase **vector**, apply `sql/016` (with the rest of `003`–`026`), install `uv sync --group ml`, and use `/api/v1/ml` (`sql/002_anomaly_embeddings.sql` is historical/unused).
 
 ## Notes
 

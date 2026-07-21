@@ -1,11 +1,11 @@
 """Scheduled ML training + optional Hugging Face model publishing worker.
 
-Replicates the retired DEML-local daily training loop inside FORJD: each tick
-finds tenants with recent ``stream_results`` and, when their newest
+Each tick finds tenants with recent ``stream_results`` and, when their newest
 ``training_runs`` row is older than the refresh window, retrains the SLA
 regressor, threat model, and temporal forecasters. When ``HF_MODEL_REPO_ID`` +
 ``HF_TOKEN`` are configured, fresh ``.pt`` artifacts are published to the
 Hugging Face Hub under hashed-tenant paths (never tenant UUIDs or ciphertext).
+(Supersedes the former DEML-local daily training loop.)
 """
 
 from __future__ import annotations

@@ -12,7 +12,7 @@ Universal secure streaming engine for sealed partner ingest, YAML workflows, and
 | Rust **1.97** (`engine/rust-toolchain.toml`) | maturin / `forjd-engine` |
 | Node 22.22+ / npm | Frontend (Angular 22 CLI floor) |
 | Docker (optional) | Local Dragonfly + Prefect + engine HTTP |
-| Supabase project | Postgres (`POSTGRES_DSN`) — single DB for FORJD; Neon→Supabase runbook in [`docs/NEON_TO_SUPABASE.md`](docs/NEON_TO_SUPABASE.md) |
+| Supabase project | Postgres (`POSTGRES_DSN`) — primary DB for FORJD; optional partner control-plane co-location into a non-`public` schema (see [`docs/NEON_TO_SUPABASE.md`](docs/NEON_TO_SUPABASE.md)) |
 | [flyctl](https://fly.io/docs/hands-on/install-flyctl/) (optional) | Deploy Dragonfly / engine |
 
 Python is pinned to **3.12** in `backend/` (Pathway does not yet run on 3.14).
@@ -34,7 +34,7 @@ Edit `backend/.env`:
 - **`REDIS_URL`** — leave `redis://:forjd-dev-local@localhost:6379/0` for local Compose Dragonfly
 - Optional harden: set **`API_KEY`** / **`ENGINE_API_TOKEN`** (Compose wires the latter into API + engine)
 
-Apply production SQL from `003` onward (see [`backend/sql/README.md`](backend/sql/README.md)).
+Apply production SQL from `003` through `026` (see [`backend/sql/README.md`](backend/sql/README.md)).
 
 ### 2. Cache + Prefect + engine (Docker)
 
@@ -95,7 +95,7 @@ cargo run --no-default-features --features server   # HTTP on :8080
 
 Production path for sealed partner ingress:
 
-1. Apply SQL `003`→`025` under [`backend/sql/`](backend/sql/) (tenants, RLS, sealed events, projections/DLQ, service accounts, Realtime, ML, replay-safe SIEM/SOAR, durable exports, and ingest-processing recovery).
+1. Apply SQL `003`→`026` under [`backend/sql/`](backend/sql/) (tenants, RLS, sealed events, projections/DLQ, service accounts, Realtime, ML, replay-safe SIEM/SOAR, durable exports, ingest-processing recovery, and partner provision).
 2. Configure `SUPABASE_URL` / `SUPABASE_JWT_SECRET` on the API (see `backend/.env.example`).
 3. Clients authenticate with Supabase Auth **or** a tenant service token (`fjsvc_…`), publish X25519 public keys (`POST /api/v1/sessions`), derive AES-256 via ECDH+HKDF, and use canonical partner batch `POST /api/v1/ingest/events:batch` with envelopes + `content_type` (YAML workflow in [`backend/workflows/`](backend/workflows/); partner wire ids via YAML `aliases`).
 4. Rust sealed pipeline (Pathway fallback) processes **metadata only**; consumers poll `GET /api/v1/projections` or Realtime on `stream_results`. Partner SaaS apps call FORJD as a subprocessor — see [`backend/docs/AUTH.md`](backend/docs/AUTH.md).
@@ -190,4 +190,4 @@ infra/dragonfly/   Fly.io Dragonfly
 supabase/          Edge Functions + Realtime notes
 ```
 
-More detail: [`backend/README.md`](backend/README.md), [`AGENTS.md`](AGENTS.md), [`LOG.MD`](LOG.MD).
+More detail: [`backend/README.md`](backend/README.md) and [`AGENTS.md`](AGENTS.md). [`LOG.MD`](LOG.MD) is an engineering journal (historical); current architecture lives in `ARCHITECTURE.md` and `AGENTS.md`.

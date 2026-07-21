@@ -52,9 +52,17 @@ Backend Python is pinned to **3.12** with Pathway ≥0.31 (`beartype<0.16` via u
 - Small, testable increments. Do not expand scope beyond what was asked.
 - Prefer configuration (YAML/JSON) over hardcoding.
 - Keep dependencies minimal — add a package only when a concrete use case needs it.
-- After meaningful progress, append a `LOG.MD` entry (format in `.cursorrules`).
+- After meaningful progress, optionally append a `LOG.MD` entry (engineering journal — see `.cursorrules`); primary architecture docs are `ARCHITECTURE.md` and `AGENTS.md`.
 
-Last updated: 2026-07-19
+## Quality gates
+
+- Backend: `cd backend && uv run ruff check . && uv run ruff format --check . && uv run python -m unittest discover -s tests`
+- Engine: `cd engine && cargo fmt --check && cargo clippy --all-targets --features server,data-plane -- -D warnings && cargo test --features server,data-plane`
+- Frontend: `cd frontend && npx ng test --no-watch` (Vitest + jsdom) and `npm run build`
+- CI: `.github/workflows/backend-ci.yml` (backend + engine) and `.github/workflows/frontend-ci.yml` (frontend)
+- Security: Semgrep (Cursor rule), no secrets in git, `rate_limit.py` is the sole rate limiter
+
+Last updated: 2026-07-21
 
 **Deploy:** [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md) + [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md) — SQL `003`–`026`, mint `fjsvc_`, Fly backend/engine + Vercel frontend. Partners integrate via YAML workflows and tenant-bound service tokens.
 

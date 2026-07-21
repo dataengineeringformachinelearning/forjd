@@ -1,4 +1,4 @@
-"""Per-tenant event-count burst detector (E2EE-safe; batch-scoped PoC)."""
+"""Per-tenant event-count burst detector (E2EE-safe; operates on the current batch)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from typing import Any
 def detect(events: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     """Flag tenants that exceed max_events in this processing batch.
 
-    Full sliding windows need continuous projectors; this PoC uses batch counts
+    Full sliding windows need continuous projectors; this baseline uses batch counts
     so YAML can enable threat-style rate signals without plaintext.
     """
     if not events:

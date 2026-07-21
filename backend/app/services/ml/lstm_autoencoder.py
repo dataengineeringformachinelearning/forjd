@@ -140,7 +140,7 @@ def synthetic_normal_windows(
     seq_len: int = 16,
     seed: int = 42,
 ) -> np.ndarray:
-    """Smooth sine + low noise — the unsupervised 'normal' class for the PoC."""
+    """Smooth sine + low noise — the unsupervised 'normal' class for baseline training."""
     rng = np.random.default_rng(seed)
     t = np.linspace(0.0, 2.0 * np.pi, seq_len, dtype=np.float32)
     phases = rng.uniform(0, 2 * np.pi, size=n_windows).astype(np.float32)

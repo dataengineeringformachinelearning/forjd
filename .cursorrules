@@ -67,9 +67,24 @@ Follow these unless the user explicitly overrides them.
 - Do not narrate obvious syntax; do mark auth, E2EE, and security boundaries.
 - Details: `.cursor/rules/section-comments.mdc`.
 
+## Quality gates
+
+See `AGENTS.md` → **Quality gates** for the canonical per-component commands. Summary:
+- Backend: `cd backend && uv run ruff check . && uv run ruff format --check . && uv run python -m unittest discover -s tests`
+- Engine: `cd engine && cargo fmt --check && cargo clippy --all-targets --features server,data-plane -- -D warnings && cargo test --features server,data-plane`
+- Frontend: `cd frontend && npx ng test --no-watch` and `npm run build`
+- CI: `.github/workflows/backend-ci.yml` and `.github/workflows/frontend-ci.yml`
+
+## Security invariants
+
+- E2EE sealed lane: FORJD stores and routes ciphertext only; the pipeline never receives plaintext event content.
+- Tenant isolation: all data access enforced via Postgres RLS + `require_tenant_access`; no cross-tenant reads.
+- Never accept partner end-user tokens at the FORJD edge; only tenant-bound `fjsvc_` service tokens or Supabase user JWTs.
+- Rate limiting is implemented solely via `app/core/rate_limit.py` (`RATE_LIMIT_ENABLED`). Do not add a second limiter.
+
 ## LOG.MD
-- Append after meaningful progress.
-- Format: `- YYYY-MM-DD: Brief description of what and why (1–2 sentences).`
+- `LOG.MD` is an **engineering journal (historical)**; it is not the architecture contract. Current architecture lives in `ARCHITECTURE.md` and `AGENTS.md`.
+- Append an entry after meaningful progress (optional). Format: `- YYYY-MM-DD: Brief description of what and why (1–2 sentences).`
 - Specific enough to remember the journey (commands, decisions, challenges) — not a novel, not a one-word stub.
 - Example: `- 2026-07-14: Initialized backend with uv + FastAPI + Prefect + Pathway. Chose Prefect for Pythonic workflow config over Airflow.`
 - Keep the **Packages** section current: when adding/removing a direct dependency, add/remove its GitHub (or primary) repo URL so packages can be starred. See `.cursor/rules/packages-log.mdc`.
