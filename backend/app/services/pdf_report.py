@@ -379,7 +379,7 @@ def _append_header_chrome(commands: list[str], *, theme: PdfReportTheme) -> None
     )
     _append_text(
         commands,
-        "DATA ENGINEERING FOR AI ENGINEERING AND CYBERSECURITY",
+        "DATA ENGINEERING FOR MACHINE LEARNING",
         x=lockup_x,
         y=PAGE_HEIGHT - theme.gap - theme.font_subtitle - theme.font_label - theme.grid_unit,
         font="F1",
