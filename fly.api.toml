@@ -28,6 +28,12 @@ primary_region = 'iad'
   PREFECT_API_URL = ''
   # Durable projection catch-up. DB leases make concurrent API machines safe.
   PROJECTION_TICK_SECONDS = '5'
+  # Supervised workers (in-process). Set any interval to 0 to disable that worker.
+  ANALYTICS_ROLLUP_INTERVAL_SECONDS = '300'
+  ANALYTICS_ML_REFRESH_SECONDS = '3600'
+  TRAINING_TICK_SECONDS = '3600'
+  TRAINING_REFRESH_SECONDS = '86400'
+  RETENTION_SWEEP_INTERVAL_SECONDS = '3600'
   PREFECT_HOME = '/home/forjd/.prefect'
   HOME = '/home/forjd'
   # LSTM-AE checkpoints (Fly volume mount)

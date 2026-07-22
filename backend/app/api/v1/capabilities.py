@@ -79,6 +79,19 @@ _REQUIRED_ROUTES: dict[str, tuple[tuple[str, str], ...]] = {
         ("POST", "/api/v1/reports/documents"),
         ("GET", "/api/v1/reports/documents"),
     ),
+    "analytics": (
+        ("GET", "/api/v1/analytics/overview"),
+        ("POST", "/api/v1/analytics/aggregate"),
+    ),
+    "ml": (
+        ("GET", "/api/v1/ml/models"),
+        ("GET", "/api/v1/ml/scores"),
+    ),
+    "status_pages": (
+        ("GET", "/api/v1/status/pages"),
+        ("POST", "/api/v1/status/pages"),
+        ("GET", "/api/v1/status/pages/{page_id}/services"),
+    ),
     "tenant_erasure": (("POST", "/api/v1/tenants/{tenant_id}/erase"),),
 }
 

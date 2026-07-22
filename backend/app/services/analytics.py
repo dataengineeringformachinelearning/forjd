@@ -77,6 +77,67 @@ def uptime_status(ratio: float) -> str:
     return "major_outage"
 
 
+# --- Routing-tag distribution helpers (sealed metadata only) ---
+def _top_counts(counts: dict[str, int], *, limit: int = 12) -> list[dict[str, Any]]:
+    ranked = sorted(counts.items(), key=lambda pair: (-pair[1], pair[0]))[:limit]
+    return [{"name": name, "count": count} for name, count in ranked if count > 0]
+
+
+async def _routing_distributions(
+    pool: asyncpg.Pool,
+    *,
+    tenant_id: UUID,
+    start: datetime,
+    end: datetime,
+) -> dict[str, Any]:
+    """Bucket sealed routing tags for partner charts (never plaintext payloads)."""
+    rows = await pool.fetch(
+        """
+        SELECT
+          NULLIF(BTRIM(metadata->>'region'), '') AS region,
+          NULLIF(BTRIM(metadata->>'component'), '') AS component,
+          NULLIF(BTRIM(metadata->>'label'), '') AS label,
+          NULLIF(BTRIM(metadata->>'source'), '') AS source,
+          NULLIF(BTRIM(features->>'key_id'), '') AS key_id
+        FROM stream_results
+        WHERE tenant_id = $1::uuid
+          AND created_at >= $2 AND created_at < $3
+        """,
+        str(tenant_id),
+        start,
+        end,
+    )
+    regions: dict[str, int] = {}
+    components: dict[str, int] = {}
+    statuses: dict[str, int] = {}
+    visitors: set[str] = set()
+    for row in rows:
+        region = str(row["region"] or row["source"] or "").strip()
+        if region:
+            regions[region] = regions.get(region, 0) + 1
+        component = str(row["component"] or "").strip()
+        if component:
+            components[component] = components.get(component, 0) + 1
+        label = str(row["label"] or "").strip().lower()
+        if label in {"1xx", "2xx", "3xx", "4xx", "5xx"} or label.isdigit():
+            statuses[label] = statuses.get(label, 0) + 1
+        key_id = str(row["key_id"] or "").strip()
+        if key_id:
+            visitors.add(key_id)
+    return {
+        "unique_visitors": len(visitors),
+        "origin_distribution": [
+            {"region": item["name"], "count": item["count"]} for item in _top_counts(regions)
+        ],
+        "endpoint_counts": [
+            {"endpoint": item["name"], "count": item["count"]} for item in _top_counts(components)
+        ],
+        "http_statuses": [
+            {"status": item["name"], "count": item["count"]} for item in _top_counts(statuses)
+        ],
+    }
+
+
 # --- Hourly rollup from stream_results ---
 async def aggregate_hour(
     pool: asyncpg.Pool,
@@ -123,6 +184,7 @@ async def aggregate_hour(
         start,
         end,
     )
+    distributions = await _routing_distributions(pool, tenant_id=tenant_id, start=start, end=end)
     total = int(stats["total_requests"] or 0)
     anomalies = int(stats["anomaly_count"] or 0)
     error_rate = (anomalies / total * 100.0) if total else 0.0
@@ -143,14 +205,21 @@ async def aggregate_hour(
         idx = percentile_index(len(scores), 0.99)
         p99 = float(scores[min(idx, len(scores) - 1)]["score"] or 0) * 1000.0
 
+    bucket_metadata = {
+        "source": "stream_results",
+        "origin_distribution": distributions["origin_distribution"],
+        "endpoint_counts": distributions["endpoint_counts"],
+        "http_statuses": distributions["http_statuses"],
+    }
     row = await pool.fetchrow(
         """
         INSERT INTO aggregated_analytics (
             tenant_id, bucket_start, bucket_size, total_requests, avg_latency_ms,
-            p99_latency_ms, error_rate_percent, threats_detected, active_incidents, metadata
+            p99_latency_ms, error_rate_percent, threats_detected, active_incidents,
+            unique_visitors, metadata
         )
         VALUES (
-            $1::uuid, $2, '1h', $3, $4, $5, $6, $7, $8, $9::jsonb
+            $1::uuid, $2, '1h', $3, $4, $5, $6, $7, $8, $9, $10::jsonb
         )
         ON CONFLICT (tenant_id, bucket_start, bucket_size) DO UPDATE SET
             total_requests = EXCLUDED.total_requests,
@@ -159,11 +228,12 @@ async def aggregate_hour(
             error_rate_percent = EXCLUDED.error_rate_percent,
             threats_detected = EXCLUDED.threats_detected,
             active_incidents = EXCLUDED.active_incidents,
+            unique_visitors = EXCLUDED.unique_visitors,
             metadata = EXCLUDED.metadata,
             updated_at = NOW()
         RETURNING id::text, tenant_id::text, bucket_start, total_requests,
                   avg_latency_ms, p99_latency_ms, error_rate_percent,
-                  threats_detected, active_incidents
+                  threats_detected, active_incidents, unique_visitors
         """,
         str(tenant_id),
         start,
@@ -173,7 +243,8 @@ async def aggregate_hour(
         error_rate,
         int(threats or 0),
         int(incidents or 0),
-        json.dumps({"source": "stream_results"}),
+        int(distributions["unique_visitors"] or 0),
+        json.dumps(bucket_metadata),
     )
     return {"ok": True, "bucket": dict(row)}
 
@@ -230,7 +301,8 @@ async def overview(
     rollups = await pool.fetch(
         """
         SELECT bucket_start, total_requests, avg_latency_ms, p99_latency_ms,
-               error_rate_percent, threats_detected, active_incidents, unique_visitors
+               error_rate_percent, threats_detected, active_incidents, unique_visitors,
+               metadata
         FROM aggregated_analytics
         WHERE tenant_id = $1::uuid AND bucket_start >= $2
         ORDER BY bucket_start DESC
@@ -247,7 +319,8 @@ async def overview(
         rollups = await pool.fetch(
             """
             SELECT bucket_start, total_requests, avg_latency_ms, p99_latency_ms,
-                   error_rate_percent, threats_detected, active_incidents, unique_visitors
+                   error_rate_percent, threats_detected, active_incidents, unique_visitors,
+                   metadata
             FROM aggregated_analytics
             WHERE tenant_id = $1::uuid
             ORDER BY bucket_start DESC
@@ -296,6 +369,9 @@ async def overview(
             "uptime_series": [],
             "threat_series": [],
             "threat_severity": [],
+            "origin_distribution": [],
+            "http_statuses": [],
+            "endpoint_counts": [],
         }
 
     err_sum = sum(float(r["error_rate_percent"] or 0) for r in rollups)
@@ -331,6 +407,38 @@ async def overview(
     if threats > 0:
         threat_severity.append({"severity": "Detected", "count": threats})
 
+    # --- Merge per-bucket routing-tag charts for partner dashboards ---
+    origin_counts: dict[str, int] = {}
+    status_counts: dict[str, int] = {}
+    endpoint_counts: dict[str, int] = {}
+    for row in rollups:
+        meta = row["metadata"]
+        if isinstance(meta, str):
+            try:
+                meta = json.loads(meta)
+            except json.JSONDecodeError:
+                meta = {}
+        if not isinstance(meta, dict):
+            continue
+        for item in meta.get("origin_distribution") or []:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("region") or item.get("name") or "").strip()
+            if name:
+                origin_counts[name] = origin_counts.get(name, 0) + int(item.get("count") or 0)
+        for item in meta.get("http_statuses") or []:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("status") or item.get("name") or "").strip()
+            if name:
+                status_counts[name] = status_counts.get(name, 0) + int(item.get("count") or 0)
+        for item in meta.get("endpoint_counts") or []:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("endpoint") or item.get("name") or "").strip()
+            if name:
+                endpoint_counts[name] = endpoint_counts.get(name, 0) + int(item.get("count") or 0)
+
     return {
         "ok": True,
         "window_hours": window_hours,
@@ -350,4 +458,14 @@ async def overview(
         "uptime_series": uptime_series,
         "threat_series": threat_series,
         "threat_severity": threat_severity,
+        "origin_distribution": [
+            {"region": item["name"], "count": item["count"]} for item in _top_counts(origin_counts)
+        ],
+        "http_statuses": [
+            {"status": item["name"], "count": item["count"]} for item in _top_counts(status_counts)
+        ],
+        "endpoint_counts": [
+            {"endpoint": item["name"], "count": item["count"]}
+            for item in _top_counts(endpoint_counts)
+        ],
     }

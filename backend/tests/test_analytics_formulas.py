@@ -63,7 +63,12 @@ class TestAnalyticsOverviewFallback(unittest.IsolatedAsyncioTestCase):
             "error_rate_percent": 0.0,
             "threats_detected": 0,
             "active_incidents": 0,
-            "unique_visitors": 0,
+            "unique_visitors": 3,
+            "metadata": {
+                "origin_distribution": [{"region": "iad", "count": 10}],
+                "http_statuses": [{"status": "2xx", "count": 20}],
+                "endpoint_counts": [{"endpoint": "analytics.overview", "count": 8}],
+            },
         }
         pool = MagicMock()
         pool.fetch = AsyncMock(side_effect=[[], [row]])
@@ -82,9 +87,13 @@ class TestAnalyticsOverviewFallback(unittest.IsolatedAsyncioTestCase):
         ):
             out = await analytics_svc.overview(pool, user=user, tenant_id=tenant_id)
         self.assertEqual(out["total_requests"], 24)
+        self.assertEqual(out["unique_visitors"], 3)
         self.assertEqual(len(out["time_series"]), 1)
         self.assertEqual(out["time_series"][0]["requests"], 24)
         self.assertGreater(out["ces"]["ces_level"], 0)
+        self.assertEqual(out["origin_distribution"][0]["region"], "iad")
+        self.assertEqual(out["http_statuses"][0]["status"], "2xx")
+        self.assertEqual(out["endpoint_counts"][0]["endpoint"], "analytics.overview")
 
 
 if __name__ == "__main__":

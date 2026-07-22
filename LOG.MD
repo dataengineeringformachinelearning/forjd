@@ -4,6 +4,7 @@
 
 ## Log
 
+- 2026-07-21: Analytics rollups now persist `unique_visitors` plus routing-tag charts (`origin_distribution` / `http_statuses` / `endpoint_counts`) from sealed metadata, advertise analytics/ML/status in `/api/v1/capabilities`, and pin supervised worker intervals in `fly.api.toml` so DEML dashboards stay populated after deploy.
 - 2026-07-21: Restored the public FORJD API landing at `GET /` (FJORD tokens, probe chips, capability cards) and moved Swagger to `/docs` only. HTML shells now get a narrow CSP that allows jsDelivr + inline assets — `default-src 'none'` had left `/` and `/docs` unstyled in browsers.
 - 2026-07-21: Analytics overview now falls back to the latest rollup buckets when the 24h window is empty, and the analytics-rollup worker keeps recently active tenants (exports/prior rollups) ticking so deml.app gauges/series do not go blank after quiet periods.
 - 2026-07-21: Added `DELETE /api/v1/exports/{job_id}` so partners can remove export jobs and their artifacts from the analytics Exports table (download + delete icon actions).
