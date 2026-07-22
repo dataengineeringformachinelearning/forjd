@@ -4,6 +4,7 @@
 
 ## Log
 
+- 2026-07-21: Public status slug lookup now accepts domain-style and stem aliases (`joealongi.dev` / `joealongi` → unique published `joealongi-dev`) so legacy widget embeds and deml.app `/status/…` URLs stop 404ing as “Status Page Not Found”.
 - 2026-07-21: Preserve sealed routing tags (`region` / `component` / `label` / `source`) through ingest → processing receipts → stream_results so partner charts and unique-visitor estimates fill from metadata only. Honeypot analyze accepts service principals via `require_tenant_access` (`analytics:read`) for DEML BFF gauges.
 - 2026-07-21: Analytics rollups now persist `unique_visitors` plus routing-tag charts (`origin_distribution` / `http_statuses` / `endpoint_counts`) from sealed metadata, advertise analytics/ML/status in `/api/v1/capabilities`, and pin supervised worker intervals in `fly.api.toml` so DEML dashboards stay populated after deploy.
 - 2026-07-21: Restored the public FORJD API landing at `GET /` (FJORD tokens, probe chips, capability cards) and moved Swagger to `/docs` only. HTML shells now get a narrow CSP that allows jsDelivr + inline assets — `default-src 'none'` had left `/` and `/docs` unstyled in browsers.

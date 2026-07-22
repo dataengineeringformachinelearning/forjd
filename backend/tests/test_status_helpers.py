@@ -15,6 +15,9 @@ from app.services.status import (
     _public_page_dict,
     _resolve_probe_url,
     _uptime_from_history,
+    public_slug_candidates,
+    public_slug_prefix,
+    slugify_identifier,
 )
 
 
@@ -41,6 +44,25 @@ class TestOverallStatus(unittest.TestCase):
             _overall_status(["operational", "degraded", "major_outage"]),
             "major_outage",
         )
+
+
+class TestPublicSlugCandidates(unittest.TestCase):
+    def test_slugify_domain_style(self) -> None:
+        self.assertEqual(slugify_identifier("joealongi.dev"), "joealongi-dev")
+
+    def test_candidates_include_slugified_and_stem(self) -> None:
+        self.assertEqual(
+            public_slug_candidates("joealongi.dev"),
+            ["joealongi-dev", "joealongi"],
+        )
+
+    def test_candidates_keep_canonical_slug(self) -> None:
+        self.assertEqual(public_slug_candidates("joealongi-dev"), ["joealongi-dev"])
+
+    def test_prefix_from_legacy_embed_stem(self) -> None:
+        self.assertEqual(public_slug_prefix("joealongi"), "joealongi")
+        self.assertEqual(public_slug_prefix("joealongi.dev"), "joealongi")
+        self.assertIsNone(public_slug_prefix("ab"))
 
 
 class TestPublicPageDict(unittest.TestCase):

@@ -24,6 +24,45 @@ _HISTORY_DAYS = 30
 _ANALYTICS_WINDOW_HOURS = 24
 
 
+# --- Public slug aliases (legacy embeds / domain-style URLs) ---
+def slugify_identifier(value: str) -> str:
+    """Normalize free-form identifiers to FORJD slug charset."""
+    return re.sub(r"[^a-z0-9]+", "-", (value or "").strip().lower()).strip("-")
+
+
+def public_slug_candidates(raw: str) -> list[str]:
+    """Exact, slugified, and domain-stem candidates for published-page lookup.
+
+    Examples: ``joealongi.dev`` → ``joealongi-dev``, ``joealongi``;
+    ``joealongi-dev`` stays itself. Only values matching ``_SLUG_RE`` are returned.
+    """
+    text = (raw or "").strip().lower()
+    out: list[str] = []
+
+    def _add(candidate: str) -> None:
+        if candidate and candidate not in out and _SLUG_RE.match(candidate):
+            out.append(candidate)
+
+    _add(text)
+    slugified = slugify_identifier(text)
+    _add(slugified)
+    if "." in text:
+        _add(slugify_identifier(text.split(".", 1)[0]))
+    return out
+
+
+def public_slug_prefix(raw: str) -> str | None:
+    """Stem used for unique published-page prefix self-heal (min length 3)."""
+    text = (raw or "").strip().lower()
+    if not text:
+        return None
+    stem = text.split(".", 1)[0] if "." in text else text
+    prefix = slugify_identifier(stem)
+    if len(prefix) < 3 or not _SLUG_RE.match(prefix):
+        return None
+    return prefix
+
+
 # --- Create / list (JWT + membership) ---
 async def create_page(
     pool: asyncpg.Pool,
@@ -93,15 +132,38 @@ async def get_published_page(
     *,
     slug: str,
 ) -> dict[str, Any] | None:
-    page = await pool.fetchrow(
-        """
-        SELECT id::text, tenant_id::text, slug, title, description,
-               is_published, created_at, updated_at
-        FROM status_pages
-        WHERE slug = $1 AND is_published = TRUE
-        """,
-        slug.strip().lower(),
-    )
+    page = None
+    for candidate in public_slug_candidates(slug):
+        page = await pool.fetchrow(
+            """
+            SELECT id::text, tenant_id::text, slug, title, description,
+                   is_published, created_at, updated_at
+            FROM status_pages
+            WHERE slug = $1 AND is_published = TRUE
+            """,
+            candidate,
+        )
+        if page is not None:
+            break
+    # Legacy embeds often used a domain stem (``joealongi``) before the
+    # slug was stored as ``joealongi-dev``. Only bind when the match is unique
+    # among published pages — same surface as the public directory.
+    if page is None:
+        prefix = public_slug_prefix(slug)
+        if prefix is not None:
+            rows = await pool.fetch(
+                """
+                SELECT id::text, tenant_id::text, slug, title, description,
+                       is_published, created_at, updated_at
+                FROM status_pages
+                WHERE is_published = TRUE
+                  AND (slug = $1 OR slug LIKE $1 || '-%')
+                LIMIT 2
+                """,
+                prefix,
+            )
+            if len(rows) == 1:
+                page = rows[0]
     if page is None:
         return None
     services = await pool.fetch(
