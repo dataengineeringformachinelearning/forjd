@@ -19,6 +19,7 @@ from app.core.config import settings
 from app.core.docs_page import render_docs
 from app.core.ingest_body_limit import IngestBodyLimitMiddleware
 from app.core.ingest_limits import ingest_write_paths
+from app.core.landing_page import render_landing
 from app.core.logging import configure_logging
 from app.core.rate_limit import PublicRateLimitMiddleware
 from app.core.request_context import RequestContextMiddleware
@@ -330,11 +331,16 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-# --- Root + docs: clean FJORD Swagger UI ---
+# --- Root landing + FJORD Swagger docs ---
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+async def landing() -> HTMLResponse:
+    """Public API landing — brand, purpose, probe links (not a bare JSON dump)."""
+    return HTMLResponse(content=render_landing())
+
+
 @app.get("/docs", response_class=HTMLResponse, include_in_schema=False)
 async def docs() -> HTMLResponse:
-    """Interactive Swagger docs at the API root, restyled with the FJORD palette."""
+    """Interactive Swagger docs, restyled with the FJORD palette."""
     return HTMLResponse(content=render_docs())
 
 

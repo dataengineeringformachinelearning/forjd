@@ -29,10 +29,30 @@ def _is_mutating(method: str) -> bool:
     return method.upper() in {"POST", "PUT", "PATCH", "DELETE"}
 
 
-# API responses are JSON/docs — strict CSP; browsers that render docs stay locked down.
+# API JSON stays locked down. HTML shells (/ , /docs, /redoc) need a narrow CSP so
+# FJORD landing CSS/JS and Swagger/ReDoc CDN assets can render — otherwise browsers
+# show a bare unstyled page under default-src 'none'.
 # CSRF is not token-based here: mutating routes require Authorization / X-API-Key
 # (header credentials are not auto-attached by browsers the way cookies are).
 _API_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+_HTML_SHELL_CSP = (
+    "default-src 'none'; "
+    "base-uri 'none'; "
+    "frame-ancestors 'none'; "
+    "form-action 'self'; "
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "img-src 'self' data: https://cdn.jsdelivr.net; "
+    "font-src 'self' data: https://cdn.jsdelivr.net; "
+    "connect-src 'self'"
+)
+_HTML_SHELL_PATHS = frozenset({"/", "/docs", "/redoc"})
+
+
+def _csp_for_path(path: str) -> str:
+    if path in _HTML_SHELL_PATHS:
+        return _HTML_SHELL_CSP
+    return _API_CSP
 
 
 # --- Response security headers ---
@@ -48,7 +68,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "Permissions-Policy",
             "geolocation=(), microphone=(), camera=()",
         )
-        response.headers.setdefault("Content-Security-Policy", _API_CSP)
+        response.headers.setdefault("Content-Security-Policy", _csp_for_path(request.url.path))
         response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
         response.headers.setdefault("Cross-Origin-Resource-Policy", "same-site")
         response.headers.setdefault("Cache-Control", "no-store")

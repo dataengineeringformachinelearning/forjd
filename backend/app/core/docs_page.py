@@ -116,10 +116,12 @@ _DOCS_HTML = """<!doctype html>
   <header class="fj-topbar">
     <a href="/"><span class="fj-brand">{project}</span></a>
     <nav>
+      <a href="/">home</a>
       <a href="https://forjd.co">product</a>
       <a href="/redoc">redoc</a>
       <a href="/openapi.json">openapi</a>
       <a href="/health">health</a>
+      <a href="/ready">ready</a>
     </nav>
   </header>
   <div id="swagger-ui"></div>
