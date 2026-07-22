@@ -347,6 +347,27 @@ async def overview(
 
     # No rollups ⇒ unknown availability (never invent 100% uptime / healthy CES).
     if not rollups:
+        empty_benchmark = {
+            "current_scope": {
+                "score_percent": None,
+                "accuracy_percent": None,
+                "mae": None,
+                "rmse": None,
+                "dataset_size": 0,
+                "models_evaluated": 0,
+                "measured_models": 0,
+                "evaluation_status": "insufficient_data",
+                "created_at": None,
+            },
+            "platform_reference": None,
+        }
+        try:
+            from app.services.ml import store as ml_store
+
+            runs = await ml_store.list_recent_training_runs(pool, tenant_id=tenant_id, limit=40)
+            empty_benchmark["current_scope"] = ml_store.benchmark_from_training_runs(runs)
+        except Exception:  # noqa: BLE001
+            pass
         return {
             "ok": True,
             "window_hours": 24,
@@ -358,12 +379,15 @@ async def overview(
             "uptime_pct": None,
             "status": "unknown",
             "data_available": False,
+            "benchmarking": empty_benchmark,
             "ces": {
                 "ces_threat": 0.0,
                 "ces_sla": 0.0,
                 "ces_stability": 0.0,
                 "ces_level": 0.0,
                 "spiking_temporal_forecast": 0.0,
+                "latest_benchmark_score": empty_benchmark["current_scope"].get("score_percent"),
+                "latest_benchmark": empty_benchmark["current_scope"],
             },
             "time_series": [],
             "uptime_series": [],
@@ -439,6 +463,32 @@ async def overview(
             if name:
                 endpoint_counts[name] = endpoint_counts.get(name, 0) + int(item.get("count") or 0)
 
+    # Self-benchmark rollup from tenant training_runs (partner ML dashboard).
+    benchmarking: dict[str, Any] = {
+        "current_scope": {
+            "score_percent": None,
+            "accuracy_percent": None,
+            "mae": None,
+            "rmse": None,
+            "dataset_size": 0,
+            "models_evaluated": 0,
+            "measured_models": 0,
+            "evaluation_status": "insufficient_data",
+            "created_at": None,
+        },
+        "platform_reference": None,
+    }
+    latest_benchmark_score = None
+    try:
+        from app.services.ml import store as ml_store
+
+        runs = await ml_store.list_recent_training_runs(pool, tenant_id=tenant_id, limit=40)
+        scope = ml_store.benchmark_from_training_runs(runs)
+        benchmarking["current_scope"] = scope
+        latest_benchmark_score = scope.get("score_percent")
+    except Exception:  # noqa: BLE001 — ML tables optional on bare deploys
+        pass
+
     return {
         "ok": True,
         "window_hours": window_hours,
@@ -450,9 +500,12 @@ async def overview(
         "uptime_pct": uptime,
         "status": uptime_status(uptime / 100.0),
         "data_available": True,
+        "benchmarking": benchmarking,
         "ces": {
             **ces,
             "spiking_temporal_forecast": _spiking_temporal_forecast(list(rollups)),
+            "latest_benchmark_score": latest_benchmark_score,
+            "latest_benchmark": benchmarking["current_scope"],
         },
         "time_series": time_series,
         "uptime_series": uptime_series,

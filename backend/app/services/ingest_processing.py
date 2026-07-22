@@ -248,6 +248,7 @@ def _safe_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
         cipher_len = int(event.get("cipher_len") or 0)
         if cipher_len < 0:
             raise ValueError("processing cipher_len must be nonnegative")
+        routing = event.get("metadata") if isinstance(event.get("metadata"), dict) else {}
         safe.append(
             {
                 "event_id": event_id,
@@ -260,6 +261,27 @@ def _safe_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "event_type": str(event.get("event_type") or "")[:128],
                 "workflow_id": str(event.get("workflow_id") or "")[:128],
                 "created_at": event.get("created_at"),
+                # Routing tags only — never ciphertext or free-form plaintext.
+                "metadata": {
+                    key: value
+                    for key, value in routing.items()
+                    if key
+                    in {
+                        "source",
+                        "channel",
+                        "region",
+                        "env",
+                        "environment",
+                        "product",
+                        "component",
+                        "namespace",
+                        "device_id",
+                        "series_id",
+                        "label",
+                        "labels",
+                        "tags",
+                    }
+                },
             }
         )
     return safe

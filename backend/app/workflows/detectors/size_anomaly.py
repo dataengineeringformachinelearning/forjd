@@ -38,6 +38,11 @@ def detect(events: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[st
                 "is_anomaly": is_anom,
                 "detector": "size_anomaly",
                 "reason": ("max_cipher_len" if hard else ("z_score" if spike else "ok")),
+                "region": str(e.get("region") or ""),
+                "component": str(e.get("component") or ""),
+                "label": str(e.get("label") or ""),
+                "source": str(e.get("source") or ""),
+                "metadata": e.get("metadata") if isinstance(e.get("metadata"), dict) else {},
             }
         )
     return out

@@ -8,6 +8,7 @@ Security:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 from typing import Any
@@ -291,6 +292,131 @@ async def persist_scores(
         )
         n += 1
     return n
+
+
+async def list_recent_training_runs(
+    pool: asyncpg.Pool,
+    *,
+    tenant_id: UUID,
+    limit: int = 50,
+) -> list[dict[str, Any]]:
+    """Recent training_runs for partner self-benchmark dashboards."""
+    await ensure_ml_store_schema(pool)
+    rows = await pool.fetch(
+        """
+        SELECT id::text, family, model_name, model_version, status,
+               metrics, artifact_path, created_at
+        FROM training_runs
+        WHERE tenant_id = $1::uuid
+        ORDER BY created_at DESC
+        LIMIT $2
+        """,
+        str(tenant_id),
+        limit,
+    )
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        metrics = r["metrics"]
+        if isinstance(metrics, str):
+            try:
+                metrics = json.loads(metrics)
+            except json.JSONDecodeError:
+                metrics = {}
+        out.append(
+            {
+                "id": r["id"],
+                "family": r["family"] or r["model_name"],
+                "model_name": r["model_name"],
+                "model_version": r["model_version"],
+                "status": r["status"],
+                "metrics": metrics if isinstance(metrics, dict) else {},
+                "artifact_path": r["artifact_path"],
+                "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            }
+        )
+    return out
+
+
+def benchmark_from_training_runs(runs: list[dict[str, Any]]) -> dict[str, Any]:
+    """Shape training_runs into the Angular BenchmarkRollup contract."""
+    completed = [
+        row
+        for row in runs
+        if str(row.get("status") or "").lower() in {"completed", "success", "ok", ""}
+    ]
+    if not completed:
+        return {
+            "score_percent": None,
+            "accuracy_percent": None,
+            "mae": None,
+            "rmse": None,
+            "dataset_size": 0,
+            "models_evaluated": 0,
+            "measured_models": 0,
+            "evaluation_status": "insufficient_data",
+            "created_at": None,
+        }
+
+    scores: list[float] = []
+    accuracies: list[float] = []
+    maes: list[float] = []
+    rmses: list[float] = []
+    samples = 0
+    families: set[str] = set()
+    newest: str | None = None
+    for row in completed:
+        families.add(str(row.get("family") or row.get("model_name") or "model"))
+        metrics = row.get("metrics") if isinstance(row.get("metrics"), dict) else {}
+        for key in ("benchmark_score", "score", "ces_sla", "r2", "accuracy"):
+            if metrics.get(key) is not None:
+                try:
+                    val = float(metrics[key])
+                except (TypeError, ValueError):
+                    continue
+                # accuracy/r2 often 0–1; benchmark_score may be 0–100
+                if key in {"accuracy", "r2"} and 0.0 <= val <= 1.0:
+                    accuracies.append(val * 100.0)
+                elif key == "benchmark_score" or (0.0 <= val <= 100.0):
+                    scores.append(val if val > 1.0 or key == "benchmark_score" else val * 100.0)
+                break
+        if metrics.get("accuracy") is not None:
+            with contextlib.suppress(TypeError, ValueError):
+                acc = float(metrics["accuracy"])
+                accuracies.append(acc * 100.0 if acc <= 1.0 else acc)
+        if metrics.get("mae") is not None:
+            with contextlib.suppress(TypeError, ValueError):
+                maes.append(float(metrics["mae"]))
+        if metrics.get("rmse") is not None:
+            with contextlib.suppress(TypeError, ValueError):
+                rmses.append(float(metrics["rmse"]))
+        for key in ("n_samples", "dataset_size", "n_windows", "n_points"):
+            if metrics.get(key) is not None:
+                with contextlib.suppress(TypeError, ValueError):
+                    samples += int(metrics[key])
+                break
+        if newest is None and row.get("created_at"):
+            newest = str(row["created_at"])
+
+    measured = len(families)
+    score_percent = round(sum(scores) / len(scores), 2) if scores else None
+    if score_percent is None and accuracies:
+        score_percent = round(sum(accuracies) / len(accuracies), 2)
+    # Derive a soft score from inverse RMSE when nothing else is available.
+    if score_percent is None and rmses:
+        avg_rmse = sum(rmses) / len(rmses)
+        score_percent = round(max(0.0, min(100.0, 100.0 - avg_rmse * 10.0)), 2)
+
+    return {
+        "score_percent": score_percent,
+        "accuracy_percent": round(sum(accuracies) / len(accuracies), 2) if accuracies else None,
+        "mae": round(sum(maes) / len(maes), 6) if maes else None,
+        "rmse": round(sum(rmses) / len(rmses), 6) if rmses else None,
+        "dataset_size": samples,
+        "models_evaluated": measured,
+        "measured_models": measured if score_percent is not None else 0,
+        "evaluation_status": "measured" if score_percent is not None else "insufficient_data",
+        "created_at": newest,
+    }
 
 
 async def list_recent_scores(

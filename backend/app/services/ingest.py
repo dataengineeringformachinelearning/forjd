@@ -240,6 +240,27 @@ async def ingest_events(
                 fingerprint=item["fingerprint"],
             )
             results.append(result)
+            # Preserve allowlisted routing tags for analytics charts (never ciphertext).
+            routing = {
+                key: value
+                for key, value in (event.metadata or {}).items()
+                if key
+                in {
+                    "source",
+                    "channel",
+                    "region",
+                    "env",
+                    "environment",
+                    "product",
+                    "component",
+                    "namespace",
+                    "device_id",
+                    "series_id",
+                    "label",
+                    "labels",
+                    "tags",
+                }
+            }
             meta = {
                 "event_id": str(result.id),
                 "tenant_id": str(event.tenant_id),
@@ -249,6 +270,7 @@ async def ingest_events(
                 "event_type": item["event_type"] or "",
                 "workflow_id": workflow.id,
                 "created_at": result.created_at,
+                "metadata": routing,
             }
             group_key = (
                 workflow.id,

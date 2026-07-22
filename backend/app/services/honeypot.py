@@ -127,7 +127,14 @@ async def analyze_honeypot_threats(
     user: AuthUser,
     tenant_id: UUID,
 ) -> dict[str, Any]:
-    await tenant_svc.require_member(pool, tenant_id=tenant_id, user_id=user.user_id)
+    # Service principals (fjsvc_) use scopes; human members use membership roles.
+    await tenant_svc.require_tenant_access(
+        pool,
+        principal=user,
+        tenant_id=tenant_id,
+        min_roles=frozenset({"owner", "admin", "member", "viewer"}),
+        required_scopes=frozenset({"analytics:read"}),
+    )
     await ensure_honeypot_schema(pool)
     total = await pool.fetchval(
         """

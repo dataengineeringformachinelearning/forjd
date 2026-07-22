@@ -105,6 +105,27 @@ async def list_ml_scores(
     return {"ok": True, "tenant_id": str(tenant_id), "scores": rows}
 
 
+@router.get("/benchmark")
+async def ml_benchmark(
+    request: Request,
+    tenant_id: UUID,
+    user: AuthUser = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Self-benchmark summary from recent ``training_runs`` (partner dashboards)."""
+    await _require_tenant(request, user, tenant_id, write=False)
+    pool = pool_from_request(request)
+    if pool is None:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
+    runs = await ml_store.list_recent_training_runs(pool, tenant_id=tenant_id, limit=40)
+    scope = ml_store.benchmark_from_training_runs(runs)
+    return {
+        "ok": True,
+        "tenant_id": str(tenant_id),
+        "benchmarking": {"current_scope": scope, "platform_reference": None},
+        "runs": runs[:10],
+    }
+
+
 # --- Fit ---
 @router.post("/{model_id}/fit")
 async def fit_ml_model(

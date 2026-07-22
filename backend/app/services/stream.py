@@ -95,10 +95,31 @@ def pathway_sealed_process(
     }
 
 
+_ROUTING_KEYS = frozenset(
+    {
+        "source",
+        "channel",
+        "region",
+        "env",
+        "environment",
+        "product",
+        "component",
+        "namespace",
+        "device_id",
+        "series_id",
+        "label",
+        "labels",
+        "tags",
+    }
+)
+
+
 # --- Column sanitize (reject anything that looks like ciphertext) ---
 def _sanitize(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for e in events:
+        raw_meta = e.get("metadata") if isinstance(e.get("metadata"), dict) else {}
+        routing = {k: v for k, v in raw_meta.items() if k in _ROUTING_KEYS}
         rows.append(
             {
                 "event_id": str(e.get("event_id") or ""),
@@ -108,6 +129,12 @@ def _sanitize(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "content_type": str(e.get("content_type") or ""),
                 "event_type": str(e.get("event_type") or ""),
                 "workflow_id": str(e.get("workflow_id") or ""),
+                "metadata": routing,
+                # Flatten common tags so detectors/analytics can read them cheaply.
+                "region": str(routing.get("region") or "")[:128],
+                "component": str(routing.get("component") or "")[:128],
+                "label": str(routing.get("label") or "")[:128],
+                "source": str(routing.get("source") or "")[:128],
             }
         )
     return rows
@@ -189,6 +216,15 @@ def _to_stream_result_rows(
         eid = a.get("event_id") or None
         if eid == "":
             eid = None
+        row_meta = dict(base_meta)
+        for key in ("region", "component", "label", "source"):
+            value = a.get(key)
+            if value:
+                row_meta[key] = value
+        extra = a.get("metadata") if isinstance(a.get("metadata"), dict) else {}
+        for key, value in extra.items():
+            if key in _ROUTING_KEYS and value is not None:
+                row_meta[key] = value
         rows.append(
             {
                 "tenant_id": a["tenant_id"],
@@ -207,7 +243,7 @@ def _to_stream_result_rows(
                     "detector": a.get("detector"),
                     "reason": a.get("reason"),
                 },
-                "metadata": dict(base_meta),
+                "metadata": row_meta,
                 "workflow_id": tags.get("workflow_id"),
             }
         )
