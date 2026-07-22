@@ -29,8 +29,11 @@ from app.services.ml.common import sklearn_available
 logger = logging.getLogger("forjd.analytics.worker")
 
 WORKER_NAME = "analytics-rollup"
-# Look-back window for "active" tenants; covers the previous-hour bucket too.
+# Look-back for fresh stream_results (covers previous-hour + current-hour ticks).
 ACTIVE_WINDOW_HOURS = 2
+# Keep rolling tenants that were recently active so overview 24h windows do not
+# go blank after a quiet day (exports / prior rollups count as recent activity).
+RECENT_TENANT_WINDOW_HOURS = 168
 # Minimum rows before a classical fit is meaningful.
 MIN_ML_SAMPLES = 8
 
@@ -39,10 +42,19 @@ MIN_ML_SAMPLES = 8
 async def _active_tenants(pool: asyncpg.Pool) -> list[UUID]:
     rows = await pool.fetch(
         """
-        SELECT DISTINCT tenant_id FROM stream_results
-        WHERE created_at >= NOW() - make_interval(hours => $1)
+        SELECT DISTINCT tenant_id FROM (
+          SELECT tenant_id FROM stream_results
+          WHERE created_at >= NOW() - make_interval(hours => $1)
+          UNION
+          SELECT tenant_id FROM aggregated_analytics
+          WHERE bucket_start >= NOW() - make_interval(hours => $2)
+          UNION
+          SELECT tenant_id FROM export_jobs
+          WHERE created_at >= NOW() - make_interval(hours => $2)
+        ) active_tenants
         """,
         ACTIVE_WINDOW_HOURS,
+        RECENT_TENANT_WINDOW_HOURS,
     )
     return [UUID(str(r["tenant_id"])) for r in rows]
 

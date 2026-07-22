@@ -506,6 +506,53 @@ async def create_download(
     }
 
 
+# --- Tenant-initiated export removal ---
+async def delete_job(
+    pool: asyncpg.Pool,
+    *,
+    user: AuthUser,
+    tenant_id: UUID,
+    job_id: UUID,
+) -> dict[str, Any]:
+    """Remove an export job row and best-effort delete its artifact."""
+    await tenant_svc.require_tenant_access(
+        pool,
+        principal=user,
+        tenant_id=tenant_id,
+        required_scopes=frozenset({"exports:write"}),
+    )
+    await ensure_export_schema(pool)
+    row = await _fetch_job_row(pool, tenant_id=tenant_id, job_id=job_id)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="export job not found")
+    object_key = str(row["object_key"] or "")
+    if object_key:
+        try:
+            await _delete_artifact(object_key)
+        except object_storage.ObjectStorageNotConfiguredError as exc:
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="export artifact exists but object storage is unavailable",
+            ) from exc
+        except Exception as exc:  # noqa: BLE001 - surface storage failures to the client
+            logger.exception("export artifact delete failed id=%s", job_id)
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="failed to delete export artifact",
+            ) from exc
+    result = await pool.execute(
+        """
+        DELETE FROM export_jobs
+        WHERE id = $1::uuid AND tenant_id = $2::uuid
+        """,
+        str(job_id),
+        str(tenant_id),
+    )
+    if not str(result).endswith(" 1"):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="export job not found")
+    return {"ok": True, "id": str(job_id)}
+
+
 async def tick_export_jobs(
     pool: asyncpg.Pool,
     *,

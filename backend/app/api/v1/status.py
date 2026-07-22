@@ -37,6 +37,7 @@ class CreateServiceRequest(BaseModel):
         "operational"
     )
     description: str = ""
+    probe_url: str | None = None
     sort_order: int = 0
 
 
@@ -47,6 +48,7 @@ class UpdateServiceRequest(BaseModel):
         Literal["operational", "degraded", "partial_outage", "major_outage", "maintenance"] | None
     ) = None
     description: str | None = None
+    probe_url: str | None = None
     sort_order: int | None = None
 
 
@@ -186,6 +188,7 @@ async def add_service(
             name=body.name,
             status=body.status,
             description=body.description,
+            probe_url=body.probe_url,
             sort_order=body.sort_order,
         )
     except ValueError as exc:
@@ -209,6 +212,7 @@ async def patch_service(
             name=body.name,
             status=body.status,
             description=body.description,
+            probe_url=body.probe_url,
             sort_order=body.sort_order,
         )
     except ValueError as exc:

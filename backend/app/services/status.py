@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import re
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -19,6 +20,8 @@ from app.services import tenants as tenant_svc
 logger = logging.getLogger("forjd.status")
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
+_HISTORY_DAYS = 30
+_ANALYTICS_WINDOW_HOURS = 24
 
 
 # --- Create / list (JWT + membership) ---
@@ -120,10 +123,21 @@ async def get_published_page(
         """,
         page["id"],
     )
+    service_ids = [str(s["id"]) for s in services]
+    telemetry = await _public_page_telemetry(
+        pool,
+        tenant_id=str(page["tenant_id"]),
+        service_ids=service_ids,
+    )
     overall = _overall_status([s["status"] for s in services])
     return {
         **_public_page_dict(page),
         "overall_status": overall,
+        "overall_uptime": telemetry["overall_uptime"],
+        "cumulative_sla": telemetry["overall_uptime"],
+        "uptime_history": telemetry["page_history"],
+        "p99_latency": telemetry["p99_latency"],
+        "total_requests": telemetry["total_requests"],
         "services": [
             {
                 "id": s["id"],
@@ -132,6 +146,12 @@ async def get_published_page(
                 "description": s["description"],
                 "sort_order": s["sort_order"],
                 "updated_at": s["updated_at"].isoformat(),
+                "page_id": page["id"],
+                "sla": telemetry["service_sla"].get(str(s["id"])),
+                "uptime_history": telemetry["service_history"].get(
+                    str(s["id"]), telemetry["empty_history"]
+                ),
+                "p99_latency": telemetry["service_latency"].get(str(s["id"])),
             }
             for s in services
         ],
@@ -238,7 +258,8 @@ async def list_services(
     await _require_page(pool, tenant_id=tenant_id, page_id=page_id)
     rows = await pool.fetch(
         """
-        SELECT id::text, name, status, description, sort_order, updated_at, page_id::text
+        SELECT id::text, name, status, description, probe_url, sort_order,
+               updated_at, page_id::text
         FROM status_services
         WHERE page_id = $1::uuid AND tenant_id = $2::uuid
         ORDER BY sort_order ASC, name ASC
@@ -258,6 +279,7 @@ async def upsert_service(
     name: str,
     status: str = "operational",
     description: str = "",
+    probe_url: str | None = None,
     sort_order: int = 0,
 ) -> dict[str, Any]:
     await tenant_svc.require_tenant_access(
@@ -268,6 +290,7 @@ async def upsert_service(
         required_scopes=frozenset({"status:write"}),
     )
     page = await _require_page(pool, tenant_id=tenant_id, page_id=page_id)
+    resolved_probe = _resolve_probe_url(probe_url, description)
     # Update existing row with same name on the page; else insert.
     existing = await pool.fetchrow(
         """
@@ -283,29 +306,36 @@ async def upsert_service(
         row = await pool.fetchrow(
             """
             UPDATE status_services SET
-                name = $3, status = $4, description = $5, sort_order = $6, updated_at = NOW()
+                name = $3, status = $4, description = $5, probe_url = $6,
+                sort_order = $7, updated_at = NOW()
             WHERE id = $1::uuid AND tenant_id = $2::uuid
-            RETURNING id::text, name, status, description, sort_order, updated_at, page_id::text
+            RETURNING id::text, name, status, description, probe_url, sort_order,
+                      updated_at, page_id::text
             """,
             existing["id"],
             str(tenant_id),
             name.strip(),
             status,
             description,
+            resolved_probe,
             sort_order,
         )
     else:
         row = await pool.fetchrow(
             """
-            INSERT INTO status_services (page_id, tenant_id, name, status, description, sort_order)
-            VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6)
-            RETURNING id::text, name, status, description, sort_order, updated_at, page_id::text
+            INSERT INTO status_services (
+                page_id, tenant_id, name, status, description, probe_url, sort_order
+            )
+            VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7)
+            RETURNING id::text, name, status, description, probe_url, sort_order,
+                      updated_at, page_id::text
             """,
             page["id"],
             str(tenant_id),
             name.strip(),
             status,
             description,
+            resolved_probe,
             sort_order,
         )
     return _service_dict(row)
@@ -320,6 +350,7 @@ async def update_service(
     name: str | None = None,
     status: str | None = None,
     description: str | None = None,
+    probe_url: str | None = None,
     sort_order: int | None = None,
 ) -> dict[str, Any]:
     await tenant_svc.require_tenant_access(
@@ -329,23 +360,43 @@ async def update_service(
         min_roles=frozenset({"owner", "admin", "member"}),
         required_scopes=frozenset({"status:write"}),
     )
+    explicit_probe: str | None = None
+    clear_probe = False
+    if probe_url is not None:
+        trimmed = probe_url.strip()
+        if trimmed == "":
+            clear_probe = True
+        else:
+            explicit_probe = _resolve_probe_url(trimmed, "")
     row = await pool.fetchrow(
         """
         UPDATE status_services SET
             name = COALESCE($3, name),
             status = COALESCE($4, status),
             description = COALESCE($5, description),
-            sort_order = COALESCE($6, sort_order),
+            probe_url = CASE
+                WHEN $8::boolean THEN NULL
+                WHEN $6::text IS NOT NULL THEN $6
+                WHEN COALESCE(probe_url, '') = ''
+                     AND $5::text IS NOT NULL
+                     AND $5::text ~* '^https?://'
+                  THEN BTRIM($5::text)
+                ELSE probe_url
+            END,
+            sort_order = COALESCE($7, sort_order),
             updated_at = NOW()
         WHERE id = $1::uuid AND tenant_id = $2::uuid
-        RETURNING id::text, name, status, description, sort_order, updated_at, page_id::text
+        RETURNING id::text, name, status, description, probe_url, sort_order,
+                  updated_at, page_id::text
         """,
         str(service_id),
         str(tenant_id),
         name.strip() if isinstance(name, str) else None,
         status,
         description,
+        explicit_probe,
         sort_order,
+        clear_probe,
     )
     if row is None:
         raise ValueError("status service not found")
@@ -527,12 +578,27 @@ async def _require_page(pool: asyncpg.Pool, *, tenant_id: UUID, page_id: UUID) -
     return {"id": row["id"]}
 
 
+def _resolve_probe_url(probe_url: str | None, description: str) -> str | None:
+    """Prefer explicit probe_url; else use http(s) description as the probe target."""
+    for candidate in (probe_url, description):
+        if not isinstance(candidate, str):
+            continue
+        trimmed = candidate.strip()
+        if trimmed.lower().startswith(("http://", "https://")):
+            return trimmed
+    if isinstance(probe_url, str) and probe_url.strip() == "":
+        return None
+    return None
+
+
 def _service_dict(row: Any) -> dict[str, Any]:
+    probe = row["probe_url"] if "probe_url" in row.keys() else None
     return {
         "id": row["id"],
         "name": row["name"],
         "status": row["status"],
         "description": row["description"],
+        "probe_url": probe,
         "sort_order": row["sort_order"],
         "updated_at": row["updated_at"].isoformat(),
         "page_id": row["page_id"],
@@ -584,3 +650,228 @@ def _overall_status(statuses: list[str]) -> str:
         "operational": 0,
     }
     return max(statuses, key=lambda s: rank.get(s, 0))
+
+
+# --- Public telemetry (probe history + analytics KPIs) ---
+def _day_status(active: int, total: int) -> tuple[str, float | None]:
+    if total <= 0:
+        return "no_data", None
+    uptime = round(100.0 * active / total, 2)
+    if active == total:
+        return "up", uptime
+    if active == 0:
+        return "down", uptime
+    return "partial", uptime
+
+
+def _fill_uptime_history(
+    day_stats: dict[date, tuple[int, int]],
+    *,
+    days: int = _HISTORY_DAYS,
+    today: date | None = None,
+) -> list[dict[str, Any]]:
+    """Build oldest→newest daily points; missing days are explicit no_data."""
+    end = today or datetime.now(UTC).date()
+    history: list[dict[str, Any]] = []
+    for offset in range(days - 1, -1, -1):
+        day = end - timedelta(days=offset)
+        active, total = day_stats.get(day, (0, 0))
+        status, uptime = _day_status(active, total)
+        history.append({"date": day.isoformat(), "status": status, "uptime": uptime})
+    return history
+
+
+def _uptime_from_history(history: list[dict[str, Any]]) -> float | None:
+    samples = [
+        float(point["uptime"])
+        for point in history
+        if point.get("status") != "no_data" and point.get("uptime") is not None
+    ]
+    if not samples:
+        return None
+    return round(sum(samples) / len(samples), 2)
+
+
+def _merge_day_stats(
+    rows: list[Any],
+    *,
+    service_id: str | None = None,
+) -> dict[date, tuple[int, int]]:
+    """Aggregate probe day rows into day → (active, total)."""
+    merged: dict[date, tuple[int, int]] = {}
+    for row in rows:
+        if service_id is not None and str(row["service_id"]) != service_id:
+            continue
+        day = row["day"]
+        if isinstance(day, datetime):
+            day = day.date()
+        active = int(row["active"] or 0)
+        total = int(row["total"] or 0)
+        prev_active, prev_total = merged.get(day, (0, 0))
+        merged[day] = (prev_active + active, prev_total + total)
+    return merged
+
+
+async def _probe_day_rollups(
+    pool: asyncpg.Pool,
+    *,
+    tenant_id: str,
+    service_ids: list[str],
+    days: int = _HISTORY_DAYS,
+) -> list[asyncpg.Record]:
+    if not service_ids:
+        return []
+    since = datetime.now(UTC) - timedelta(days=days)
+    return await pool.fetch(
+        """
+        SELECT service_id::text AS service_id,
+               (observed_at AT TIME ZONE 'UTC')::date AS day,
+               COUNT(*)::int AS total,
+               COUNT(*) FILTER (WHERE is_active)::int AS active,
+               COALESCE(
+                 percentile_cont(0.99) WITHIN GROUP (ORDER BY response_time_ms),
+                 0
+               )::float8 AS p99_ms
+        FROM health_probe_observations
+        WHERE tenant_id = $1::uuid
+          AND service_id = ANY($2::uuid[])
+          AND observed_at >= $3
+        GROUP BY 1, 2
+        ORDER BY 2 ASC
+        """,
+        tenant_id,
+        service_ids,
+        since,
+    )
+
+
+async def _analytics_kpis_24h(
+    pool: asyncpg.Pool,
+    *,
+    tenant_id: str,
+) -> dict[str, Any]:
+    since = datetime.now(UTC) - timedelta(hours=_ANALYTICS_WINDOW_HOURS)
+    try:
+        rollups = await pool.fetch(
+            """
+            SELECT total_requests, p99_latency_ms
+            FROM aggregated_analytics
+            WHERE tenant_id = $1::uuid AND bucket_start >= $2
+            """,
+            tenant_id,
+            since,
+        )
+    except asyncpg.UndefinedTableError:
+        return {"total_requests": 0, "p99_latency": None}
+    except Exception:
+        logger.exception("status: analytics KPI lookup failed for public page")
+        return {"total_requests": 0, "p99_latency": None}
+    total_req = sum(int(r["total_requests"] or 0) for r in rollups)
+    p99 = max((float(r["p99_latency_ms"] or 0) for r in rollups), default=0.0)
+    return {
+        "total_requests": total_req,
+        "p99_latency": round(p99, 2) if rollups else None,
+    }
+
+
+async def _analytics_day_stats(
+    pool: asyncpg.Pool,
+    *,
+    tenant_id: str,
+    days: int = _HISTORY_DAYS,
+) -> dict[date, tuple[int, int]]:
+    """Map analytics error-rate rollups into probe-shaped (active, total) day stats."""
+    since = datetime.now(UTC) - timedelta(days=days)
+    try:
+        rows = await pool.fetch(
+            """
+            SELECT (bucket_start AT TIME ZONE 'UTC')::date AS day,
+                   COALESCE(SUM(total_requests), 0)::int AS total_requests,
+                   COALESCE(AVG(error_rate_percent), 0)::float8 AS error_rate_percent
+            FROM aggregated_analytics
+            WHERE tenant_id = $1::uuid AND bucket_start >= $2
+            GROUP BY 1
+            ORDER BY 1 ASC
+            """,
+            tenant_id,
+            since,
+        )
+    except asyncpg.UndefinedTableError:
+        return {}
+    except Exception:
+        logger.exception("status: analytics day rollup failed for public page")
+        return {}
+    merged: dict[date, tuple[int, int]] = {}
+    for row in rows:
+        day = row["day"]
+        if isinstance(day, datetime):
+            day = day.date()
+        total = max(int(row["total_requests"] or 0), 1)
+        err = min(max(float(row["error_rate_percent"] or 0), 0.0), 100.0)
+        active = int(round(total * (100.0 - err) / 100.0))
+        merged[day] = (active, total)
+    return merged
+
+
+async def _public_page_telemetry(
+    pool: asyncpg.Pool,
+    *,
+    tenant_id: str,
+    service_ids: list[str],
+) -> dict[str, Any]:
+    empty_history = _fill_uptime_history({})
+    probe_rows = await _probe_day_rollups(
+        pool, tenant_id=tenant_id, service_ids=service_ids
+    )
+    probe_page_stats = _merge_day_stats(probe_rows)
+    page_history = _fill_uptime_history(probe_page_stats)
+    # If probes have not accumulated yet, fall back to tenant analytics days.
+    if _uptime_from_history(page_history) is None:
+        analytics_days = await _analytics_day_stats(pool, tenant_id=tenant_id)
+        if analytics_days:
+            page_history = _fill_uptime_history(analytics_days)
+
+    service_history: dict[str, list[dict[str, Any]]] = {}
+    service_sla: dict[str, float | None] = {}
+    service_latency: dict[str, float | None] = {}
+    for sid in service_ids:
+        history = _fill_uptime_history(_merge_day_stats(probe_rows, service_id=sid))
+        if _uptime_from_history(history) is None:
+            # Per-service probe gap: reuse page history so bars stay populated.
+            history = page_history
+        service_history[sid] = history
+        service_sla[sid] = _uptime_from_history(history)
+        # Latest observed day p99 for that service (if any).
+        latest_p99: float | None = None
+        latest_day: date | None = None
+        for row in probe_rows:
+            if str(row["service_id"]) != sid:
+                continue
+            day = row["day"]
+            if isinstance(day, datetime):
+                day = day.date()
+            if latest_day is None or day > latest_day:
+                latest_day = day
+                latest_p99 = float(row["p99_ms"] or 0)
+        service_latency[sid] = round(latest_p99, 2) if latest_p99 is not None else None
+
+    analytics = await _analytics_kpis_24h(pool, tenant_id=tenant_id)
+    probe_p99s = [
+        float(row["p99_ms"] or 0)
+        for row in probe_rows
+        if row["p99_ms"] is not None
+    ]
+    p99_latency = analytics["p99_latency"]
+    if p99_latency is None and probe_p99s:
+        p99_latency = round(max(probe_p99s), 2)
+
+    return {
+        "empty_history": empty_history,
+        "page_history": page_history,
+        "overall_uptime": _uptime_from_history(page_history),
+        "service_history": service_history,
+        "service_sla": service_sla,
+        "service_latency": service_latency,
+        "p99_latency": p99_latency,
+        "total_requests": int(analytics["total_requests"] or 0),
+    }

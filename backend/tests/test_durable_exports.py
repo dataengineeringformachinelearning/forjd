@@ -269,6 +269,46 @@ class TestExportIdempotency(unittest.IsolatedAsyncioTestCase):
 
         connection.transaction.assert_called_once_with(isolation="repeatable_read", readonly=True)
 
+    async def test_delete_job_removes_artifact_and_row(self) -> None:
+        fingerprint = exports._request_fingerprint(
+            format="csv", source_kind="analytics", limit=10000, days=7, site_url=None
+        )
+        completed = _row(fingerprint=fingerprint, status="completed")
+        pool = AsyncMock()
+        pool.execute.return_value = "DELETE 1"
+        with (
+            patch.object(exports.tenant_svc, "require_tenant_access", new=AsyncMock()),
+            patch.object(exports, "ensure_export_schema", new=AsyncMock()),
+            patch.object(exports, "_fetch_job_row", new=AsyncMock(return_value=completed)),
+            patch.object(exports, "_delete_artifact", new=AsyncMock()) as delete_artifact,
+        ):
+            result = await exports.delete_job(
+                pool, user=_user(), tenant_id=TENANT_ID, job_id=JOB_ID
+            )
+        self.assertEqual(result, {"ok": True, "id": str(JOB_ID)})
+        delete_artifact.assert_awaited_once_with(completed["object_key"])
+        self.assertIn("DELETE FROM export_jobs", pool.execute.await_args.args[0])
+
+    async def test_delete_job_without_artifact_only_removes_row(self) -> None:
+        fingerprint = exports._request_fingerprint(
+            format="csv", source_kind="analytics", limit=10000, days=7, site_url=None
+        )
+        failed = _row(fingerprint=fingerprint, status="failed")
+        pool = AsyncMock()
+        pool.execute.return_value = "DELETE 1"
+        with (
+            patch.object(exports.tenant_svc, "require_tenant_access", new=AsyncMock()),
+            patch.object(exports, "ensure_export_schema", new=AsyncMock()),
+            patch.object(exports, "_fetch_job_row", new=AsyncMock(return_value=failed)),
+            patch.object(exports, "_delete_artifact", new=AsyncMock()) as delete_artifact,
+        ):
+            result = await exports.delete_job(
+                pool, user=_user(), tenant_id=TENANT_ID, job_id=JOB_ID
+            )
+        self.assertEqual(result, {"ok": True, "id": str(JOB_ID)})
+        delete_artifact.assert_not_awaited()
+        self.assertIn("DELETE FROM export_jobs", pool.execute.await_args.args[0])
+
     async def test_completed_job_returns_short_lived_signed_download(self) -> None:
         fingerprint = exports._request_fingerprint(
             format="csv", source_kind="analytics", limit=10000, days=7, site_url=None

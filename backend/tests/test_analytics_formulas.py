@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 import unittest
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
+from app.core.auth import AuthUser, PrincipalKind
+from app.services import analytics as analytics_svc
 from app.services.analytics import (
     _bucket_label,
     _spiking_temporal_forecast,
@@ -44,6 +49,42 @@ class TestAnalyticsFormulas(unittest.TestCase):
         score = _spiking_temporal_forecast(rising_desc)
         self.assertGreater(score, 0.0)
         self.assertLessEqual(score, 100.0)
+
+
+class TestAnalyticsOverviewFallback(unittest.IsolatedAsyncioTestCase):
+    async def test_overview_falls_back_to_recent_buckets_when_24h_empty(self) -> None:
+        tenant_id = uuid4()
+        older = datetime(2026, 7, 20, 22, 0, tzinfo=UTC)
+        row = {
+            "bucket_start": older,
+            "total_requests": 24,
+            "avg_latency_ms": 12.0,
+            "p99_latency_ms": 40.0,
+            "error_rate_percent": 0.0,
+            "threats_detected": 0,
+            "active_incidents": 0,
+            "unique_visitors": 0,
+        }
+        pool = MagicMock()
+        pool.fetch = AsyncMock(side_effect=[[], [row]])
+        user = AuthUser(
+            user_id=str(uuid4()),
+            email=None,
+            role="service",
+            raw_claims={},
+            kind=PrincipalKind.SERVICE,
+            tenant_id=str(tenant_id),
+            scopes=frozenset({"analytics:read"}),
+        )
+        with (
+            patch.object(analytics_svc.tenant_svc, "require_tenant_access", new=AsyncMock()),
+            patch.object(analytics_svc, "ensure_analytics_schema", new=AsyncMock()),
+        ):
+            out = await analytics_svc.overview(pool, user=user, tenant_id=tenant_id)
+        self.assertEqual(out["total_requests"], 24)
+        self.assertEqual(len(out["time_series"]), 1)
+        self.assertEqual(out["time_series"][0]["requests"], 24)
+        self.assertGreater(out["ces"]["ces_level"], 0)
 
 
 if __name__ == "__main__":

@@ -4,6 +4,9 @@
 
 ## Log
 
+- 2026-07-21: Analytics overview now falls back to the latest rollup buckets when the 24h window is empty, and the analytics-rollup worker keeps recently active tenants (exports/prior rollups) ticking so deml.app gauges/series do not go blank after quiet periods.
+- 2026-07-21: Added `DELETE /api/v1/exports/{job_id}` so partners can remove export jobs and their artifacts from the analytics Exports table (download + delete icon actions).
+- 2026-07-20: Public status pages now include 30-day `uptime_history` (and per-service SLA/latency) rolled up from `health_probe_observations`, with analytics-day fallback when probes are empty, plus 24h request/latency KPIs — missing days stay explicit `no_data` instead of blank bars. Health pinger now probes `probe_url` or http(s) `description`; service create/update accepts `probe_url`.
 - 2026-07-20: Added supervised `ml-training` worker (daily SLA/threat/temporal retrains per active tenant + config-gated Hugging Face publishing under hashed tenant paths) and `retention` worker (bounded deletes for aged telemetry/results, expired crypto sessions, completed ingest receipts). Replaces the retired DEML-local daily training loop; `huggingface_hub` added to the ml group.
 - 2026-07-20: Deployed partner provision end-to-end — applied `sql/026` on Fly, shipped `forjd-backend` + `deml-backend`; smoke confirmed idempotent `POST /api/v1/partner/provision`, DEML sealed per-account mapping for demo, and analytics overview 200 for both Joe (env token) and demo (sealed).
 - 2026-07-19: Added partner provision API (`POST /api/v1/partner/provision` + `sql/026`) so DEML can auto-mint per-account FORJD tenants with `FORJD_PROVISION_TOKEN` — end users never hold `fjsvc_` tokens.

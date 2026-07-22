@@ -238,6 +238,34 @@ async def overview(
         str(tenant_id),
         since,
     )
+    # --- Stale-window fallback ---
+    # Rollups only tick for tenants with fresh stream_results. When the 24h
+    # window is empty, surface the most recent buckets so partner dashboards
+    # still show CES/series instead of a blank page after quiet periods.
+    window_hours = 24
+    if not rollups:
+        rollups = await pool.fetch(
+            """
+            SELECT bucket_start, total_requests, avg_latency_ms, p99_latency_ms,
+                   error_rate_percent, threats_detected, active_incidents, unique_visitors
+            FROM aggregated_analytics
+            WHERE tenant_id = $1::uuid
+            ORDER BY bucket_start DESC
+            LIMIT 24
+            """,
+            str(tenant_id),
+        )
+        if rollups:
+            newest = rollups[0]["bucket_start"]
+            oldest = rollups[-1]["bucket_start"]
+            if newest is not None and oldest is not None:
+                try:
+                    window_hours = max(
+                        1,
+                        int((newest - oldest).total_seconds() // 3600) + 1,
+                    )
+                except (TypeError, AttributeError):
+                    window_hours = 24
     total_req = sum(int(r["total_requests"] or 0) for r in rollups)
     threats = sum(int(r["threats_detected"] or 0) for r in rollups)
     incidents = sum(int(r["active_incidents"] or 0) for r in rollups)
@@ -305,7 +333,7 @@ async def overview(
 
     return {
         "ok": True,
-        "window_hours": 24,
+        "window_hours": window_hours,
         "total_requests": total_req,
         "threats_detected": threats,
         "active_incidents": incidents,

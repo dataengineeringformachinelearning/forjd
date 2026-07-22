@@ -66,6 +66,24 @@ async def get_export(
     return {"ok": True, "job": job}
 
 
+@router.delete("/{job_id}")
+async def delete_export(
+    request: Request,
+    job_id: UUID,
+    tenant_id: UUID,
+    user: AuthUser = Depends(get_current_user),
+) -> dict[str, Any]:
+    pool = pool_from_request(request)
+    if pool is None:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
+    return await export_svc.delete_job(
+        pool,
+        user=user,
+        tenant_id=tenant_id,
+        job_id=job_id,
+    )
+
+
 @router.get("/{job_id}/download")
 async def download_export(
     request: Request,

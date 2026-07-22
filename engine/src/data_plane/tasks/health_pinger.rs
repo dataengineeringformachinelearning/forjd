@@ -77,11 +77,21 @@ async fn tick(pool: &PgPool, cfg: &Config) -> Result<()> {
 }
 
 async fn fetch_services(pool: &PgPool) -> Result<Vec<MonitoredService>> {
+    // Prefer explicit probe_url; fall back to description when it looks like
+    // an http(s) target (DEML historically stored the monitor URL there).
     Ok(sqlx::query_as::<_, MonitoredService>(
         r#"
-        SELECT id AS service_id, tenant_id, probe_url AS url
+        SELECT id AS service_id,
+               tenant_id,
+               COALESCE(
+                 NULLIF(BTRIM(probe_url), ''),
+                 NULLIF(BTRIM(description), '')
+               ) AS url
         FROM status_services
-        WHERE probe_url IS NOT NULL AND probe_url <> ''
+        WHERE COALESCE(
+                NULLIF(BTRIM(probe_url), ''),
+                NULLIF(BTRIM(description), '')
+              ) ~* '^https?://'
         ORDER BY id
         "#,
     )

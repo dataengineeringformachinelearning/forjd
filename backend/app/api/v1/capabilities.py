@@ -72,6 +72,7 @@ _REQUIRED_ROUTES: dict[str, tuple[tuple[str, str], ...]] = {
         ("GET", "/api/v1/exports"),
         ("POST", "/api/v1/exports"),
         ("GET", "/api/v1/exports/{job_id}"),
+        ("DELETE", "/api/v1/exports/{job_id}"),
         ("GET", "/api/v1/exports/{job_id}/download"),
     ),
     "report_documents": (

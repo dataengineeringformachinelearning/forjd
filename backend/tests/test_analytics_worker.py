@@ -24,8 +24,16 @@ class TestActiveTenants(unittest.IsolatedAsyncioTestCase):
         pool = _pool_with_active_tenants([TENANT_ID])
         tenants = await analytics_worker._active_tenants(pool)
         self.assertEqual(tenants, [TENANT_ID])
+        # Fresh stream_results window + longer recent-activity window.
+        self.assertEqual(
+            pool.fetch.await_args.args[1:],
+            (
+                analytics_worker.ACTIVE_WINDOW_HOURS,
+                analytics_worker.RECENT_TENANT_WINDOW_HOURS,
+            ),
+        )
 
-    async def test_empty_when_no_recent_stream_results(self) -> None:
+    async def test_empty_when_no_recent_activity(self) -> None:
         pool = _pool_with_active_tenants([])
         self.assertEqual(await analytics_worker._active_tenants(pool), [])
 
