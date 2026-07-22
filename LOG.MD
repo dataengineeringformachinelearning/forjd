@@ -4,6 +4,7 @@
 
 ## Log
 
+- 2026-07-21: Restored the public FORJD API landing at `GET /` (FJORD tokens, probe chips, capability cards) and moved Swagger to `/docs` only. HTML shells now get a narrow CSP that allows jsDelivr + inline assets — `default-src 'none'` had left `/` and `/docs` unstyled in browsers.
 - 2026-07-21: Analytics overview now falls back to the latest rollup buckets when the 24h window is empty, and the analytics-rollup worker keeps recently active tenants (exports/prior rollups) ticking so deml.app gauges/series do not go blank after quiet periods.
 - 2026-07-21: Added `DELETE /api/v1/exports/{job_id}` so partners can remove export jobs and their artifacts from the analytics Exports table (download + delete icon actions).
 - 2026-07-20: Public status pages now include 30-day `uptime_history` (and per-service SLA/latency) rolled up from `health_probe_observations`, with analytics-day fallback when probes are empty, plus 24h request/latency KPIs — missing days stay explicit `no_data` instead of blank bars. Health pinger now probes `probe_url` or http(s) `description`; service create/update accepts `probe_url`.
