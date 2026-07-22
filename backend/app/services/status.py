@@ -654,7 +654,7 @@ def _resolve_probe_url(probe_url: str | None, description: str) -> str | None:
 
 
 def _service_dict(row: Any) -> dict[str, Any]:
-    probe = row["probe_url"] if "probe_url" in row.keys() else None
+    probe = row["probe_url"] if "probe_url" in row else None
     return {
         "id": row["id"],
         "name": row["name"],
