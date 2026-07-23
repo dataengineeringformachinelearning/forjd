@@ -123,7 +123,31 @@ async def list_pages(
         """,
         str(tenant_id),
     )
-    return [_page_dict(r) for r in rows]
+    # Explore / directory cards bind KPIs — hydrate the same telemetry as public slug.
+    pages: list[dict[str, Any]] = []
+    for row in rows:
+        page = _page_dict(row)
+        service_rows = await pool.fetch(
+            """
+            SELECT id::text
+            FROM status_services
+            WHERE page_id = $1::uuid
+            ORDER BY sort_order ASC, name ASC
+            """,
+            page["id"],
+        )
+        service_ids = [str(s["id"]) for s in service_rows]
+        telemetry = await _public_page_telemetry(
+            pool,
+            tenant_id=str(tenant_id),
+            service_ids=service_ids,
+        )
+        intelligence = await _public_page_intelligence(
+            pool, tenant_id=str(tenant_id)
+        )
+        page.update(_kpi_fields(telemetry, intelligence))
+        pages.append(page)
+    return pages
 
 
 # --- Public read by slug ---
@@ -191,15 +215,15 @@ async def get_published_page(
         tenant_id=str(page["tenant_id"]),
         service_ids=service_ids,
     )
+    intelligence = await _public_page_intelligence(
+        pool, tenant_id=str(page["tenant_id"])
+    )
     overall = _overall_status([s["status"] for s in services])
+    page_p99 = telemetry["p99_latency"]
     return {
         **_public_page_dict(page),
         "overall_status": overall,
-        "overall_uptime": telemetry["overall_uptime"],
-        "cumulative_sla": telemetry["overall_uptime"],
-        "uptime_history": telemetry["page_history"],
-        "p99_latency": telemetry["p99_latency"],
-        "total_requests": telemetry["total_requests"],
+        **_kpi_fields(telemetry, intelligence),
         "services": [
             {
                 "id": s["id"],
@@ -213,7 +237,12 @@ async def get_published_page(
                 "uptime_history": telemetry["service_history"].get(
                     str(s["id"]), telemetry["empty_history"]
                 ),
-                "p99_latency": telemetry["service_latency"].get(str(s["id"])),
+                # Fall back to page p99 when per-service probes have not landed yet.
+                "p99_latency": (
+                    telemetry["service_latency"].get(str(s["id"]))
+                    if telemetry["service_latency"].get(str(s["id"])) is not None
+                    else page_p99
+                ),
             }
             for s in services
         ],
@@ -329,7 +358,25 @@ async def list_services(
         str(page_id),
         str(tenant_id),
     )
-    return [_service_dict(r) for r in rows]
+    service_ids = [str(r["id"]) for r in rows]
+    telemetry = await _public_page_telemetry(
+        pool,
+        tenant_id=str(tenant_id),
+        service_ids=service_ids,
+    )
+    page_p99 = telemetry["p99_latency"]
+    enriched: list[dict[str, Any]] = []
+    for row in rows:
+        service = _service_dict(row)
+        sid = str(row["id"])
+        service_p99 = telemetry["service_latency"].get(sid)
+        service["sla"] = telemetry["service_sla"].get(sid)
+        service["uptime_history"] = telemetry["service_history"].get(
+            sid, telemetry["empty_history"]
+        )
+        service["p99_latency"] = service_p99 if service_p99 is not None else page_p99
+        enriched.append(service)
+    return enriched
 
 
 async def upsert_service(
@@ -712,6 +759,82 @@ def _overall_status(statuses: list[str]) -> str:
         "operational": 0,
     }
     return max(statuses, key=lambda s: rank.get(s, 0))
+
+
+# --- Public KPI / intelligence shaping ---
+def _kpi_fields(
+    telemetry: dict[str, Any],
+    intelligence: dict[str, Any],
+) -> dict[str, Any]:
+    """Shared page-level fields for list + public slug surfaces."""
+    return {
+        "overall_uptime": telemetry["overall_uptime"],
+        "cumulative_sla": telemetry["overall_uptime"],
+        "uptime_history": telemetry["page_history"],
+        "p99_latency": telemetry["p99_latency"],
+        "total_requests": telemetry["total_requests"],
+        "spiking_temporal_forecast": intelligence["spiking_temporal_forecast"],
+        "threat_anomaly_score": intelligence["threat_anomaly_score"],
+        "threat_suspicious_ratio": intelligence["threat_suspicious_ratio"],
+        "uses_norse": intelligence["uses_norse"],
+        "threats_detected_24h": intelligence["threats_detected_24h"],
+    }
+
+
+async def _public_page_intelligence(
+    pool: asyncpg.Pool,
+    *,
+    tenant_id: str,
+) -> dict[str, Any]:
+    """Ciphertext-free ML/analytics signals safe to embed on public status pages."""
+    from app.services.analytics import _spiking_temporal_forecast
+    from app.services.ml.norse_ssn import norse_available
+
+    since = datetime.now(UTC) - timedelta(hours=_ANALYTICS_WINDOW_HOURS)
+    forecast = 0.0
+    threats_24h = 0
+    try:
+        rollups = await pool.fetch(
+            """
+            SELECT threats_detected, error_rate_percent
+            FROM aggregated_analytics
+            WHERE tenant_id = $1::uuid AND bucket_start >= $2
+            ORDER BY bucket_start DESC
+            LIMIT 48
+            """,
+            tenant_id,
+            since,
+        )
+        forecast = _spiking_temporal_forecast(list(rollups))
+        threats_24h = sum(int(r["threats_detected"] or 0) for r in rollups)
+    except asyncpg.UndefinedTableError:
+        pass
+    except Exception:
+        logger.exception("status: public intelligence rollup lookup failed")
+
+    anomaly_score: float | None = None
+    suspicious_ratio: float | None = None
+    try:
+        from app.services.ml import store as ml_store
+
+        scores = await ml_store.list_recent_scores(
+            pool, tenant_id=UUID(tenant_id), limit=50
+        )
+        if scores:
+            numeric = [float(row.get("score") or 0.0) for row in scores]
+            anomalies = sum(1 for row in scores if row.get("is_anomaly"))
+            anomaly_score = max(numeric) if numeric else None
+            suspicious_ratio = anomalies / len(scores)
+    except Exception:
+        logger.exception("status: public intelligence ml_scores lookup failed")
+
+    return {
+        "spiking_temporal_forecast": forecast,
+        "threat_anomaly_score": anomaly_score,
+        "threat_suspicious_ratio": suspicious_ratio,
+        "uses_norse": bool(norse_available()),
+        "threats_detected_24h": threats_24h,
+    }
 
 
 # --- Public telemetry (probe history + analytics KPIs) ---

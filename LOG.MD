@@ -3,6 +3,7 @@
 > **Engineering journal (historical).** Current architecture lives in `ARCHITECTURE.md` and `AGENTS.md`. Entries below may describe superseded experiments (console PoC, cutover diary, rejected stacks). Do not treat this file as the deploy contract.
 
 ## Log
+- 2026-07-22: Enriched status list/slug KPIs (latency, uptime history, public ML intelligence) and enabled FORJD_ADDONS=all in production so explore/status cards and add-on catalog are fully populated.
 
 - 2026-07-21: Public status slug lookup now accepts domain-style and stem aliases (`joealongi.dev` / `joealongi` → unique published `joealongi-dev`) so legacy widget embeds and deml.app `/status/…` URLs stop 404ing as “Status Page Not Found”.
 - 2026-07-21: Preserve sealed routing tags (`region` / `component` / `label` / `source`) through ingest → processing receipts → stream_results so partner charts and unique-visitor estimates fill from metadata only. Honeypot analyze accepts service principals via `require_tenant_access` (`analytics:read`) for DEML BFF gauges.

@@ -44,6 +44,8 @@ primary_region = 'iad'
   ML_HIDDEN_DIM = '32'
   ML_EPOCHS = '20'
   ML_ANOMALY_THRESHOLD = '0.15'
+  # DEML partner profile — full add-on catalog (OSV/nuclei/HoneyDB/CVE + ML/testing)
+  FORJD_ADDONS = 'all'
 
 [http_service]
   internal_port = 8000

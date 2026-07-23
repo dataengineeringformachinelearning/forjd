@@ -489,6 +489,14 @@ async def overview(
     except Exception:  # noqa: BLE001 — ML tables optional on bare deploys
         pass
 
+    uses_norse = False
+    try:
+        from app.services.ml.norse_ssn import norse_available
+
+        uses_norse = bool(norse_available())
+    except Exception:  # noqa: BLE001 — optional ml-spiking group
+        uses_norse = False
+
     return {
         "ok": True,
         "window_hours": window_hours,
@@ -506,6 +514,7 @@ async def overview(
             "spiking_temporal_forecast": _spiking_temporal_forecast(list(rollups)),
             "latest_benchmark_score": latest_benchmark_score,
             "latest_benchmark": benchmarking["current_scope"],
+            "uses_norse": uses_norse,
         },
         "time_series": time_series,
         "uptime_series": uptime_series,
