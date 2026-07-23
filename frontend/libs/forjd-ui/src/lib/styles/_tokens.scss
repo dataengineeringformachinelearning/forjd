@@ -31,8 +31,8 @@
   --fj-accent-hover: var(--fj-primary-hover);
 
   // Typography
-  --fj-font-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
-  --fj-font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --fj-font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --fj-font-mono: ui-monospace, 'SFMono-Regular', Consolas, monospace;
 
   --fj-text-xs: 0.75rem;
   --fj-text-sm: 0.8125rem;
@@ -54,4 +54,5 @@
   --fj-space-4: 1rem;
   --fj-space-6: 1.5rem;
   --fj-space-8: 2rem;
+  --fj-touch-target: 2.75rem;
 }

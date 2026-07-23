@@ -37,7 +37,7 @@ Dragonfly                   Streams bus · rate limits · cache
 | Rust ingest edge (fail-closed) | `/api/v1/ingest` returns `410 Gone`; the guard exists so stale integrations receive a hard rejection rather than a silent loss — FastAPI `/api/v1/ingest/events:batch` is the sole active ingest path |
 | Crypto sessions / replay / status / analytics | FastAPI + `require_tenant_access` (human member **or** scoped `fjsvc_`) |
 | Daemon/partner ingest | FastAPI canonical sealed batch with scoped `fjsvc_` token; durable acceptance and processing receipts |
-| Rollup + size/rate detectors | Rust `run_sealed_pipeline` (Pathway fallback) |
+| Rollup + size/rate detectors | Rust `run_sealed_pipeline` (dependency-free Python fallback) |
 | Outbox → Streams, probes, cron | Rust data plane |
 | Normalized SIEM signals / cases | FastAPI + `security_signals` / `incident_cases`; strict tenant scopes |
 | Durable SOAR | Versioned playbooks + idempotent runs/action receipts; control-plane actions await acknowledgement |
@@ -50,7 +50,7 @@ Dragonfly                   Streams bus · rate limits · cache
 - AAD binds `tenant_id|client_event_id` (client-side)
 - Unique `(tenant_id, key_id, nonce)` — rejects GCM nonce reuse (`sql/013`)
 - `crypto_sessions` stores **public** X25519 keys only; `revoked_at` blocks ingest
-- Pathway / Rust pipeline never receive ciphertext fields
+- Rust / Python processors never receive ciphertext fields
 - Internode AES-GCM on Dragonfly Streams is **transport** crypto (server-held keys), not client E2EE
 - `security_signals` never stores ciphertext, raw evidence, credentials, email
   addresses, or direct usernames; it contains explicitly disclosed normalized

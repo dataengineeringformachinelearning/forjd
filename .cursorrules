@@ -18,17 +18,17 @@ Follow these unless the user explicitly overrides them.
 - Fly deploy: single app via `engine/Dockerfile` + `engine/fly.toml` (`--features server,data-plane`).
 
 ## Backend
-- Python requires 3.12+; this repo pins **3.12** (Pathway’s beartype pin breaks on 3.14) — prefer stability when choosing majors.
+- Python requires 3.12+; this repo pins **3.12** for reproducible production builds — prefer stability when choosing majors.
 - Manage deps with **uv** only (`uv add` / `uv sync` / `uv lock`). Do not use pip as the primary workflow.
-- Stack: FastAPI + Prefect 3 + Pathway + Polars + Dragonfly + Postgres.
+- Stack: FastAPI + Prefect 3 + Polars + Dragonfly + Postgres; Rust-first streams use a dependency-free Python fallback.
 - Async-first, strong typing, Pydantic v2 / pydantic-settings.
 - Layout: `app/core`, `app/api/v1`, `app/pipelines`, `app/models`, `app/services` (optional `app/services/ml` for torch).
 
 ## Data tooling
-- **Pathway** = continuous / incremental stream processing.
+- **Rust data plane** = continuous / incremental stream processing.
 - **Polars** = finite batch DataFrames (ETL, reports, offline transforms).
-- Never use Polars as a substitute for Pathway streaming jobs.
-- Separation: FastAPI = API, Prefect = orchestration, Pathway = streams, Polars = batch tables.
+- Never use Polars as a substitute for streaming jobs.
+- Separation: FastAPI = API, Prefect = orchestration, Rust = streams, Polars = batch tables.
 
 ## Frontend
 - Latest stable Angular (project is on v22; floor is v18+).
@@ -86,5 +86,5 @@ See `AGENTS.md` → **Quality gates** for the canonical per-component commands. 
 - `LOG.MD` is an **engineering journal (historical)**; it is not the architecture contract. Current architecture lives in `ARCHITECTURE.md` and `AGENTS.md`.
 - Append an entry after meaningful progress (optional). Format: `- YYYY-MM-DD: Brief description of what and why (1–2 sentences).`
 - Specific enough to remember the journey (commands, decisions, challenges) — not a novel, not a one-word stub.
-- Example: `- 2026-07-14: Initialized backend with uv + FastAPI + Prefect + Pathway. Chose Prefect for Pythonic workflow config over Airflow.`
+- Example: `- 2026-07-14: Initialized backend with uv + FastAPI + Prefect. Chose Prefect for Pythonic workflow config over Airflow.`
 - Keep the **Packages** section current: when adding/removing a direct dependency, add/remove its GitHub (or primary) repo URL so packages can be starred. See `.cursor/rules/packages-log.mdc`.

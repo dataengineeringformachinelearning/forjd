@@ -2,7 +2,7 @@
 
 Universal secure streaming engine for sealed partner ingest, YAML workflows, and durable projections.
 
-**Static Angular landing → FastAPI control plane → Rust engine (HTTP or PyO3) + Polars + Pathway + Prefect + Supabase Postgres/pgvector + Dragonfly.** Partners integrate with tenant-bound `fjsvc_` tokens (headless); there is no operational browser console.
+**Static Angular landing → FastAPI control plane → Rust engine (HTTP or PyO3) + Polars + Prefect + Supabase Postgres/pgvector + Dragonfly.** Partners integrate with tenant-bound `fjsvc_` tokens (headless); there is no operational browser console.
 
 ## Prerequisites
 
@@ -15,7 +15,7 @@ Universal secure streaming engine for sealed partner ingest, YAML workflows, and
 | Supabase project | Postgres (`POSTGRES_DSN`) — primary DB for FORJD; optional partner control-plane co-location into a non-`public` schema (see [`docs/NEON_TO_SUPABASE.md`](docs/NEON_TO_SUPABASE.md)) |
 | [flyctl](https://fly.io/docs/hands-on/install-flyctl/) (optional) | Deploy Dragonfly / engine |
 
-Python is pinned to **3.12** in `backend/` (Pathway does not yet run on 3.14).
+Python is pinned to **3.12** in `backend/` for reproducible production builds.
 
 ## Quick start (local)
 
@@ -98,7 +98,7 @@ Production path for sealed partner ingress:
 1. Apply SQL `003`→`026` under [`backend/sql/`](backend/sql/) (tenants, RLS, sealed events, projections/DLQ, service accounts, Realtime, ML, replay-safe SIEM/SOAR, durable exports, ingest-processing recovery, and partner provision).
 2. Configure `SUPABASE_URL` / `SUPABASE_JWT_SECRET` on the API (see `backend/.env.example`).
 3. Clients authenticate with Supabase Auth **or** a tenant service token (`fjsvc_…`), publish X25519 public keys (`POST /api/v1/sessions`), derive AES-256 via ECDH+HKDF, and use canonical partner batch `POST /api/v1/ingest/events:batch` with envelopes + `content_type` (YAML workflow in [`backend/workflows/`](backend/workflows/); partner wire ids via YAML `aliases`).
-4. Rust sealed pipeline (Pathway fallback) processes **metadata only**; consumers poll `GET /api/v1/projections` or Realtime on `stream_results`. Partner SaaS apps call FORJD as a subprocessor — see [`backend/docs/AUTH.md`](backend/docs/AUTH.md).
+4. Rust sealed pipeline (dependency-free Python fallback) processes **metadata only**; consumers poll `GET /api/v1/projections` or Realtime on `stream_results`. Partner SaaS apps call FORJD as a subprocessor — see [`backend/docs/AUTH.md`](backend/docs/AUTH.md).
 5. When content-aware SIEM is required, the trusted partner separately submits
    strict normalized, PII-minimized signals to `/api/v1/siem/signals`; raw
    evidence remains sealed. Cases and durable playbook runs stay tenant-scoped.
@@ -183,7 +183,7 @@ fly certs add backend.forjd.co -a forjd-backend
 ## Layout
 
 ```text
-backend/           FastAPI, Prefect, Polars/Pathway, SQL
+backend/           FastAPI, Prefect, Polars, SQL
 engine/            Rust core (PyO3 + process/data-plane / Fly)
 frontend/          Angular app + forjd-ui
 infra/dragonfly/   Fly.io Dragonfly

@@ -10,8 +10,6 @@ dependencies = [
     "fastapi>=0.139.0",
     "forjd-engine",
     "httpx>=0.28.1",
-    # 0.31+ (not the ancient 0.2.0 on PyPI) — needs beartype<0.16; see [tool.uv] override.
-    "pathway>=0.31.1",
     "polars>=1.42.1",
     "prefect[redis]>=3.7.8",
     "pydantic-settings>=2.14.2",
@@ -93,8 +91,3 @@ ignore = ["B008"]
 
 [tool.uv]
 package = true
-# Pathway 0.31 requires beartype<0.16; Prefect→pydocket asks for beartype>=0.20.
-# Prefer Pathway's pin so the stream layer imports; Prefect still runs with 0.15.
-override-dependencies = [
-    "beartype>=0.14.0,<0.16.0",
-]

@@ -1,6 +1,6 @@
 # FORJD workflow definitions
 
-YAML/JSON configs drive Prefect + Pathway processing. **Add a use case by
+YAML/JSON configs drive Prefect + Rust/Python processing. **Add a use case by
 dropping a file here** — do not fork ingest routes or crypto.
 
 ## Universal abstractions
@@ -105,4 +105,3 @@ Apply SQL `006`–`010` for routing, projections/DLQ, status, daemon plane, audi
 Platform surfaces (ingest, projections, replay/DLQ, status) stay use-case agnostic.
 Partner product names belong only in deploy-time alias overlays or the partner BFF —
 never in first-party `app/` / `engine/` code.
-

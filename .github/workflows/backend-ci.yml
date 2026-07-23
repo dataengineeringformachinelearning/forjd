@@ -41,7 +41,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install pinned Rust toolchain for the PyO3 dependency
-        run: rustup toolchain install 1.97.0 --profile minimal
+        run: rustup toolchain install 1.97.1 --profile minimal
 
       - name: Install uv
         run: python -m pip install --disable-pip-version-check uv
@@ -67,13 +67,13 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install pinned Rust toolchain
-        run: rustup toolchain install 1.97.0 --profile minimal --component rustfmt,clippy
+        run: rustup toolchain install 1.97.1 --profile minimal --component rustfmt,clippy
 
       - name: Check formatting
-        run: cargo +1.97.0 fmt --all -- --check
+        run: cargo +1.97.1 fmt --all -- --check
 
       - name: Clippy production feature set
-        run: cargo +1.97.0 clippy --no-default-features --features server,data-plane -- -D warnings
+        run: cargo +1.97.1 clippy --no-default-features --features server,data-plane -- -D warnings
 
       - name: Test production feature set
-        run: cargo +1.97.0 test --no-default-features --features server,data-plane
+        run: cargo +1.97.1 test --no-default-features --features server,data-plane

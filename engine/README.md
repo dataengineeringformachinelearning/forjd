@@ -112,7 +112,7 @@ Rollback: `fly secrets set FORJD_ROLE=engine -a forjd-engine`.
 
 ## Notes
 
-- Multi-stage image (`rust:1.97.0-bookworm` → `debian:bookworm-slim`), `USER 1001`.
+- Multi-stage image (`rust:1.97.1-bookworm` → `debian:bookworm-slim`), `USER 1001`.
 - PyO3 path stays lean (no `data-plane` deps).
 - Arrow/Parquet **59**, edition **2024**, rustc **1.97**.
 - Data-plane roles live in `src/data_plane/` (outbox, retired-ingest guard, probes, scheduler).

@@ -142,9 +142,7 @@ async def list_pages(
             tenant_id=str(tenant_id),
             service_ids=service_ids,
         )
-        intelligence = await _public_page_intelligence(
-            pool, tenant_id=str(tenant_id)
-        )
+        intelligence = await _public_page_intelligence(pool, tenant_id=str(tenant_id))
         page.update(_kpi_fields(telemetry, intelligence))
         pages.append(page)
     return pages
@@ -215,9 +213,7 @@ async def get_published_page(
         tenant_id=str(page["tenant_id"]),
         service_ids=service_ids,
     )
-    intelligence = await _public_page_intelligence(
-        pool, tenant_id=str(page["tenant_id"])
-    )
+    intelligence = await _public_page_intelligence(pool, tenant_id=str(page["tenant_id"]))
     overall = _overall_status([s["status"] for s in services])
     page_p99 = telemetry["p99_latency"]
     return {
@@ -817,9 +813,7 @@ async def _public_page_intelligence(
     try:
         from app.services.ml import store as ml_store
 
-        scores = await ml_store.list_recent_scores(
-            pool, tenant_id=UUID(tenant_id), limit=50
-        )
+        scores = await ml_store.list_recent_scores(pool, tenant_id=UUID(tenant_id), limit=50)
         if scores:
             numeric = [float(row.get("score") or 0.0) for row in scores]
             anomalies = sum(1 for row in scores if row.get("is_anomaly"))
@@ -1005,9 +999,7 @@ async def _public_page_telemetry(
     service_ids: list[str],
 ) -> dict[str, Any]:
     empty_history = _fill_uptime_history({})
-    probe_rows = await _probe_day_rollups(
-        pool, tenant_id=tenant_id, service_ids=service_ids
-    )
+    probe_rows = await _probe_day_rollups(pool, tenant_id=tenant_id, service_ids=service_ids)
     probe_page_stats = _merge_day_stats(probe_rows)
     page_history = _fill_uptime_history(probe_page_stats)
     # If probes have not accumulated yet, fall back to tenant analytics days.
@@ -1041,11 +1033,7 @@ async def _public_page_telemetry(
         service_latency[sid] = round(latest_p99, 2) if latest_p99 is not None else None
 
     analytics = await _analytics_kpis_24h(pool, tenant_id=tenant_id)
-    probe_p99s = [
-        float(row["p99_ms"] or 0)
-        for row in probe_rows
-        if row["p99_ms"] is not None
-    ]
+    probe_p99s = [float(row["p99_ms"] or 0) for row in probe_rows if row["p99_ms"] is not None]
     p99_latency = analytics["p99_latency"]
     if p99_latency is None and probe_p99s:
         p99_latency = round(max(probe_p99s), 2)

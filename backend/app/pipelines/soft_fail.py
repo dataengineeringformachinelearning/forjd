@@ -37,8 +37,8 @@ def _prefect_api_error() -> Exception | None:
     global _health_checked_at, _health_error
     if not _configured_prefect_url():
         # No orchestrator configured (production default): deterministic local
-        # fallback. Probing would boot Prefect's ephemeral server, whose import
-        # chain (docket → key_value.aio) breaks under the Pathway beartype pin.
+        # fallback. Probing would boot Prefect's ephemeral server, adding
+        # latency and process-wide side effects to an intentionally local path.
         return httpx.ConnectError("PREFECT_API_URL is not configured")
     now = monotonic()
     with _health_lock:

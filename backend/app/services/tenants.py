@@ -220,7 +220,7 @@ async def _ensure_secure_schema_uncached(pool: asyncpg.Pool) -> None:
         )
         """
     )
-    # Pathway/Prefect outputs (metadata scores only — see sql/005).
+    # Rust/Python/Prefect outputs (metadata scores only — see sql/005).
     await pool.execute(
         """
         CREATE TABLE IF NOT EXISTS stream_results (

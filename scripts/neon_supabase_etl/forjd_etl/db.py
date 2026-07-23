@@ -7,10 +7,11 @@ import os
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
-import psycopg
-from psycopg.rows import dict_row
+if TYPE_CHECKING:
+    import psycopg
 
 logger = logging.getLogger("forjd.etl.db")
 
@@ -54,6 +55,12 @@ def resolve_target_dsn() -> str:
 
 @contextmanager
 def connect(dsn: str) -> Iterator[psycopg.Connection]:
+    try:
+        import psycopg
+        from psycopg.rows import dict_row
+    except ImportError as exc:
+        raise RuntimeError("Install ETL dependencies with `uv sync --group etl`") from exc
+
     conn = psycopg.connect(dsn, row_factory=dict_row, autocommit=False)
     try:
         yield conn
@@ -73,6 +80,11 @@ def with_retry[T](
     backoff_seconds: float,
     label: str,
 ) -> T:
+    try:
+        import psycopg
+    except ImportError as exc:
+        raise RuntimeError("Install ETL dependencies with `uv sync --group etl`") from exc
+
     attempt = 0
     while True:
         try:

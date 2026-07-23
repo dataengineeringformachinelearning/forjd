@@ -3,6 +3,8 @@
 > **Engineering journal (historical).** Current architecture lives in `ARCHITECTURE.md` and `AGENTS.md`. Entries below may describe superseded experiments (console PoC, cutover diary, rejected stacks). Do not treat this file as the deploy contract.
 
 ## Log
+- 2026-07-22: Removed Pathway and its vulnerable transitive diskcache/pyarrow packages from the production backend. Rust remains the hot path; a tested dependency-free Python rollup now preserves successful engine-outage semantics.
+
 - 2026-07-22: Enriched status list/slug KPIs (latency, uptime history, public ML intelligence) and enabled FORJD_ADDONS=all in production so explore/status cards and add-on catalog are fully populated.
 
 - 2026-07-21: Public status slug lookup now accepts domain-style and stem aliases (`joealongi.dev` / `joealongi` → unique published `joealongi-dev`) so legacy widget embeds and deml.app `/status/…` URLs stop 404ing as “Status Page Not Found”.
@@ -175,7 +177,6 @@ Direct dependencies only. Star these on GitHub.
 - [psycopg](https://github.com/psycopg/psycopg) — sync Postgres for Neon→Supabase ETL (`uv sync --group etl`)
 - [httpx](https://github.com/encode/httpx) — HTTP client (engine + probes)
 - [Prefect](https://github.com/PrefectHQ/prefect) — workflow orchestration
-- [Pathway](https://github.com/pathwaycom/pathway) — streaming / incremental processing
 - [Polars](https://github.com/pola-rs/polars) — batch DataFrames
 - [pyrollbar](https://github.com/rollbar/pyrollbar) — error reporting
 - [sentry-sdk](https://github.com/getsentry/sentry-python) — optional error tracking (`uv sync --group sentry`, `SENTRY_DSN`)
@@ -206,7 +207,7 @@ Direct dependencies only. Star these on GitHub.
 - [design-patterns-python](https://github.com/RefactoringGuru/design-patterns-python) — reference material (`design-patterns-python`)
 
 ### Frontend (Angular / npm)
-- [angular](https://github.com/angular/angular) — UI framework (+ CLI / build tooling; includes `@angular/animations` for Storybook Vite)
+- [angular](https://github.com/angular/angular) — UI framework (+ CLI / build tooling)
 - [rxjs](https://github.com/ReactiveX/rxjs) — reactive streams
 - [tslib](https://github.com/microsoft/tslib) — TypeScript helpers
 - [vercel/analytics](https://github.com/vercel/analytics) — web analytics
@@ -373,3 +374,4 @@ Direct dependencies only. Star these on GitHub.
 - 2026-07-20: Aligned data-plane retention with the platform compliance promise — RETENTION_TELEMETRY_DAYS and RETENTION_RESULTS_DAYS defaults dropped from 90 to 30 so the marketing "30-Day Retention" claim is true by default (receipts already 30). Aggregated_analytics rollups persist, so dashboards keep longer horizons while raw sealed rows purge on schedule.
 - 2026-07-20: Renamed the PDF report header lockup to "DATA ENGINEERING FOR MACHINE LEARNING" (pdf_report.py) to match the DEML tagline rename; redeployed forjd-backend via `fly deploy --config fly.api.toml --strategy rolling`.
 - 2026-07-21: Modernization scrub — aligned docs to SQL `026` (partner provision / service-principal cutover), demoted LOG.MD to engineering journal (primary architecture is ARCHITECTURE.md + AGENTS.md), unified quality gates across backend/engine/frontend with DEML-style clarity, added frontend CI job, and softened PoC/DEML-local framing in production-facing comments.
+- 2026-07-22: Health pass aligned Angular 22 patch releases and Storybook 10.5 peers so strict `npm ci` no longer needs `legacy-peer-deps`; enabled strict templates, explicit zoneless/OnPush rendering, 44px controls, and removed CSP-blocked remote fonts. Backend, engine, app, library, and Storybook quality gates pass.

@@ -13,7 +13,7 @@ idempotent migrations are reapplied to backfill the ledger.
 | `historical/002_anomaly_embeddings.sql` | Archived — unused; prefer tenant-scoped `/api/v1/ml` + `016` |
 | `003_secure_tenancy.sql` | **Production path** — tenants, RLS, E2EE telemetry, vector embeddings |
 | `004_crypto_sessions.sql` | X25519 public-key session directory (private keys never stored) |
-| `005_stream_results.sql` | Pathway/Prefect outputs (metadata scores; RLS) |
+| `005_stream_results.sql` | Rust/Python/Prefect outputs (metadata scores; RLS) |
 | `006_universal_stream.sql` | `event_type` / `workflow_id`, `use_cases`, `sealed_events` view |
 | `007_projections.sql` | Durable projections, checkpoints, DLQ |
 | `008_status_pages.sql` | Status pages / services / incidents (public when published) |
@@ -68,7 +68,7 @@ idempotent migrations are reapplied to backfill the ledger.
 | Double Ratchet | Client-owned forward secrecy; `ratchet_header` opaque to server |
 | `telemetry_events.ciphertext` | Encrypted payload only (server-blind) |
 | `crypto_sessions` | Public keys for peer discovery — never private keys |
-| Pathway | Rolls up metadata + size anomalies, never decrypts |
+| Rust/Python processors | Roll up metadata + size anomalies, never decrypt |
 | `stream_results` | Consumer-facing scores/rollups (no ciphertext) |
 | `projection_feed` | View over `stream_results` for Realtime / polling clients |
 | `use_cases` | Optional DB catalog of workflows |

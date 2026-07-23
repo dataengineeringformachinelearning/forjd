@@ -1,22 +1,19 @@
 """Sealed-event metadata consumer (server-blind, use-case agnostic).
 
 Operates only on non-sensitive fields. Never decrypts ciphertext.
-Prefers Rust ``forjd-engine`` sealed pipeline; falls back to Pathway + Python.
+Prefers Rust ``forjd-engine`` sealed pipeline; falls back to pure Python.
 """
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from app.services import engine as engine_svc
 from app.workflows.detectors import run_detectors
 from app.workflows.models import WorkflowDefinition
 
-logger = logging.getLogger("forjd.stream")
 
-
-# --- Prefer Rust engine; Pathway/Python fallback ---
+# --- Prefer Rust engine; deterministic Python fallback ---
 def pathway_sealed_process(
     events: list[dict[str, Any]],
     *,
@@ -26,7 +23,7 @@ def pathway_sealed_process(
     """Rollup + configured anomaly detectors on each ingest/project batch.
 
     Live path: called from Prefect on ingest (and projection ticks). Prefers the
-    Rust sealed pipeline (PyO3 or ENGINE_URL). Soft-falls back to Pathway/Python.
+    Rust sealed pipeline (PyO3 or ENGINE_URL). Soft-falls back to pure Python.
     """
     empty = {
         "ok": True,
@@ -64,7 +61,7 @@ def pathway_sealed_process(
         if rust_out is not None:
             return rust_out
     rollup = (
-        _pathway_rollup(sanitized)
+        _python_rollup(sanitized)
         if "rollup" in step_set
         else {
             "ok": True,
@@ -140,43 +137,6 @@ def _sanitize(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
-# --- Pathway groupby rollup ---
-def _pathway_rollup(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    try:
-        import pandas as pd
-        import pathway as pw
-    except Exception as exc:  # pragma: no cover
-        logger.warning("pathway unavailable: %s", exc)
-        return _python_rollup(rows, error=str(exc))
-
-    try:
-        table = pw.debug.table_from_pandas(pd.DataFrame(rows))
-        reduced = table.groupby(pw.this.tenant_id).reduce(
-            tenant_id=pw.this.tenant_id,
-            count=pw.reducers.count(),
-            bytes=pw.reducers.sum(pw.this.cipher_len),
-            max_cipher_len=pw.reducers.max(pw.this.cipher_len),
-        )
-        frame = pw.debug.table_to_pandas(reduced)
-        by_tenant: dict[str, Any] = {}
-        for _, row in frame.iterrows():
-            by_tenant[str(row["tenant_id"])] = {
-                "count": int(row["count"]),
-                "bytes": int(row["bytes"]),
-                "max_cipher_len": int(row["max_cipher_len"]),
-            }
-        return {
-            "ok": True,
-            "engine": "pathway",
-            "count": sum(v["count"] for v in by_tenant.values()),
-            "tenants": len(by_tenant),
-            "by_tenant": by_tenant,
-        }
-    except Exception as exc:
-        logger.exception("pathway sealed rollup failed")
-        return _python_rollup(rows, error=str(exc))
-
-
 # --- Flatten into durable stream_results shapes ---
 def _to_stream_result_rows(
     rollup: dict[str, Any],
@@ -186,7 +146,7 @@ def _to_stream_result_rows(
     steps: set[str],
     projection_name: str,
 ) -> list[dict[str, Any]]:
-    engine = str(rollup.get("engine") or "pathway")
+    engine = str(rollup.get("engine") or "python-fallback")
     rows: list[dict[str, Any]] = []
     base_meta = {"source": "forjd-ingest", **tags}
 
@@ -250,8 +210,8 @@ def _to_stream_result_rows(
     return rows
 
 
-# --- Fallback when Pathway import/runtime fails ---
-def _python_rollup(events: list[dict[str, Any]], *, error: str | None = None) -> dict[str, Any]:
+# --- Dependency-free fallback when Rust is unavailable ---
+def _python_rollup(events: list[dict[str, Any]]) -> dict[str, Any]:
     by_tenant: dict[str, dict[str, int]] = {}
     for e in events:
         tid = str(e.get("tenant_id", ""))
@@ -260,13 +220,10 @@ def _python_rollup(events: list[dict[str, Any]], *, error: str | None = None) ->
         slot["count"] += 1
         slot["bytes"] += clen
         slot["max_cipher_len"] = max(slot["max_cipher_len"], clen)
-    out: dict[str, Any] = {
-        "ok": error is None,
+    return {
+        "ok": True,
         "engine": "python-fallback",
         "count": len(events),
         "tenants": len(by_tenant),
         "by_tenant": by_tenant,
     }
-    if error:
-        out["error"] = error
-    return out

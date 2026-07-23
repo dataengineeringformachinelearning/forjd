@@ -1,9 +1,11 @@
-"""Unit tests for sealed-metadata Pathway process + anomaly flags."""
+"""Unit tests for sealed-metadata rollups and anomaly flags."""
 
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
+from app.services import engine as engine_svc
 from app.services.stream import pathway_sealed_process
 from app.workflows.models import WorkflowDefinition
 
@@ -15,6 +17,46 @@ class TestSealedStreamProcess(unittest.TestCase):
         self.assertTrue(out["ok"])
         self.assertEqual(out["count"], 0)
         self.assertEqual(out["results"], [])
+
+    def test_engine_outage_uses_successful_python_fallback(self) -> None:
+        events = [
+            {"event_id": "a", "tenant_id": "tenant-a", "cipher_len": 10},
+            {"event_id": "b", "tenant_id": "tenant-a", "cipher_len": 30},
+            {"event_id": "c", "tenant_id": "tenant-b", "cipher_len": 5},
+        ]
+
+        with patch(
+            "app.services.stream.engine_svc.run_sealed_pipeline_sync",
+            return_value=None,
+        ):
+            out = pathway_sealed_process(events)
+
+        self.assertTrue(out["ok"])
+        self.assertEqual(out["engine"], "python-fallback")
+        self.assertEqual(out["count"], 3)
+        self.assertEqual(out["tenants"], 2)
+        self.assertEqual(
+            out["by_tenant"],
+            {
+                "tenant-a": {"count": 2, "bytes": 40, "max_cipher_len": 30},
+                "tenant-b": {"count": 1, "bytes": 5, "max_cipher_len": 5},
+            },
+        )
+        self.assertTrue(all(row["engine"] == "python-fallback" for row in out["results"]))
+
+    def test_rust_pyo3_pipeline_contract(self) -> None:
+        out = engine_svc.run_sealed_pipeline_sync(
+            [{"event_id": "e", "tenant_id": "tenant", "cipher_len": 12}],
+            steps=["rollup"],
+            projection_name="sealed.test",
+            workflow_id="test",
+        )
+
+        self.assertIsNotNone(out)
+        assert out is not None
+        self.assertTrue(out["ok"])
+        self.assertEqual(out["engine"], "forjd-engine")
+        self.assertEqual(out["by_tenant"]["tenant"]["bytes"], 12)
 
     def test_rollup_and_outlier(self) -> None:
         tid = "11111111-1111-1111-1111-111111111111"

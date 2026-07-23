@@ -2,7 +2,7 @@
 
 FastAPI control plane for the universal secure streaming engine:
 
-`Partners / UI docs → FastAPI → Rust (PyO3 or HTTP) + Polars + Pathway + Prefect + Supabase Postgres + Dragonfly`
+`Partners / UI docs → FastAPI → Rust (PyO3 or HTTP) + Polars + Prefect + Supabase Postgres + Dragonfly`
 
 The API root (`GET /` and `GET /docs`) serves a FJORD-themed Swagger UI. Product work happens through authenticated `/api/v1/*` routes (service tokens / JWTs) — not through an in-browser run console. The public product page lives at forjd.co.
 
@@ -43,7 +43,7 @@ uv run forjd
 | POST | `/api/v1/ingest/events:batch` | Canonical DEML/partner sealed batch ingest (≤25 events, ≤8 MiB request) |
 | GET | `/api/v1/ingest/processing/{batch_id}` | Durable post-acceptance processing status |
 | GET | `/api/v1/ingest/events?tenant_id=` | List event metadata (no ciphertext bodies) |
-| GET | `/api/v1/ingest/results?tenant_id=` | Pathway/Prefect `stream_results` (+ optional `workflow_id`) |
+| GET | `/api/v1/ingest/results?tenant_id=` | Rust/Python/Prefect `stream_results` (+ optional `workflow_id`) |
 | POST | `/api/v1/ingest/embeddings` | Tenant-scoped vectors (ML / threat features) |
 | GET | `/api/v1/workflows` | List YAML/JSON workflow definitions |
 | GET/POST | `/api/v1/sessions` | X25519 public session directory (JWT) |
@@ -178,5 +178,5 @@ Set matching `ENGINE_URL=http://forjd-engine.internal:8080` (already in `fly.api
 
 ## Notes
 
-- Backend Python is **3.12** so Pathway works (upstream + beartype still break on 3.14).
+- Backend Python is pinned to **3.12** for reproducible production builds.
 - Rust engine: `forjd-engine` (PyO3). Rebuild with `uv sync` after engine changes.

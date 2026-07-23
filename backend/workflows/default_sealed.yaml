@@ -3,7 +3,7 @@ id: default_sealed
 name: Default sealed stream
 description: >
   Blind sealed-metadata rollup + size anomaly (Rust forjd-engine preferred,
-  Pathway/Python fallback). Server never opens ciphertext.
+  pure-Python fallback). Server never opens ciphertext.
 version: 1
 enabled: true
 default: true
@@ -18,7 +18,7 @@ encryption:
   algos: [aes-256-gcm]
 
 pipeline:
-  # sealed_metadata prefers Rust with Pathway/Python soft-fallback.
+  # sealed_metadata prefers Rust with a dependency-free Python soft-fallback.
   processor: sealed_metadata
   projection:
     name: sealed.default

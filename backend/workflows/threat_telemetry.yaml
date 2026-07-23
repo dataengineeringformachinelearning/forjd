@@ -42,7 +42,7 @@ encryption:
   algos: [aes-256-gcm]
 
 pipeline:
-  # Rust forjd-engine preferred via sealed_metadata; Pathway/Python fallback.
+  # Rust forjd-engine preferred via sealed_metadata; pure-Python fallback.
   processor: sealed_metadata
   projection:
     name: threat.sealed_rollup

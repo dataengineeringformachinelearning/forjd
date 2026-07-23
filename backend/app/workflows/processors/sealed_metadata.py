@@ -1,4 +1,4 @@
-"""Default processor: Rust sealed pipeline (Pathway/Python soft-fallback).
+"""Default processor: Rust sealed pipeline (pure-Python soft-fallback).
 
 Config-driven via YAML ``pipeline.processor: sealed_metadata``. Operates on
 cipher lengths + routing metadata only — never decrypts.

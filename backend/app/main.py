@@ -457,7 +457,7 @@ async def readiness(request: Request) -> JSONResponse:
                 checks["object_storage"] = False
 
     # Engine probe is informational — sealed API stays ready if Postgres/Redis/RLS ok.
-    # (HTTP engine may restart independently; Pathway/PyO3 remain soft-fallbacks.)
+    # (HTTP engine may restart independently; Python/PyO3 remain soft-fallbacks.)
     engine_meta: dict[str, Any] | None = None
     if settings.ENGINE_URL.strip():
         from app.services import engine as engine_svc
