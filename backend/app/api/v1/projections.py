@@ -11,40 +11,36 @@ token with ``projections:read`` / ``projections:run``. Never partner end-user to
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from app.core.auth import AuthUser, get_current_user, pool_from_request
+from app.core.auth import AuthUser, get_current_user
+from app.core.deps import parse_iso_cursor, require_db_pool
 from app.services import projections as proj_svc
 
 router = APIRouter(prefix="/projections", tags=["projections"])
 
 
 class ProjectRunRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
     tenant_id: UUID
-    workflow_id: str | None = None
+    workflow_id: str | None = Field(default=None, max_length=128)
     limit: int = Field(default=200, ge=1, le=1000)
 
 
-# --- Parse ISO cursor for live polling ---
-def _parse_since(value: str | None) -> datetime | None:
-    if not value:
-        return None
-    try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError as exc:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail="since must be an ISO-8601 timestamp",
-        ) from exc
-
-
 # --- List durable projection rows ---
-@router.get("")
+@router.get(
+    "",
+    summary="Poll durable projection feed",
+    description=(
+        "Live projection feed for SaaS consumers. Partner BFFs may bridge this "
+        "cursor poll into SSE for browsers that must not hold fjsvc_ tokens."
+    ),
+)
 async def list_projections(
     request: Request,
     tenant_id: UUID,
@@ -58,28 +54,29 @@ async def list_projections(
         default=None,
         description="Keyset cursor — return rows after this stream_results.id",
     ),
-    limit: int = 50,
+    limit: int = Query(default=50, ge=1, le=200),
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Live projection feed for SaaS consumers (poll or Realtime-subscribe)."""
-    pool = pool_from_request(request)
-    if pool is None:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
+    pool = require_db_pool(request)
     rows = await proj_svc.list_projections(
         pool,
         user=user,
         tenant_id=tenant_id,
         projection_name=name,
         workflow_id=workflow_id,
-        since=_parse_since(since),
+        since=parse_iso_cursor(since),
         after_id=after_id,
-        limit=max(1, min(limit, 200)),
+        limit=limit,
     )
     return {"ok": True, "tenant_id": str(tenant_id), "projections": rows}
 
 
 # --- Checkpoints ---
-@router.get("/checkpoints")
+@router.get(
+    "/checkpoints",
+    summary="Get projection checkpoint watermark",
+)
 async def get_checkpoint(
     request: Request,
     tenant_id: UUID,
@@ -87,9 +84,7 @@ async def get_checkpoint(
     workflow_id: str = "",
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
-    pool = pool_from_request(request)
-    if pool is None:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
+    pool = require_db_pool(request)
     from app.services import tenants as tenant_svc
 
     await tenant_svc.require_tenant_access(
@@ -108,15 +103,16 @@ async def get_checkpoint(
 
 
 # --- Advance projections from watermark ---
-@router.post("/run")
+@router.post(
+    "/run",
+    summary="Advance projections from sealed metadata",
+)
 async def run_projection(
     request: Request,
     body: ProjectRunRequest,
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
-    pool = pool_from_request(request)
-    if pool is None:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
+    pool = require_db_pool(request)
     try:
         return await proj_svc.run_projection(
             pool,

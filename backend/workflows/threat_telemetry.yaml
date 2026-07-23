@@ -20,14 +20,17 @@ event_types:
     content_type: application/forjd-telemetry+v1
     description: Alert / finding envelope
 
-# Partner wire aliases are config-only. Keep product-specific names out of this
-# first-party example — see workflows/examples/ for overlays.
-# Example (partner-local YAML or examples/partner_aliases.example.yaml):
-#   aliases:
-#     workflow_ids: [partner_telemetry]
-#     event_types:
-#       threat.metric: [partner.metric]
-#       threat.alert: [partner.alert]
+# Partner wire aliases (config only). DEML's BFF rewrites deml_* → threat_*
+# before the network call; these aliases are defense-in-depth if a wire id
+# reaches FORJD unchanged. Other subprocessors: see examples/partner_aliases.example.yaml.
+aliases:
+  workflow_ids:
+    - deml_telemetry
+  event_types:
+    threat.metric:
+      - deml.metric
+    threat.alert:
+      - deml.alert
 
 match:
   content_types:

@@ -19,6 +19,8 @@ class TestCapabilityContract(unittest.TestCase):
         self.assertEqual(document["service"], "forjd")
         self.assertTrue(document["authentication"]["tenant_bound"])
         self.assertIn("report_documents", document["capabilities"])
+        self.assertIn("workflows", document["capabilities"])
+        self.assertTrue(document["capabilities"]["workflows"]["available"])
         for capability in document["capabilities"].values():
             self.assertTrue(capability["available"], capability.get("missing"))
 

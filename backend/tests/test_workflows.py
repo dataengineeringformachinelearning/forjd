@@ -64,6 +64,19 @@ class TestWorkflowRegistry(unittest.TestCase):
         )
         self.assertEqual(wf.id, "analytics_events")
 
+    def test_deml_wire_aliases_resolve_to_threat_telemetry(self) -> None:
+        """DEML product-local wire ids resolve via YAML aliases (defense-in-depth)."""
+        from app.workflows.registry import canonical_event_type, canonical_workflow_id
+
+        self.assertEqual(canonical_workflow_id("deml_telemetry"), "threat_telemetry")
+        self.assertEqual(canonical_event_type("deml.metric"), "threat.metric")
+        self.assertEqual(canonical_event_type("deml.alert"), "threat.alert")
+        wf = resolve_workflow(
+            content_type="application/forjd-telemetry+v1",
+            workflow_id="deml_telemetry",
+        )
+        self.assertEqual(wf.id, "threat_telemetry")
+
     def test_partner_workflow_id_alias(self) -> None:
         """YAML aliases map partner wire ids → canonical family (config only)."""
         from app.workflows import registry as wf_registry

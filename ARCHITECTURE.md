@@ -156,9 +156,26 @@ End-to-end partner path: partner BFF → FORJD API (`fjsvc_`) →
 Supabase Postgres (ciphertext + projections) → optional engine sealed pipeline
 via `ENGINE_URL`.
 
+### Partner BFF live lane (e.g. DEML)
+
+Partner end users authenticate only to the partner control plane (Firebase at
+DEML). The browser never holds `fjsvc_` tokens and never opens a Supabase
+Realtime channel for product data. Supported live updates:
+
+```
+Browser (Firebase JWT) → partner BFF SSE (GET /api/v1/analytics/live)
+                       → FORJD GET /api/v1/projections?tenant_id=&since=
+                         (tenant-bound fjsvc_ on the BFF only)
+```
+
+SSE frames carry change ticks (`count` / `cursor`) only — never projection
+payloads, ciphertext, or credentials. Dashboards then refresh via the
+authenticated BFF read adapters.
+
 ## Explicit non-goals
 
 - Accepting partner SaaS end-user tokens at the FORJD edge
+- Browser-held `fjsvc_` tokens or direct browser→FORJD product data paths
 - Server-side plaintext ML on sealed payloads
 - Python reimplementation of Rust relay / probe / normalizer / scheduler
 - Product-specific workflow or event names in `app/` / `engine/` (YAML only)

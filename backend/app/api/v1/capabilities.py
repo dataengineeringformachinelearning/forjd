@@ -40,6 +40,7 @@ _REQUIRED_ROUTES: dict[str, tuple[tuple[str, str], ...]] = {
         ("GET", "/api/v1/projections"),
         ("POST", "/api/v1/projections/run"),
     ),
+    "workflows": (("GET", "/api/v1/workflows"),),
     "replay_dlq": (
         ("POST", "/api/v1/replay"),
         ("GET", "/api/v1/replay/dlq"),

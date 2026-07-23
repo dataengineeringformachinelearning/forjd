@@ -18,13 +18,13 @@ Never forward partner end-user tokens to FORJD.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
-from app.core.auth import AuthUser, get_current_user, pool_from_request
+from app.core.auth import AuthUser, get_current_user
+from app.core.deps import parse_iso_cursor, require_db_pool
 from app.core.ingest_limits import MAX_INGEST_BATCH_EVENTS, MAX_INGEST_BODY_BYTES
 from app.models.ingest import EmbeddingIngestRequest, IngestBatchRequest, IngestEventRequest
 from app.services import ingest as ingest_svc
@@ -39,22 +39,18 @@ _BODY_LIMIT_RESPONSES = {
 }
 
 
-# --- Parse ISO cursor for live polling ---
-def _parse_since(value: str | None) -> datetime | None:
-    if not value:
-        return None
-    try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError as exc:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            detail="since must be an ISO-8601 timestamp",
-        ) from exc
-
-
 # --- Primary ingest (POST /api/v1/ingest) ---
-@router.post("", responses=_BODY_LIMIT_RESPONSES)
-@router.post("/", responses=_BODY_LIMIT_RESPONSES)
+@router.post(
+    "",
+    responses=_BODY_LIMIT_RESPONSES,
+    summary="Ingest one sealed event",
+)
+@router.post(
+    "/",
+    responses=_BODY_LIMIT_RESPONSES,
+    summary="Ingest one sealed event",
+    include_in_schema=False,
+)
 async def ingest_root(
     request: Request,
     body: IngestEventRequest,
@@ -65,7 +61,11 @@ async def ingest_root(
 
 
 # --- Sealed telemetry events (aliases under /events) ---
-@router.post("/events", responses=_BODY_LIMIT_RESPONSES)
+@router.post(
+    "/events",
+    responses=_BODY_LIMIT_RESPONSES,
+    summary="Ingest one sealed event (alias)",
+)
 async def ingest_event(
     request: Request,
     body: IngestEventRequest,
@@ -78,9 +78,10 @@ async def ingest_event(
 @router.post(
     "/events:batch",
     responses=_BODY_LIMIT_RESPONSES,
+    summary="Ingest a bounded sealed event batch",
     description=(
         f"Ingest up to {MAX_INGEST_BATCH_EVENTS} sealed events within the shared "
-        f"{MAX_INGEST_BODY_BYTES}-byte request cap."
+        f"{MAX_INGEST_BODY_BYTES}-byte request cap. Ciphertext only."
     ),
 )
 async def ingest_events_batch(
@@ -89,9 +90,7 @@ async def ingest_events_batch(
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Bounded sealed batch ingest. Server stores ciphertext only."""
-    pool = pool_from_request(request)
-    if pool is None:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
+    pool = require_db_pool(request)
     try:
         return await ingest_svc.ingest_events(pool=pool, user=user, batch=body)
     except ingest_svc.IngestConflictError as exc:
@@ -100,16 +99,17 @@ async def ingest_events_batch(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
-@router.get("/processing/{batch_id}")
+@router.get(
+    "/processing/{batch_id}",
+    summary="Get durable ingest processing receipt",
+)
 async def get_processing_status(
     request: Request,
     batch_id: UUID,
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Return a tenant-authorized durable processing receipt (metadata only)."""
-    pool = pool_from_request(request)
-    if pool is None:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
+    pool = require_db_pool(request)
     try:
         return await processing_svc.get_processing_batch_status(
             pool,
@@ -120,28 +120,31 @@ async def get_processing_status(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
-@router.get("/events")
+@router.get(
+    "/events",
+    summary="List recent sealed event metadata",
+)
 async def list_events(
     request: Request,
     tenant_id: UUID,
-    limit: int = 20,
+    limit: int = Query(default=20, ge=1, le=100),
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
     """List recent events for a tenant (metadata only — no ciphertext bodies)."""
-    pool = pool_from_request(request)
-    if pool is None:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
-    limit = max(1, min(limit, 100))
+    pool = require_db_pool(request)
     rows = await ingest_svc.list_recent_events(pool, user=user, tenant_id=tenant_id, limit=limit)
     return {"ok": True, "tenant_id": str(tenant_id), "events": rows}
 
 
 # --- Stream results (Pathway/Rust scores; no ciphertext) ---
-@router.get("/results")
+@router.get(
+    "/results",
+    summary="List stream_results for a tenant",
+)
 async def list_results(
     request: Request,
     tenant_id: UUID,
-    limit: int = 20,
+    limit: int = Query(default=20, ge=1, le=100),
     anomalies_only: bool = False,
     workflow_id: str | None = None,
     since: str | None = Query(
@@ -155,10 +158,7 @@ async def list_results(
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
     """List Pathway/Prefect/Rust stream_results for a tenant (any SaaS consumer)."""
-    pool = pool_from_request(request)
-    if pool is None:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
-    limit = max(1, min(limit, 100))
+    pool = require_db_pool(request)
     rows = await ingest_svc.list_stream_results(
         pool,
         user=user,
@@ -166,23 +166,25 @@ async def list_results(
         limit=limit,
         anomalies_only=anomalies_only,
         workflow_id=workflow_id,
-        since=_parse_since(since),
+        since=parse_iso_cursor(since),
         after_id=after_id,
     )
     return {"ok": True, "tenant_id": str(tenant_id), "results": rows}
 
 
 # --- Tenant-scoped anomaly embeddings (optional sealed context) ---
-@router.post("/embeddings", responses=_BODY_LIMIT_RESPONSES)
+@router.post(
+    "/embeddings",
+    responses=_BODY_LIMIT_RESPONSES,
+    summary="Store a tenant-scoped anomaly embedding",
+)
 async def ingest_embedding(
     request: Request,
     body: EmbeddingIngestRequest,
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Store a tenant-scoped anomaly embedding (optional sealed context)."""
-    pool = pool_from_request(request)
-    if pool is None:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
+    pool = require_db_pool(request)
     try:
         return await ingest_svc.ingest_embedding(pool=pool, user=user, body=body)
     except ValueError as exc:
@@ -195,9 +197,7 @@ async def _ingest_one(
     body: IngestEventRequest,
     user: AuthUser,
 ) -> dict[str, Any]:
-    pool = pool_from_request(request)
-    if pool is None:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
+    pool = require_db_pool(request)
     try:
         return await ingest_svc.ingest_events(
             pool=pool,
