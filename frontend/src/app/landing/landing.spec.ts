@@ -14,15 +14,21 @@ describe('Landing', () => {
     await fixture.whenStable();
     const element = fixture.nativeElement as HTMLElement;
     expect(element.querySelector('.fj-brand')?.textContent).toContain('FORJD');
-    expect(element.querySelectorAll('forjd-panel.landing__feature')).toHaveLength(4);
+    expect(element.querySelectorAll('forjd-panel.landing__feature').length).toBeGreaterThanOrEqual(4);
+    expect(element.querySelectorAll('.landing__band').length).toBe(3);
   });
 
-  it('links to API documentation only — no runnable console', async () => {
+  it('links to API documentation and community — no runnable console', async () => {
     const fixture = TestBed.createComponent(Landing);
     await fixture.whenStable();
     const links = [...(fixture.nativeElement as HTMLElement).querySelectorAll('a')];
     expect(links.some((link) => link.getAttribute('href') === '/console')).toBe(false);
     expect(links.some((link) => link.getAttribute('href')?.endsWith('/docs'))).toBe(true);
     expect(links.some((link) => link.getAttribute('href')?.endsWith('/redoc'))).toBe(true);
+    expect(
+      links.some((link) =>
+        link.getAttribute('href')?.includes('dataengineeringformachinelearning.com'),
+      ),
+    ).toBe(true);
   });
 });
