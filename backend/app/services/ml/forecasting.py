@@ -124,11 +124,15 @@ def fit(
     tenant_id: str | None = None,
 ) -> dict[str, Any]:
     torch, nn = _require()
+    if tenant_id and not series:
+        raise ValueError("real series is required for tenant-scoped forecasting fit")
     arr = (
         np.asarray(series, dtype=np.float32)
         if series
         else mlc.synthetic_series(length=max(80, seq_len + horizon + 32))
     )
+    if arr.ndim != 1 or not np.isfinite(arr).all():
+        raise ValueError("series must be a finite one-dimensional sequence")
     x_np, y_np = _make_xy(arr, seq_len=seq_len, horizon=horizon)
     x = torch.from_numpy(x_np)
     y = torch.from_numpy(y_np)
@@ -225,6 +229,8 @@ def score(
     blob = torch.load(path, map_location="cpu", weights_only=True)
     meta = dict(blob.get("meta") or {})
     arr = np.asarray(series, dtype=np.float32)
+    if arr.ndim != 1 or not np.isfinite(arr).all() or len(arr) == 0:
+        raise ValueError("series must be a non-empty finite one-dimensional sequence")
 
     if model == "neural_seasonal":
         m = _neural_seasonal(torch, nn)
@@ -244,11 +250,8 @@ def score(
     seq_len = int(meta.get("seq_len") or 16)
     horizon = int(meta.get("horizon") or 4)
     if len(arr) < seq_len:
-        pad = np.zeros(seq_len, dtype=np.float32)
-        pad[-len(arr) :] = arr
-        window = pad
-    else:
-        window = arr[-seq_len:]
+        raise ValueError(f"series must contain at least {seq_len} points")
+    window = arr[-seq_len:]
 
     if model == "tft_lite":
         m = _tft(torch, nn, seq_len=seq_len, horizon=horizon)

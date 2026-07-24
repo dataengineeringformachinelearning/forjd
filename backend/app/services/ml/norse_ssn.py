@@ -9,11 +9,11 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import numpy as np
 
 from app.services.ml import common as mlc
-from app.services.ml.lstm_autoencoder import windows_from_series
 
 FAMILY = "norse_ssn"
 
@@ -38,8 +38,17 @@ def _require() -> Any:
     return torch, nn
 
 
-def _build(torch: Any, nn: Any, *, seq_len: int, input_dim: int = 1) -> tuple[Any, bool]:
-    uses_norse = False
+def _build(
+    torch: Any,
+    nn: Any,
+    *,
+    seq_len: int,
+    input_dim: int = 1,
+    use_norse: bool | None = None,
+) -> tuple[Any, bool]:
+    selected_norse = _NORSE_OK if use_norse is None else use_norse
+    if selected_norse and (not _NORSE_OK or norse_torch is None):
+        raise RuntimeError("checkpoint requires Norse; install with: uv sync --group ml-spiking")
 
     class SpikingTemporalForecaster(nn.Module):
         def __init__(self) -> None:
@@ -47,7 +56,7 @@ def _build(torch: Any, nn: Any, *, seq_len: int, input_dim: int = 1) -> tuple[An
             self.seq_len = seq_len
             self.input_dim = input_dim
             self.pre = nn.Linear(input_dim, 32)
-            if _NORSE_OK and norse_torch is not None:
+            if selected_norse and norse_torch is not None:
                 # LIF recurrent cell over the projected sequence.
                 self.lif = norse_torch.LIFCell()
                 self._uses_norse = True
@@ -74,12 +83,20 @@ def _build(torch: Any, nn: Any, *, seq_len: int, input_dim: int = 1) -> tuple[An
             return self.head(pooled).squeeze(-1)
 
     model = SpikingTemporalForecaster()
-    uses_norse = bool(getattr(model, "_uses_norse", False))
-    return model, uses_norse
+    return model, bool(getattr(model, "_uses_norse", False))
 
 
 def _ckpt(tenant_id: str | None) -> Path:
     return mlc.model_dir(FAMILY, tenant_id=tenant_id) / "spiking_temporal.pt"
+
+
+def _save_checkpoint(torch: Any, payload: dict[str, Any], path: Path) -> None:
+    temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+    try:
+        torch.save(payload, temporary)
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def fit(
@@ -90,18 +107,27 @@ def fit(
     tenant_id: str | None = None,
 ) -> dict[str, Any]:
     torch, nn = _require()
+    if tenant_id and not series:
+        raise ValueError("real series is required for tenant-scoped norse_ssn fit")
     arr = np.asarray(series, dtype=np.float32) if series else mlc.synthetic_series(length=96)
-    windows = windows_from_series(arr.tolist(), seq_len)
-    if windows.shape[0] < 4:
-        raise ValueError("need more series points for spiking fit")
+    if arr.ndim != 1 or not np.isfinite(arr).all():
+        raise ValueError("series must be a finite one-dimensional sequence")
+    if len(arr) < seq_len + 4:
+        raise ValueError(f"series must contain at least {seq_len + 4} points")
 
-    # Label = whether next-step residual exceeds rolling threshold (spike risk).
-    y = []
-    for i in range(windows.shape[0]):
-        w = windows[i]
-        y.append(1.0 if float(w[-1] - w.mean()) > 1.5 * (w.std() + 1e-3) else 0.0)
+    # Forecast the next observation's spike risk from the preceding window.
+    windows: list[np.ndarray[Any, Any]] = []
+    y: list[float] = []
+    for i in range(len(arr) - seq_len):
+        window = arr[i : i + seq_len]
+        next_value = float(arr[i + seq_len])
+        windows.append(window)
+        y.append(
+            1.0 if next_value > float(window.mean()) + 1.5 * (float(window.std()) + 1e-3) else 0.0
+        )
+    window_matrix = np.stack(windows).astype(np.float32)
     y_t = torch.tensor(y, dtype=torch.float32)
-    x = torch.from_numpy(windows).unsqueeze(-1)
+    x = torch.from_numpy(window_matrix).unsqueeze(-1)
 
     model, uses_norse = _build(torch, nn, seq_len=seq_len)
     opt = torch.optim.Adam(model.parameters(), lr=1e-3)
@@ -118,13 +144,15 @@ def fit(
     model.eval()
 
     path = _ckpt(tenant_id)
-    torch.save(
+    _save_checkpoint(
+        torch,
         {
             "state_dict": model.state_dict(),
             "meta": {
                 "seq_len": seq_len,
                 "uses_norse": uses_norse,
                 "final_loss": last,
+                "sample_count": int(len(arr)),
             },
         },
         path,
@@ -136,7 +164,9 @@ def fit(
         "uses_norse": uses_norse,
         "backend": "norse_lif" if uses_norse else "gru_mlp_fallback",
         "final_loss": last,
-        "n_windows": int(windows.shape[0]),
+        "n_windows": int(window_matrix.shape[0]),
+        "sample_count": int(len(arr)),
+        "seq_len": seq_len,
         "path": str(path),
         "hint": None
         if uses_norse
@@ -151,18 +181,26 @@ def score(
     threshold: float = 0.55,
 ) -> dict[str, Any]:
     torch, nn = _require()
+    if not series:
+        raise ValueError("series required for norse_ssn score")
+    if not np.isfinite(threshold) or not 0.0 <= threshold <= 1.0:
+        raise ValueError("threshold must be between 0 and 1")
     path = _ckpt(tenant_id)
     if not path.exists():
         raise RuntimeError("norse_ssn not fitted; POST .../fit first")
     blob = torch.load(path, map_location="cpu", weights_only=True)
     meta = dict(blob.get("meta") or {})
     seq_len = int(meta.get("seq_len") or 16)
-    model, uses_norse = _build(torch, nn, seq_len=seq_len)
-    # If checkpoint was trained with Norse but runtime lacks it (or vice versa),
-    # rebuild matching architecture via meta flag when possible.
-    model.load_state_dict(blob["state_dict"], strict=False)
+    arr = np.asarray(series, dtype=np.float32)
+    if arr.ndim != 1 or not np.isfinite(arr).all():
+        raise ValueError("series must be a finite one-dimensional sequence")
+    if len(arr) < seq_len:
+        raise ValueError(f"series must contain at least {seq_len} points")
+    trained_with_norse = bool(meta.get("uses_norse"))
+    model, _ = _build(torch, nn, seq_len=seq_len, use_norse=trained_with_norse)
+    model.load_state_dict(blob["state_dict"])
     model.eval()
-    window = windows_from_series(series, seq_len)[-1:]
+    window = arr[-seq_len:].reshape(1, seq_len)
     with torch.no_grad():
         x = torch.from_numpy(window).unsqueeze(-1)
         score = float(model(x).item())
@@ -172,6 +210,8 @@ def score(
         "score": score,
         "is_anomaly": score >= threshold,
         "threshold": threshold,
-        "uses_norse": bool(meta.get("uses_norse", uses_norse)),
-        "backend": "norse_lif" if meta.get("uses_norse") else "gru_mlp_fallback",
+        "uses_norse": trained_with_norse,
+        "backend": "norse_lif" if trained_with_norse else "gru_mlp_fallback",
+        "sample_count": int(len(arr)),
+        "seq_len": seq_len,
     }

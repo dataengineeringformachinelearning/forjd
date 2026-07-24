@@ -9,8 +9,11 @@ Security:
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import logging
+import math
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -96,7 +99,8 @@ async def features_from_stream_results(
         rate = float(feats.get("rate") or feats.get("events_per_min") or 0.0)
         score = float(r["score"] or 0.0)
         anom = 1.0 if r["is_anomaly"] else 0.0
-        kind_hash = float(abs(hash(str(r["kind"] or ""))) % 1000) / 1000.0
+        kind_digest = hashlib.sha256(str(r["kind"] or "").encode()).digest()
+        kind_hash = int.from_bytes(kind_digest[:4], "big") / float(2**32)
         out.append([score, anom, cipher_len, z, rate, kind_hash])
     return out
 
@@ -110,16 +114,21 @@ async def series_from_stream_results(
     """Latency-like series from stream_results.score for forecasting / seq models."""
     rows = await pool.fetch(
         """
-        SELECT COALESCE(score, 0.0) AS score
-        FROM stream_results
-        WHERE tenant_id = $1::uuid
+        SELECT score
+        FROM (
+            SELECT score, created_at
+            FROM stream_results
+            WHERE tenant_id = $1::uuid AND score IS NOT NULL
+            ORDER BY created_at DESC
+            LIMIT $2
+        ) recent
         ORDER BY created_at ASC
-        LIMIT $2
         """,
         tenant_id,
         limit,
     )
-    return [float(r["score"] or 0.0) for r in rows]
+    series = [float(r["score"]) for r in rows]
+    return [value for value in series if math.isfinite(value)]
 
 
 # --- Training runs ---
@@ -301,7 +310,6 @@ async def list_recent_training_runs(
     limit: int = 50,
 ) -> list[dict[str, Any]]:
     """Recent training_runs for partner self-benchmark dashboards."""
-    await ensure_ml_store_schema(pool)
     rows = await pool.fetch(
         """
         SELECT id::text, family, model_name, model_version, status,
@@ -426,7 +434,6 @@ async def list_recent_scores(
     family: str | None = None,
     limit: int = 50,
 ) -> list[dict[str, Any]]:
-    await ensure_ml_store_schema(pool)
     if family:
         rows = await pool.fetch(
             """
@@ -475,3 +482,122 @@ async def list_recent_scores(
             }
         )
     return out
+
+
+def empty_temporal_signal(*, status: str = "insufficient_data") -> dict[str, Any]:
+    return {
+        "spiking_temporal_forecast": None,
+        "temporal_status": status,
+        "temporal_backend": None,
+        "temporal_sample_count": 0,
+        "temporal_scored_at": None,
+        "uses_norse": False,
+    }
+
+
+def temporal_signal_from_score(
+    row: dict[str, Any] | None,
+    *,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Shape one persisted Norse score without consulting runtime packages."""
+    if not row:
+        return empty_temporal_signal()
+
+    features = row.get("features") if isinstance(row.get("features"), dict) else {}
+    metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+    scored_at = row.get("created_at")
+    scored_at_text = (
+        scored_at.isoformat() if isinstance(scored_at, datetime) else str(scored_at or "") or None
+    )
+
+    def _invalid() -> dict[str, Any]:
+        signal = empty_temporal_signal(status="error")
+        signal["temporal_scored_at"] = scored_at_text
+        return signal
+
+    try:
+        raw_score = float(row["score"])
+    except (KeyError, TypeError, ValueError):
+        return _invalid()
+    if not math.isfinite(raw_score) or not 0.0 <= raw_score <= 1.0:
+        return _invalid()
+
+    backend = str(features.get("backend") or "").strip() or None
+    if backend not in {"norse_lif", "gru_mlp_fallback"}:
+        return _invalid()
+    uses_norse = backend == "norse_lif"
+
+    sample_value = features.get("sample_count", metadata.get("sample_count"))
+    try:
+        sample_count = max(0, int(sample_value or 0))
+    except (TypeError, ValueError):
+        return _invalid()
+    if sample_count <= 0 or not scored_at:
+        return _invalid()
+
+    temporal_status = "ready"
+    try:
+        parsed = (
+            scored_at
+            if isinstance(scored_at, datetime)
+            else datetime.fromisoformat(str(scored_at).replace("Z", "+00:00"))
+        )
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        reference = now or datetime.now(UTC)
+        stale_after = timedelta(seconds=float(settings.TRAINING_REFRESH_SECONDS) * 2.0)
+        if parsed - reference > timedelta(minutes=5):
+            return _invalid()
+        if reference - parsed > stale_after:
+            temporal_status = "stale"
+    except (TypeError, ValueError):
+        return _invalid()
+
+    return {
+        "spiking_temporal_forecast": round(raw_score * 100.0, 2),
+        "temporal_status": temporal_status,
+        "temporal_backend": backend,
+        "temporal_sample_count": sample_count,
+        "temporal_scored_at": scored_at_text,
+        "uses_norse": uses_norse,
+    }
+
+
+async def latest_temporal_signal(
+    pool: asyncpg.Pool,
+    *,
+    tenant_id: UUID,
+) -> dict[str, Any]:
+    rows = await list_recent_scores(
+        pool,
+        tenant_id=tenant_id,
+        family="norse_ssn",
+        limit=1,
+    )
+    if rows:
+        return temporal_signal_from_score(rows[0])
+
+    run = await pool.fetchrow(
+        """
+        SELECT status, metrics
+        FROM training_runs
+        WHERE tenant_id = $1::uuid
+          AND (family = 'norse_ssn' OR model_name = 'norse_ssn')
+        ORDER BY created_at DESC
+        LIMIT 1
+        """,
+        str(tenant_id),
+    )
+    signal = empty_temporal_signal()
+    if run is None or str(run["status"] or "").lower() != "insufficient_data":
+        return signal
+    metrics = run["metrics"]
+    if isinstance(metrics, str):
+        with contextlib.suppress(json.JSONDecodeError):
+            metrics = json.loads(metrics)
+    if not isinstance(metrics, dict):
+        return signal
+    with contextlib.suppress(TypeError, ValueError):
+        signal["temporal_sample_count"] = max(0, int(metrics.get("sample_count") or 0))
+    return signal

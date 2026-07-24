@@ -33,11 +33,24 @@ def fit(
     mlc.require_sklearn()
     from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
 
+    if tenant_id and (features is None or labels is None):
+        raise ValueError(
+            "real features and labels are required for tenant-scoped threat ensemble fit"
+        )
     if features is not None and labels is not None:
         x = np.asarray(features, dtype=np.float32)
         y = np.asarray(labels, dtype=np.int32)
-        if x.shape[0] != y.shape[0] or x.shape[0] < 8:
-            raise ValueError("need matching features/labels with >= 8 rows")
+        if (
+            x.ndim != 2
+            or y.ndim != 1
+            or x.shape[0] != y.shape[0]
+            or x.shape[0] < 8
+            or x.shape[1] == 0
+            or not np.isfinite(x).all()
+        ):
+            raise ValueError("need finite matching features/labels with >= 8 rows")
+        if not np.isin(y, [0, 1]).all():
+            raise ValueError("labels must contain only 0 or 1")
     else:
         x, y = mlc.synthetic_feature_matrix()
 
@@ -86,6 +99,8 @@ def score(
     x = np.asarray(features, dtype=np.float32)
     if x.ndim == 1:
         x = x.reshape(1, -1)
+    if x.ndim != 2 or x.shape[1] == 0 or not np.isfinite(x).all():
+        raise ValueError("features must be a finite non-empty 2-d matrix")
     paths = _paths(tenant_id)
     for key, path in paths.items():
         if not path.exists():

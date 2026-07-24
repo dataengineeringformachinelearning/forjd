@@ -3,7 +3,8 @@
 Apply with `backend/scripts/apply_sql_migrations.py`. It discovers the
 contiguous `003+` sequence, runs each file in its own transaction, fails fast,
 and records/checks SHA-256 in `public.forjd_schema_migrations`. The verifier
-requires ledger/checksum parity through every current file. Existing databases
+requires exact ledger/checksum parity through every current file; both tools
+reject migration versions unknown to the checked-out release. Existing databases
 that were maintained only through the SQL editor must run the script once; the
 idempotent migrations are reapplied to backfill the ledger.
 
@@ -35,11 +36,13 @@ idempotent migrations are reapplied to backfill the ledger.
 | `024_durable_ingest_processing.sql` | Atomic sealed-acceptance processing receipts, immutable workflow snapshots, leased restart recovery, and status state |
 | `025_siem_soar_replay_continuation.sql` | Immutable completed SIEM/correlation result snapshots and indexed SOAR continuation recovery |
 | `026_partner_provisions.sql` | Idempotent partner (DEML) tenant + service-account provision ledger |
+| `027_partner_provision_isolation.sql` | Partner uniqueness, credential/tenant + revocation integrity, and active DEML `ml:write` upgrade |
+| `028_status_child_tenant_integrity.sql` | Validated page/service/probe tenant FKs plus latest-observation readiness index |
 
-## Secure path (`003`–`026`)
+## Secure path (`003`–`028`)
 
 1. Enable extensions **vector** and **pgcrypto** (Dashboard → Database → Extensions).
-2. Run `uv run python scripts/apply_sql_migrations.py` for `003` → `026` and
+2. Run `uv run python scripts/apply_sql_migrations.py` for `003` → `028` and
    confirm the migration ledger/checksums.
 3. Realtime: `015`/`016` add `stream_results`, `telemetry_events`, `ml_scores`, `training_runs` when publication exists.
 4. Set backend env: `SUPABASE_URL`, `SUPABASE_JWT_SECRET` (or rely on JWKS), `POSTGRES_DSN` (Supabase only — not Neon).

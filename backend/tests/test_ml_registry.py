@@ -8,8 +8,17 @@ from pathlib import Path
 from unittest.mock import patch
 
 from app.services.ml import common as mlc
+from app.services.ml import lstm_autoencoder as lae
 from app.services.ml.lstm_autoencoder import torch_available
 from app.services.ml.registry import fit_model, list_models, score_model
+
+
+class TestArtifactPathIsolation(unittest.TestCase):
+    def test_rejects_path_components_and_non_uuid_tenants(self) -> None:
+        with self.assertRaisesRegex(ValueError, "family"):
+            mlc.model_dir("../forecasting")
+        with self.assertRaisesRegex(ValueError, "UUID"):
+            mlc.model_dir("forecasting", tenant_id="../../other-tenant")
 
 
 @unittest.skipUnless(mlc.sklearn_available(), "sklearn ml group not installed")
@@ -69,14 +78,118 @@ class TestTorchFamilies(unittest.TestCase):
             )
             self.assertIn("reconstruction_error", tscore)
 
-            nfit = fit_model("norse_ssn", epochs=2, seq_len=8)
+            tenant_id = "11111111-1111-1111-1111-111111111111"
+            series = [1.0, 1.1, 1.2, 1.0, 1.1, 1.2, 1.0, 1.1, 8.0, 1.0, 1.1, 1.2]
+            nfit = fit_model(
+                "norse_ssn",
+                epochs=2,
+                seq_len=8,
+                series=series,
+                tenant_id=tenant_id,
+            )
             self.assertTrue(nfit["ok"])
             self.assertIn("uses_norse", nfit)
+            self.assertEqual(nfit["sample_count"], len(series))
+            self.assertIn(tenant_id, nfit["path"])
             nscore = score_model(
                 "norse_ssn",
-                series=[1.0, 2.0, 1.5, 1.2, 8.0, 1.1, 1.0, 1.0],
+                series=series,
+                tenant_id=tenant_id,
             )
             self.assertIn("score", nscore)
+            self.assertEqual(nscore["sample_count"], len(series))
+            with self.assertRaisesRegex(ValueError, "threshold"):
+                score_model(
+                    "norse_ssn",
+                    series=series,
+                    tenant_id=tenant_id,
+                    threshold=2.0,
+                )
+            with self.assertRaisesRegex(ValueError, "at least 8"):
+                fit_model(
+                    "transformer_anomaly",
+                    series=[1.0, 2.0],
+                    seq_len=8,
+                    epochs=1,
+                    tenant_id=tenant_id,
+                )
+
+    def test_lstm_artifacts_are_tenant_scoped_and_require_real_series(self) -> None:
+        tenant_a = "11111111-1111-1111-1111-111111111111"
+        tenant_b = "22222222-2222-2222-2222-222222222222"
+        series = [float(i) for i in range(8)]
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            patch.object(mlc, "ml_root", return_value=Path(tmp)),
+        ):
+            with self.assertRaisesRegex(ValueError, "tenant_id"):
+                fit_model(
+                    "lstm_autoencoder",
+                    series=series,
+                    seq_len=4,
+                    epochs=1,
+                )
+            with self.assertRaisesRegex(ValueError, "real series"):
+                fit_model(
+                    "lstm_autoencoder",
+                    tenant_id=tenant_a,
+                    seq_len=4,
+                    epochs=1,
+                )
+            with self.assertRaisesRegex(ValueError, "at least 4"):
+                fit_model(
+                    "lstm_autoencoder",
+                    tenant_id=tenant_a,
+                    series=[1.0, 2.0, 3.0],
+                    seq_len=4,
+                    epochs=1,
+                )
+
+            fitted = fit_model(
+                "lstm_autoencoder",
+                tenant_id=tenant_a,
+                series=series,
+                seq_len=4,
+                epochs=1,
+            )
+            self.assertIn(f"lstm_autoencoder/{tenant_a}", fitted["path"])
+            self.assertTrue(Path(fitted["path"]).is_file())
+            self.assertTrue(
+                score_model(
+                    "lstm_autoencoder",
+                    tenant_id=tenant_a,
+                    series=series,
+                )["ok"]
+            )
+            with patch(
+                "app.services.ml.lstm_autoencoder.score_window",
+                wraps=lae.score_window,
+            ) as score_window:
+                score_model(
+                    "lstm_autoencoder",
+                    tenant_id=tenant_a,
+                    series=series,
+                )
+            self.assertEqual(score_window.call_args.args[1].tolist(), series[-4:])
+            with self.assertRaisesRegex(RuntimeError, "not fitted"):
+                score_model(
+                    "lstm_autoencoder",
+                    tenant_id=tenant_b,
+                    series=series,
+                )
+            with self.assertRaisesRegex(ValueError, "at least 4"):
+                score_model(
+                    "lstm_autoencoder",
+                    tenant_id=tenant_a,
+                    series=[1.0, 2.0, 3.0],
+                )
+
+    def test_tenant_norse_fit_rejects_synthetic_fallback(self) -> None:
+        with self.assertRaisesRegex(ValueError, "real series"):
+            fit_model(
+                "norse_ssn",
+                tenant_id="11111111-1111-1111-1111-111111111111",
+            )
 
     def test_forecasting_and_embeddings(self) -> None:
         with (

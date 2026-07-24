@@ -215,7 +215,6 @@ async def get_published_page(
     )
     intelligence = await _public_page_intelligence(pool, tenant_id=str(page["tenant_id"]))
     overall = _overall_status([s["status"] for s in services])
-    page_p99 = telemetry["p99_latency"]
     return {
         **_public_page_dict(page),
         "overall_status": overall,
@@ -233,12 +232,7 @@ async def get_published_page(
                 "uptime_history": telemetry["service_history"].get(
                     str(s["id"]), telemetry["empty_history"]
                 ),
-                # Fall back to page p99 when per-service probes have not landed yet.
-                "p99_latency": (
-                    telemetry["service_latency"].get(str(s["id"]))
-                    if telemetry["service_latency"].get(str(s["id"])) is not None
-                    else page_p99
-                ),
+                "p99_latency": telemetry["service_latency"].get(str(s["id"])),
             }
             for s in services
         ],
@@ -360,7 +354,6 @@ async def list_services(
         tenant_id=str(tenant_id),
         service_ids=service_ids,
     )
-    page_p99 = telemetry["p99_latency"]
     enriched: list[dict[str, Any]] = []
     for row in rows:
         service = _service_dict(row)
@@ -370,7 +363,7 @@ async def list_services(
         service["uptime_history"] = telemetry["service_history"].get(
             sid, telemetry["empty_history"]
         )
-        service["p99_latency"] = service_p99 if service_p99 is not None else page_p99
+        service["p99_latency"] = service_p99
         enriched.append(service)
     return enriched
 
@@ -770,6 +763,10 @@ def _kpi_fields(
         "p99_latency": telemetry["p99_latency"],
         "total_requests": telemetry["total_requests"],
         "spiking_temporal_forecast": intelligence["spiking_temporal_forecast"],
+        "temporal_status": intelligence["temporal_status"],
+        "temporal_backend": intelligence["temporal_backend"],
+        "temporal_sample_count": intelligence["temporal_sample_count"],
+        "temporal_scored_at": intelligence["temporal_scored_at"],
         "threat_anomaly_score": intelligence["threat_anomaly_score"],
         "threat_suspicious_ratio": intelligence["threat_suspicious_ratio"],
         "uses_norse": intelligence["uses_norse"],
@@ -783,11 +780,9 @@ async def _public_page_intelligence(
     tenant_id: str,
 ) -> dict[str, Any]:
     """Ciphertext-free ML/analytics signals safe to embed on public status pages."""
-    from app.services.analytics import _spiking_temporal_forecast
-    from app.services.ml.norse_ssn import norse_available
+    from app.services.ml import store as ml_store
 
     since = datetime.now(UTC) - timedelta(hours=_ANALYTICS_WINDOW_HOURS)
-    forecast = 0.0
     threats_24h = 0
     try:
         rollups = await pool.fetch(
@@ -801,21 +796,35 @@ async def _public_page_intelligence(
             tenant_id,
             since,
         )
-        forecast = _spiking_temporal_forecast(list(rollups))
         threats_24h = sum(int(r["threats_detected"] or 0) for r in rollups)
     except asyncpg.UndefinedTableError:
         pass
     except Exception:
         logger.exception("status: public intelligence rollup lookup failed")
 
+    temporal = ml_store.empty_temporal_signal()
+    try:
+        temporal = await ml_store.latest_temporal_signal(
+            pool,
+            tenant_id=UUID(tenant_id),
+        )
+    except asyncpg.UndefinedTableError:
+        pass
+    except Exception:
+        logger.exception("status: public intelligence temporal score lookup failed")
+        temporal = ml_store.empty_temporal_signal(status="error")
+
     anomaly_score: float | None = None
     suspicious_ratio: float | None = None
     try:
-        from app.services.ml import store as ml_store
-
-        scores = await ml_store.list_recent_scores(pool, tenant_id=UUID(tenant_id), limit=50)
+        scores = await ml_store.list_recent_scores(
+            pool,
+            tenant_id=UUID(tenant_id),
+            family="classical_anomaly",
+            limit=50,
+        )
         if scores:
-            numeric = [float(row.get("score") or 0.0) for row in scores]
+            numeric = [float(row["score"]) for row in scores if row.get("score") is not None]
             anomalies = sum(1 for row in scores if row.get("is_anomaly"))
             anomaly_score = max(numeric) if numeric else None
             suspicious_ratio = anomalies / len(scores)
@@ -823,10 +832,9 @@ async def _public_page_intelligence(
         logger.exception("status: public intelligence ml_scores lookup failed")
 
     return {
-        "spiking_temporal_forecast": forecast,
+        **temporal,
         "threat_anomaly_score": anomaly_score,
         "threat_suspicious_ratio": suspicious_ratio,
-        "uses_norse": bool(norse_available()),
         "threats_detected_24h": threats_24h,
     }
 
@@ -1013,9 +1021,6 @@ async def _public_page_telemetry(
     service_latency: dict[str, float | None] = {}
     for sid in service_ids:
         history = _fill_uptime_history(_merge_day_stats(probe_rows, service_id=sid))
-        if _uptime_from_history(history) is None:
-            # Per-service probe gap: reuse page history so bars stay populated.
-            history = page_history
         service_history[sid] = history
         service_sla[sid] = _uptime_from_history(history)
         # Latest observed day p99 for that service (if any).

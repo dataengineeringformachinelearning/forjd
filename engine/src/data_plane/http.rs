@@ -27,6 +27,9 @@ pub struct DataPlaneState {
     pub redis: Option<redis::Client>,
     pub cpe_redis: Option<redis::Client>,
     pub cpe_only: bool,
+    pub redis_required: bool,
+    pub probe_enabled: bool,
+    pub probe_stale_after_secs: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -59,6 +62,7 @@ impl IntoResponse for ApiError {
 pub async fn build_state(pool: PgPool, cfg: &Config) -> anyhow::Result<Arc<DataPlaneState>> {
     let enable_ingest = cfg.role.enable_ingest();
     let enable_cpe = cfg.role.enable_cpe();
+    let redis_required = cfg.role.needs_bus() || enable_ingest;
     let redis = build_redis_client(cfg.redis_url.as_deref(), cfg.redis_ssl_ca_pem.as_deref())?;
     if enable_ingest && redis.is_none() {
         anyhow::bail!("REDIS_URL is required when FORJD_ROLE enables ingest");
@@ -75,6 +79,11 @@ pub async fn build_state(pool: PgPool, cfg: &Config) -> anyhow::Result<Arc<DataP
         redis,
         cpe_redis,
         cpe_only: enable_cpe && !enable_ingest,
+        redis_required,
+        probe_enabled: cfg.role.runs(crate::data_plane::Role::Probe),
+        probe_stale_after_secs: i64::try_from(cfg.pinger_interval_secs.saturating_mul(3))
+            .unwrap_or(i64::MAX)
+            .max(90),
     }))
 }
 
@@ -92,7 +101,64 @@ pub fn build_data_plane_router(state: Arc<DataPlaneState>, cfg: &Config) -> Rout
         .with_state(state)
 }
 
-/// Readiness probe for data-plane dependencies (Postgres / CPE index).
+#[derive(Debug, sqlx::FromRow)]
+struct ProbeReadiness {
+    configured_targets: i64,
+    stale_targets: i64,
+    failing_targets: i64,
+    last_observed_at: Option<String>,
+}
+
+fn probe_cycle_is_fresh(configured_targets: i64, stale_targets: i64) -> bool {
+    configured_targets == 0 || stale_targets == 0
+}
+
+async fn probe_readiness(state: &DataPlaneState) -> Option<ProbeReadiness> {
+    if !state.probe_enabled {
+        return None;
+    }
+    sqlx::query_as::<_, ProbeReadiness>(
+        r#"
+        WITH monitored AS (
+            SELECT id, updated_at
+            FROM status_services
+            WHERE COALESCE(
+                    NULLIF(BTRIM(probe_url), ''),
+                    NULLIF(BTRIM(description), '')
+                  ) ~* '^https?://'
+        )
+        SELECT
+            COUNT(*)::bigint AS configured_targets,
+            COUNT(*) FILTER (
+                WHERE (
+                        latest.observed_at IS NULL
+                        AND monitored.updated_at
+                            < NOW() - ($1::bigint * INTERVAL '1 second')
+                      )
+                   OR latest.observed_at < NOW() - ($1::bigint * INTERVAL '1 second')
+            )::bigint AS stale_targets,
+            COUNT(*) FILTER (
+                WHERE latest.observed_at IS NOT NULL
+                  AND NOT latest.is_active
+            )::bigint AS failing_targets,
+            MAX(latest.observed_at)::text AS last_observed_at
+        FROM monitored
+        LEFT JOIN LATERAL (
+            SELECT observed_at, is_active
+            FROM health_probe_observations
+            WHERE service_id = monitored.id
+            ORDER BY observed_at DESC
+            LIMIT 1
+        ) latest ON TRUE
+        "#,
+    )
+    .bind(state.probe_stale_after_secs)
+    .fetch_one(&state.pool)
+    .await
+    .ok()
+}
+
+/// Readiness probe for role-selected data-plane dependencies and worker progress.
 pub async fn data_plane_ready(state: &DataPlaneState) -> (StatusCode, Json<Value>) {
     if state.cpe_only {
         return cpe::ready_cpe(state).await;
@@ -101,17 +167,54 @@ pub async fn data_plane_ready(state: &DataPlaneState) -> (StatusCode, Json<Value
         .fetch_one(&state.pool)
         .await
         .is_ok();
-    let redis = match state.redis.as_ref() {
-        Some(client) => match client.get_multiplexed_async_connection().await {
-            Ok(mut connection) => redis::cmd("PING")
-                .query_async::<String>(&mut connection)
-                .await
-                .is_ok_and(|reply| reply == "PONG"),
-            Err(_) => false,
-        },
-        None => false,
+    let redis = if !state.redis_required {
+        true
+    } else {
+        match state.redis.as_ref() {
+            Some(client) => match client.get_multiplexed_async_connection().await {
+                Ok(mut connection) => redis::cmd("PING")
+                    .query_async::<String>(&mut connection)
+                    .await
+                    .is_ok_and(|reply| reply == "PONG"),
+                Err(_) => false,
+            },
+            None => false,
+        }
     };
-    let ready = postgres && redis;
+    let probe = probe_readiness(state).await;
+    let probe_ready = if !state.probe_enabled {
+        true
+    } else {
+        probe.as_ref().is_some_and(|check| {
+            probe_cycle_is_fresh(check.configured_targets, check.stale_targets)
+        })
+    };
+    let probe_check = probe.map_or_else(
+        || {
+            json!({
+                "enabled": state.probe_enabled,
+                "fresh": !state.probe_enabled,
+                "configured_targets": 0,
+                "stale_targets": 0,
+                "failing_targets": 0,
+                "last_observed_at": null,
+            })
+        },
+        |check| {
+            json!({
+                "enabled": true,
+                "fresh": probe_cycle_is_fresh(
+                    check.configured_targets,
+                    check.stale_targets,
+                ),
+                "configured_targets": check.configured_targets,
+                "stale_targets": check.stale_targets,
+                "failing_targets": check.failing_targets,
+                "last_observed_at": check.last_observed_at,
+            })
+        },
+    );
+    let ready = postgres && redis && probe_ready;
     (
         if ready {
             StatusCode::OK
@@ -120,7 +223,14 @@ pub async fn data_plane_ready(state: &DataPlaneState) -> (StatusCode, Json<Value
         },
         Json(json!({
             "status": if ready { "ready" } else { "not_ready" },
-            "checks": {"postgres": postgres, "redis": redis},
+            "checks": {
+                "postgres": postgres,
+                "redis": {
+                    "required": state.redis_required,
+                    "healthy": redis,
+                },
+                "probe": probe_check,
+            },
         })),
     )
 }
@@ -287,6 +397,27 @@ fn validate_payload(payload: &IngestPayload) -> Result<(), ApiError> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod readiness_tests {
+    use super::probe_cycle_is_fresh;
+
+    #[test]
+    fn probe_role_is_ready_without_configured_targets() {
+        assert!(probe_cycle_is_fresh(0, 0));
+    }
+
+    #[test]
+    fn probe_role_fails_closed_for_unobserved_or_stale_targets() {
+        assert!(!probe_cycle_is_fresh(2, 1));
+        assert!(!probe_cycle_is_fresh(2, 2));
+    }
+
+    #[test]
+    fn fresh_failed_target_still_proves_the_probe_worker_is_live() {
+        assert!(probe_cycle_is_fresh(2, 0));
+    }
 }
 
 async fn authenticate(

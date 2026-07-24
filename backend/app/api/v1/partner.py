@@ -19,7 +19,12 @@ logger = logging.getLogger("forjd.api.partner")
 
 class PartnerProvisionBody(BaseModel):
     external_ref: str = Field(..., min_length=4, max_length=128)
-    partner: str = Field(default="deml", max_length=64)
+    partner: str = Field(
+        default="deml",
+        min_length=1,
+        max_length=64,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
+    )
     slug: str | None = Field(default=None, max_length=63)
     name: str | None = Field(default=None, max_length=128)
     include_tenant_erase: bool = True

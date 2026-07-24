@@ -24,8 +24,8 @@ uv run forjd
 
 1. Create a project and copy the connection string (prefer pooler for serverless; direct is fine for this API).
 2. Set `POSTGRES_DSN=postgresql+asyncpg://…` in `.env` (keep the `+asyncpg` form — clients normalize it).
-3. Apply SQL `003`→`026` (see [`sql/README.md`](sql/README.md)). Enable the **vector** extension for optional ML.
-4. For the ML catalog: install torch with `uv sync --group ml`.
+3. Apply SQL `003`→`028` (see [`sql/README.md`](sql/README.md)). Enable the **vector** extension for optional ML.
+4. For the production-equivalent ML catalog: `uv sync --group ml --group ml-spiking`.
 
 ### Endpoints
 
@@ -70,7 +70,7 @@ configured source/artifact byte budgets, without silent truncation.
 
 ### Secure streaming (Supabase Auth + E2EE)
 
-1. Run SQL `003`→`026` (see [`sql/README.md`](sql/README.md)).
+1. Run SQL `003`→`028` (see [`sql/README.md`](sql/README.md)).
 2. Set `SUPABASE_URL` and/or `SUPABASE_JWT_SECRET` in `.env`.
 3. **Enterprise users:** Supabase Auth → `Authorization: Bearer <access_token>`.
 4. **Subprocessors:** admin mints `POST /api/v1/service-accounts` → the partner calls with `Bearer fjsvc_…` (see [`docs/AUTH.md`](docs/AUTH.md)). Partners keep their own end-user auth.
@@ -111,7 +111,7 @@ idempotent normalized-signal core. New integrations should call
 
 ### ML suite (optional)
 
-Install: `uv sync --group ml` (numpy, scikit-learn, torch CPU).
+Install: `uv sync --group ml --group ml-spiking` (numpy, scikit-learn, torch CPU, Norse).
 
 | Family | Models |
 |--------|--------|
@@ -119,11 +119,14 @@ Install: `uv sync --group ml` (numpy, scikit-learn, torch CPU).
 | Threat | Random Forest + HistGradientBoosting, Transformer sequence AE |
 | Forecasting | TFT-lite, NeuralSeasonal (Prophet-class), GRU/LSTM P99 |
 | Embeddings | EventEncoder; Sentence-Transformers via `uv sync --group ml-nlp` |
-| NorseSSN | Spiking temporal forecaster (`norse` via `ml-spiking`, else GRU/MLP) |
+| NorseSSN | Tenant-scoped next-observation spike-risk model (`norse` via `ml-spiking`, with an explicitly reported GRU/MLP fallback) |
 
-Supabase-backed: pass `tenant_id` so fit/score hydrate from `stream_results`
+Supabase-backed API fit/score requires `tenant_id`; missing inputs hydrate from `stream_results`
 (metadata only) and persist to `training_runs`, `embedding_vectors` (pgvector),
-and `ml_scores` (RLS + Realtime via `sql/016`).
+and `ml_scores` (RLS + Realtime via `sql/016`). Tenant-scoped runs fail with
+`insufficient_data` instead of silently training fixture data. The supervised
+worker fits and immediately scores NorseSSN from real tenant telemetry; public
+temporal status is derived from that persisted score and runtime metadata.
 
 ```bash
 # Catalog + fit (JWT + tenant_id → Supabase)
@@ -174,7 +177,7 @@ fly secrets set POSTGRES_DSN='…' REDIS_URL='redis://:…@forjd-dragonfly.inter
 fly deploy --config fly.api.toml --ha=false
 ```
 
-Set matching `ENGINE_URL=http://forjd-engine.internal:8080` (already in `fly.api.toml`) and the same `ENGINE_API_TOKEN` on `forjd-engine`. For optional ML scoring in prod: enable Supabase **vector**, apply `sql/016` (with the rest of `003`–`026`), install `uv sync --group ml`, and use `/api/v1/ml` (`sql/002_anomaly_embeddings.sql` is historical/unused).
+Set matching `ENGINE_URL=http://forjd-engine.internal:8080` (already in `fly.api.toml`) and the same `ENGINE_API_TOKEN` on `forjd-engine`. For ML scoring in prod: enable Supabase **vector**, apply `sql/016` (with the rest of `003`–`028`), use the image-installed `ml` + `ml-spiking` groups, and call `/api/v1/ml` (`sql/002_anomaly_embeddings.sql` is historical/unused).
 
 ## Notes
 

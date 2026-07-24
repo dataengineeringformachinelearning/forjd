@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from app.services.ml import common as mlc
 from app.services.ml.lstm_autoencoder import (
     synthetic_normal_windows,
@@ -59,8 +61,15 @@ def fit(
     tenant_id: str | None = None,
 ) -> dict[str, Any]:
     torch, nn = _require()
+    if tenant_id and not series:
+        raise ValueError("real series is required for tenant-scoped transformer anomaly fit")
     if series:
-        windows = windows_from_series(series, seq_len)
+        arr = np.asarray(series, dtype=np.float32)
+        if arr.ndim != 1 or not np.isfinite(arr).all():
+            raise ValueError("series must be a finite one-dimensional sequence")
+        if len(arr) < seq_len:
+            raise ValueError(f"series must contain at least {seq_len} points")
+        windows = windows_from_series(arr.tolist(), seq_len)
     else:
         windows = synthetic_normal_windows(n_windows=96, seq_len=seq_len)
     if windows.shape[0] == 0:
@@ -107,17 +116,24 @@ def score(
     threshold: float = 0.15,
 ) -> dict[str, Any]:
     torch, nn = _require()
+    if not np.isfinite(threshold) or threshold < 0.0:
+        raise ValueError("threshold must be a non-negative finite value")
     path = _ckpt(tenant_id)
     if not path.exists():
         raise RuntimeError("transformer anomaly model not fitted; POST .../fit first")
     blob = torch.load(path, map_location="cpu", weights_only=True)
     meta = dict(blob.get("meta") or {})
     seq_len = int(meta.get("seq_len") or 16)
+    arr = np.asarray(series, dtype=np.float32)
+    if arr.ndim != 1 or not np.isfinite(arr).all():
+        raise ValueError("series must be a finite one-dimensional sequence")
+    if len(arr) < seq_len:
+        raise ValueError(f"series must contain at least {seq_len} points")
     model = _build(torch, nn, d_model=32, nhead=4, seq_len=seq_len)
     model.load_state_dict(blob["state_dict"])
     model.eval()
 
-    window = windows_from_series(series, seq_len)[-1:]
+    window = arr[-seq_len:].reshape(1, seq_len)
     with torch.no_grad():
         x = torch.from_numpy(window).unsqueeze(-1)
         recon = model(x)

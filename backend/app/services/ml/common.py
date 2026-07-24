@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 import numpy as np
 
@@ -53,9 +54,15 @@ def ml_root() -> Path:
 
 
 def model_dir(family: str, *, tenant_id: str | None = None) -> Path:
+    if not family or Path(family).name != family or family in {".", ".."}:
+        raise ValueError("invalid ML family path")
     base = ml_root() / family
     if tenant_id:
-        base = base / tenant_id
+        try:
+            tenant_key = str(UUID(str(tenant_id)))
+        except (TypeError, ValueError, AttributeError) as exc:
+            raise ValueError("tenant_id must be a UUID for persisted ML artifacts") from exc
+        base = base / tenant_key
     base.mkdir(parents=True, exist_ok=True)
     return base
 

@@ -15,7 +15,7 @@ Fly/Compose build: `--features server,data-plane`.
 | Method | Path | When | Purpose |
 |--------|------|------|---------|
 | GET | `/health` | always | Liveness |
-| GET | `/ready` | always | Readiness (Postgres when data plane HTTP is up) |
+| GET | `/ready` | always | Role-aware Postgres/Dragonfly readiness; probe roles also require fresh persisted observations |
 | GET | `/v1/version` | always | Crate + schema version |
 | POST | `/v1/process` | always | Validate/enrich event |
 | POST | `/v1/summarize` | always | Arrow/Parquet summary |
@@ -105,8 +105,8 @@ Apply `backend/sql/009`–`010` for outbox / API keys / audit before enabling `F
 | `engine` | `ENGINE_API_TOKEN` | Process `/v1/process` + `/v1/summarize` only |
 | `ingest` | DB + Redis | Compatibility requests fail closed with `410`; no acceptance or outbox publication |
 | `relay` / `scheduler` / `normalizer` | DB + Redis + internode keys | Bus encrypt/decrypt works |
-| `all` | All of the above | `/ready` reports ok; logs show `data plane role=All` |
-| `probe` | DB | Probe loop without bus |
+| `all` | All of the above | `/ready` reports dependency health plus non-sensitive probe freshness/counts |
+| `probe` | DB | Probe loop without bus; readiness fails when configured targets have no fresh persisted observation |
 
 Rollback: `fly secrets set FORJD_ROLE=engine -a forjd-engine`.
 

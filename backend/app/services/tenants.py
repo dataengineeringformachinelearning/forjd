@@ -42,6 +42,7 @@ _RLS_TABLES = (
     "lighthouse_scans",
     "ml_scores",
     "outbox_events",
+    "partner_provisions",
     "playbook_action_results",
     "playbook_actions",
     "playbook_runs",
@@ -494,7 +495,8 @@ async def _ensure_secure_schema_uncached(pool: asyncpg.Pool) -> None:
             is_published BOOLEAN NOT NULL DEFAULT FALSE,
             metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE (id, tenant_id)
         )
         """
     )
@@ -502,13 +504,15 @@ async def _ensure_secure_schema_uncached(pool: asyncpg.Pool) -> None:
         """
         CREATE TABLE IF NOT EXISTS status_services (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            page_id UUID NOT NULL REFERENCES status_pages (id) ON DELETE CASCADE,
+            page_id UUID NOT NULL,
             tenant_id UUID NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
             name TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'operational',
             description TEXT NOT NULL DEFAULT '',
             sort_order INT NOT NULL DEFAULT 0,
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            FOREIGN KEY (page_id, tenant_id)
+                REFERENCES status_pages (id, tenant_id) ON DELETE CASCADE
         )
         """
     )
@@ -516,7 +520,7 @@ async def _ensure_secure_schema_uncached(pool: asyncpg.Pool) -> None:
         """
         CREATE TABLE IF NOT EXISTS status_incidents (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            page_id UUID NOT NULL REFERENCES status_pages (id) ON DELETE CASCADE,
+            page_id UUID NOT NULL,
             tenant_id UUID NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
             title TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'investigating',
@@ -524,7 +528,9 @@ async def _ensure_secure_schema_uncached(pool: asyncpg.Pool) -> None:
             body TEXT NOT NULL DEFAULT '',
             started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             resolved_at TIMESTAMPTZ,
-            metadata JSONB NOT NULL DEFAULT '{}'::jsonb
+            metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+            FOREIGN KEY (page_id, tenant_id)
+                REFERENCES status_pages (id, tenant_id) ON DELETE CASCADE
         )
         """
     )

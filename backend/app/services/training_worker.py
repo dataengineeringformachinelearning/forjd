@@ -1,10 +1,11 @@
 """Scheduled ML training + optional Hugging Face model publishing worker.
 
 Each tick finds tenants with recent ``stream_results`` and, when their newest
-``training_runs`` row is older than the refresh window, retrains the SLA
-regressor, threat model, and temporal forecasters. When ``HF_MODEL_REPO_ID`` +
-``HF_TOKEN`` are configured, fresh ``.pt`` artifacts are published to the
-Hugging Face Hub under hashed-tenant paths (never tenant UUIDs or ciphertext).
+NorseSSN ``training_runs`` row is older than the refresh window, retrains the
+SLA regressor and threat model, then fits and scores a tenant-scoped NorseSSN
+using real telemetry only. When ``HF_MODEL_REPO_ID`` + ``HF_TOKEN`` are
+configured, fresh ``.pt`` artifacts are published to the Hugging Face Hub under
+hashed-tenant paths (never tenant UUIDs or ciphertext).
 (Supersedes the former DEML-local daily training loop.)
 """
 
@@ -14,6 +15,7 @@ import asyncio
 import contextlib
 import hashlib
 import logging
+import math
 from pathlib import Path
 from uuid import UUID
 
@@ -28,7 +30,7 @@ logger = logging.getLogger("forjd.training.worker")
 WORKER_NAME = "ml-training"
 # Tenants with results inside this window keep their models fresh.
 ACTIVE_WINDOW_DAYS = 7
-# Minimum series length for the temporal forecaster (seq_len 16 + horizon 4).
+# Minimum series length for seq_len 16 plus multiple next-observation labels.
 MIN_SERIES_LEN = 24
 # Hugging Face prefixes (matched by scripts/verify_huggingface_models.py in DEML).
 HF_FAMILY_PATHS = {
@@ -48,11 +50,22 @@ async def _tenants_due_training(pool: asyncpg.Pool) -> list[UUID]:
             WHERE created_at >= NOW() - make_interval(days => $1)
         ) sr
         LEFT JOIN LATERAL (
-            SELECT MAX(created_at) AS newest FROM training_runs tr
-            WHERE tr.tenant_id = sr.tenant_id
-        ) tr ON TRUE
-        WHERE tr.newest IS NULL
-           OR tr.newest < NOW() - ($2::float8 * INTERVAL '1 second')
+            SELECT MAX(temporal.created_at) AS newest
+            FROM (
+                SELECT score.created_at
+                FROM ml_scores score
+                WHERE score.tenant_id = sr.tenant_id
+                  AND score.family = 'norse_ssn'
+                UNION ALL
+                SELECT run.created_at
+                FROM training_runs run
+                WHERE run.tenant_id = sr.tenant_id
+                  AND (run.family = 'norse_ssn' OR run.model_name = 'norse_ssn')
+                  AND run.status = 'insufficient_data'
+            ) temporal
+        ) latest ON TRUE
+        WHERE latest.newest IS NULL
+           OR latest.newest < NOW() - ($2::float8 * INTERVAL '1 second')
         """,
         ACTIVE_WINDOW_DAYS,
         settings.TRAINING_REFRESH_SECONDS,
@@ -61,40 +74,83 @@ async def _tenants_due_training(pool: asyncpg.Pool) -> list[UUID]:
 
 
 # --- Temporal series (score history feeds the forecasters) ---
-async def _score_series(pool: asyncpg.Pool, tenant_id: UUID) -> list[float] | None:
+async def _score_series(pool: asyncpg.Pool, tenant_id: UUID) -> list[float]:
     rows = await pool.fetch(
         """
-        SELECT COALESCE(score, 0)::float AS score FROM stream_results
-        WHERE tenant_id = $1::uuid
+        SELECT score::float AS score FROM stream_results
+        WHERE tenant_id = $1::uuid AND score IS NOT NULL
         ORDER BY created_at DESC
         LIMIT 256
         """,
         str(tenant_id),
     )
     series = [float(r["score"]) for r in reversed(rows)]
-    return series if len(series) >= MIN_SERIES_LEN else None
+    return [value for value in series if math.isfinite(value)]
 
 
 # --- One tenant: train all torch families that FORJD owns ---
 async def _train_tenant(pool: asyncpg.Pool, tenant_id: UUID) -> dict[str, bool]:
-    from app.services.ml import forecasting
+    from app.services.ml import norse_ssn
+    from app.services.ml import store as ml_store
+    from app.services.ml import supabase_bridge as ml_sb
     from app.services.ml.sla_model import train_tenant_sla
     from app.services.ml.threat_model import train_threat_model
 
     trained: dict[str, bool] = {}
     short = str(tenant_id)[:8]
 
-    result = await train_tenant_sla(pool, tenant_id=tenant_id)
-    trained["sla"] = bool(result.get("ok"))
+    try:
+        result = await train_tenant_sla(pool, tenant_id=tenant_id)
+        trained["sla"] = bool(result.get("ok"))
+    except Exception:  # noqa: BLE001 — auxiliary model must not block temporal truth
+        trained["sla"] = False
+        logger.exception("sla training failed tenant=%s", short)
 
-    result = await train_threat_model(pool, tenant_id=tenant_id)
-    trained["threat"] = bool(result.get("ok"))
+    try:
+        result = await train_threat_model(pool, tenant_id=tenant_id)
+        trained["threat"] = bool(result.get("ok"))
+    except Exception:  # noqa: BLE001 — auxiliary model must not block temporal truth
+        trained["threat"] = False
+        logger.exception("threat training failed tenant=%s", short)
 
     series = await _score_series(pool, tenant_id)
-    # Blocking torch fits off the event loop; synthetic fallback keeps the
-    # temporal family publishable before real telemetry accumulates.
-    result = await asyncio.to_thread(forecasting.fit, series=series, tenant_id=str(tenant_id))
-    trained["temporal"] = bool(result.get("ok"))
+    if len(series) < MIN_SERIES_LEN:
+        await ml_store.record_training_run(
+            pool,
+            tenant_id=str(tenant_id),
+            family="norse_ssn",
+            model_name="norse_ssn",
+            metrics={"sample_count": len(series), "min_required": MIN_SERIES_LEN},
+            status="insufficient_data",
+        )
+        trained["temporal"] = False
+        trained["norse_ssn"] = False
+    else:
+        fit_result = await asyncio.to_thread(
+            norse_ssn.fit,
+            series=series,
+            tenant_id=str(tenant_id),
+        )
+        await ml_sb.persist_fit(
+            pool,
+            model_id="norse_ssn",
+            tenant_id=str(tenant_id),
+            result=fit_result,
+        )
+        score_result = await asyncio.to_thread(
+            norse_ssn.score,
+            series=series,
+            tenant_id=str(tenant_id),
+        )
+        await ml_sb.persist_score(
+            pool,
+            model_id="norse_ssn",
+            tenant_id=str(tenant_id),
+            result=score_result,
+        )
+        temporal_ok = bool(fit_result.get("ok") and score_result.get("ok"))
+        trained["temporal"] = temporal_ok
+        trained["norse_ssn"] = temporal_ok
 
     logger.info("training complete tenant=%s trained=%s", short, trained)
     return trained
@@ -127,10 +183,11 @@ def _publish_tenant_artifacts(tenant_id: UUID) -> int:
         if local.is_file():
             uploads.append((local, f"{prefix}/{hashed}_{filename}"))
 
-    temporal_dir = Path(settings.ML_MODEL_DIR) / "forecasting" / str(tenant_id)
-    if temporal_dir.is_dir():
-        for artifact in sorted(temporal_dir.glob("*.pt")):
-            uploads.append((artifact, f"{HF_TEMPORAL_PREFIX}/{hashed}_{artifact.name}"))
+    for family in ("forecasting", "norse_ssn"):
+        temporal_dir = Path(settings.ML_MODEL_DIR) / family / str(tenant_id)
+        if temporal_dir.is_dir():
+            for artifact in sorted(temporal_dir.glob("*.pt")):
+                uploads.append((artifact, f"{HF_TEMPORAL_PREFIX}/{hashed}_{artifact.name}"))
 
     for local, remote in uploads:
         api.upload_file(

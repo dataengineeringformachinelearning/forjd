@@ -13,6 +13,7 @@ fit/score hydrate from ``stream_results`` metadata and write
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 from uuid import UUID
 
@@ -27,6 +28,25 @@ from app.services.ml import supabase_bridge as ml_sb
 
 router = APIRouter(prefix="/ml", tags=["ml"])
 
+_FIT_INPUTS: dict[str, tuple[str, ...]] = {
+    "lstm_autoencoder": ("series",),
+    "classical_anomaly": ("features",),
+    "threat_ensemble": ("features", "labels"),
+    "transformer_anomaly": ("series",),
+    "forecasting": ("series",),
+    "embeddings": ("texts",),
+    "norse_ssn": ("series",),
+}
+_SCORE_INPUTS: dict[str, tuple[str, ...]] = {
+    "lstm_autoencoder": ("series",),
+    "classical_anomaly": ("features",),
+    "threat_ensemble": ("features",),
+    "transformer_anomaly": ("series",),
+    "forecasting": ("series",),
+    "embeddings": ("texts",),
+    "norse_ssn": ("series",),
+}
+
 
 # --- Tenant gate (required for Supabase-backed path) ---
 async def _require_tenant(
@@ -38,14 +58,10 @@ async def _require_tenant(
 ) -> None:
     required_scope = frozenset({"ml:write" if write else "ml:read"})
     if tenant_id is None:
-        # Optional ML surfaces allow human JWTs without tenant_id (in-memory /
-        # local fit); service principals must stay tenant-bound.
-        if user.is_service:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                detail="tenant_id is required for service principals",
-            )
-        return
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="tenant_id is required for ML fit and score",
+        )
     pool = pool_from_request(request)
     if pool is None:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="database unavailable")
@@ -72,6 +88,26 @@ def _require_catalog_scope(user: AuthUser) -> None:
         )
 
 
+def _require_tenant_inputs(
+    model_id: str,
+    kwargs: dict[str, Any],
+    *,
+    fit: bool,
+) -> None:
+    """Tenant-persisted runs must never silently train or score fixture data."""
+    if not kwargs.get("tenant_id"):
+        return
+    required = (_FIT_INPUTS if fit else _SCORE_INPUTS).get(model_id, ())
+    missing = [key for key in required if not kwargs.get(key)]
+    if missing:
+        action = "fit" if fit else "score"
+        names = ", ".join(missing)
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=f"real tenant {names} required for {model_id} {action}",
+        )
+
+
 # --- Catalog ---
 @router.get("/models")
 async def list_ml_models(
@@ -83,7 +119,7 @@ async def list_ml_models(
         "models": ml_registry.list_models(),
         "supabase": {
             "tables": ["training_runs", "embedding_vectors", "ml_scores"],
-            "note": "Pass tenant_id on fit/score to persist under RLS",
+            "note": "tenant_id and real tenant inputs are required on fit/score",
         },
     }
 
@@ -153,8 +189,13 @@ async def fit_ml_model(
         kwargs["texts"] = body.texts
 
     kwargs = await ml_sb.hydrate_fit_kwargs(pool, model_id, kwargs)
+    _require_tenant_inputs(model_id, kwargs, fit=True)
     try:
-        result = ml_registry.fit_model(model_id, **_filter_kwargs(model_id, kwargs, fit=True))
+        result = await asyncio.to_thread(
+            ml_registry.fit_model,
+            model_id,
+            **_filter_kwargs(model_id, kwargs, fit=True),
+        )
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except RuntimeError as exc:
@@ -201,7 +242,7 @@ async def score_ml_model(
                 pool, tenant_id=str(body.tenant_id), limit=32
             )
             if feats:
-                kwargs["features"] = feats[-1:]  # score latest row
+                kwargs["features"] = feats[:1]  # query is newest-first
         if model_id in {
             "lstm_autoencoder",
             "transformer_anomaly",
@@ -212,8 +253,13 @@ async def score_ml_model(
             if series:
                 kwargs["series"] = series
 
+    _require_tenant_inputs(model_id, kwargs, fit=False)
     try:
-        result = ml_registry.score_model(model_id, **_filter_kwargs(model_id, kwargs, fit=False))
+        result = await asyncio.to_thread(
+            ml_registry.score_model,
+            model_id,
+            **_filter_kwargs(model_id, kwargs, fit=False),
+        )
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except RuntimeError as exc:

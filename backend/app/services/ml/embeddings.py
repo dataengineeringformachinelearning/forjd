@@ -85,6 +85,8 @@ def fit(
     tenant_id: str | None = None,
 ) -> dict[str, Any]:
     torch, nn = _require()
+    if tenant_id and not texts:
+        raise ValueError("real texts are required for tenant-scoped embedding fit")
     corpus = texts or [
         "application/forjd-event+v1 sealed ingest",
         "threat.alert elevated abuse score",
