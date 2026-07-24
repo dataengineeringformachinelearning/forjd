@@ -39,6 +39,12 @@ class TestAnalyticsFormulas(unittest.TestCase):
 
     def test_spiking_forecast_empty_and_rising(self) -> None:
         self.assertIsNone(_spiking_temporal_forecast([]))
+        # No threat/error pressure is an absent signal, not Spike Risk 0.00.
+        flat = [
+            {"threats_detected": 0, "error_rate_percent": 0.0},
+            {"threats_detected": 0, "error_rate_percent": 0.0},
+        ]
+        self.assertIsNone(_spiking_temporal_forecast(flat))
         # Newest-first (same order as overview SQL).
         rising_desc = [
             {"threats_detected": 6, "error_rate_percent": 25.0},

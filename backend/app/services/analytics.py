@@ -277,8 +277,9 @@ def _spiking_temporal_forecast(rollups: list[Any]) -> float | None:
 
     older_p = _pressure(older)
     newer_p = _pressure(newer)
+    # No threat/error pressure is "no signal", not a scored spike risk of 0.00.
     if older_p <= 0 and newer_p <= 0:
-        return 0.0
+        return None
     delta = max(0.0, newer_p - older_p)
     baseline = max(older_p, 1.0)
     return round(min(100.0, (newer_p / baseline) * 40.0 + delta * 2.0), 1)
