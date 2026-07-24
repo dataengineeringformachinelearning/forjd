@@ -1,4 +1,4 @@
-import { Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { FjButton, FjPanel } from 'forjd-ui';
 
 import { environment } from '../../environments/environment';
@@ -6,12 +6,13 @@ import { environment } from '../../environments/environment';
 // --- Public product landing (static; forjd-ui primitives) ---
 @Component({
   selector: 'app-landing',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FjButton, FjPanel],
   templateUrl: './landing.html',
   styleUrl: './landing.scss',
 })
 export class Landing {
-  protected readonly title = signal('FORJD');
+  protected readonly title = 'FORJD';
   protected readonly apiBaseUrl = environment.apiBaseUrl;
   protected readonly docsUrl = `${environment.apiBaseUrl}/docs`;
   protected readonly redocUrl = `${environment.apiBaseUrl}/redoc`;
@@ -21,5 +22,5 @@ export class Landing {
     { name: 'Workflows', detail: 'YAML-configured pipelines orchestrated by Prefect.' },
     { name: 'Projections', detail: 'Checkpointed durable results with replay and DLQ.' },
     { name: 'Rust hot path', detail: 'Arrow/Parquet engine with a FastAPI control plane.' },
-  ];
+  ] as const;
 }

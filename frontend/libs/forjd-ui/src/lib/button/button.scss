@@ -13,6 +13,8 @@ a {
   line-height: 1.25;
   letter-spacing: 0.01em;
   border-radius: var(--fj-radius);
+  min-inline-size: var(--fj-touch-target);
+  min-block-size: var(--fj-touch-target);
   padding: var(--fj-space-2) var(--fj-space-4);
   border: 1px solid transparent;
   cursor: pointer;

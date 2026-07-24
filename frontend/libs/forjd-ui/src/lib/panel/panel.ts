@@ -1,10 +1,11 @@
-import { Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 /**
  * Labeled content section — use for status blocks and landing capability cards.
  */
 @Component({
   selector: 'forjd-panel',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     role: 'region',
     '[attr.data-variant]': 'variant()',

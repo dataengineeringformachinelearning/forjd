@@ -37,7 +37,7 @@ Dragonfly                   Streams bus · rate limits · cache
 | Rust ingest edge (fail-closed) | `/api/v1/ingest` returns `410 Gone`; the guard exists so stale integrations receive a hard rejection rather than a silent loss — FastAPI `/api/v1/ingest/events:batch` is the sole active ingest path |
 | Crypto sessions / replay / status / analytics | FastAPI + `require_tenant_access` (human member **or** scoped `fjsvc_`) |
 | Daemon/partner ingest | FastAPI canonical sealed batch with scoped `fjsvc_` token; durable acceptance and processing receipts |
-| Rollup + size/rate detectors | Rust `run_sealed_pipeline` (Pathway fallback) |
+| Rollup + size/rate detectors | Rust `run_sealed_pipeline` (dependency-free Python fallback) |
 | Outbox → Streams, probes, cron | Rust data plane |
 | Normalized SIEM signals / cases | FastAPI + `security_signals` / `incident_cases`; strict tenant scopes |
 | Durable SOAR | Versioned playbooks + idempotent runs/action receipts; control-plane actions await acknowledgement |
@@ -50,7 +50,7 @@ Dragonfly                   Streams bus · rate limits · cache
 - AAD binds `tenant_id|client_event_id` (client-side)
 - Unique `(tenant_id, key_id, nonce)` — rejects GCM nonce reuse (`sql/013`)
 - `crypto_sessions` stores **public** X25519 keys only; `revoked_at` blocks ingest
-- Pathway / Rust pipeline never receive ciphertext fields
+- Rust / Python processors never receive ciphertext fields
 - Internode AES-GCM on Dragonfly Streams is **transport** crypto (server-held keys), not client E2EE
 - `security_signals` never stores ciphertext, raw evidence, credentials, email
   addresses, or direct usernames; it contains explicitly disclosed normalized
@@ -112,13 +112,14 @@ Product names never belong in engine/API code.
 - Default scopes cover ingest, projections, crypto sessions, replay/DLQ,
   status management, analytics reads, normalized SIEM, cases, playbooks, and
   report documents (`reports:read`/`reports:write`, `sql/022`).
-  Global feed administration, tenant TAXII writes, erase, and ML writes remain
-  human-only or explicit opt-ins (see `AUTH.md`).
+  Global feed administration, tenant TAXII writes, erase, and generic ML writes
+  remain human-only or explicit opt-ins; DEML provisioning uses an explicit
+  least-privilege profile with `ml:write` (see `AUTH.md`).
 - Details, scopes, and minting API: [`backend/docs/AUTH.md`](backend/docs/AUTH.md).
 
 ## SQL apply order
 
-`003` → `026` under `backend/sql/` (see that folder’s README). Production forces
+`003` → `028` under `backend/sql/` (see that folder’s README). Production forces
 `SOFT_MIGRATE_SCHEMA=false`, `REQUIRE_RLS=true`, `REQUIRE_CRYPTO_SESSION=true`.
 Realtime + `projection_feed` land in `015`; ML scores/runs in `016`; service-principal
 session actor + expanded default scopes in `017`; partner domain scopes + erase in `018`;
@@ -126,8 +127,10 @@ erase opt-in defaults in `019`; normalized SIEM/SOAR and scoped defaults in
 `020`; sealed-ingest/projection/replay reliability state in `021`; report
 documents in `022`; durable exports in `023`; durable ingest-processing
 recovery in `024`; immutable SIEM/SOAR replay plus continuation recovery
-in `025`; and partner provision / service-principal cutover support
-(`sql/026_partner_provisions.sql`) in `026`.
+in `025`; partner provision / service-principal cutover support
+(`sql/026_partner_provisions.sql` plus partner-qualified isolation,
+credential/tenant FK integrity, and the DEML scope upgrade in `027`); and status
+page/service/probe tenant integrity plus per-service latest-probe indexing in `028`.
 
 Postgres host is **Supabase** (`POSTGRES_DSN`). Partner control-plane databases may
 optionally co-locate in the same project under a non-`public` schema — see
@@ -151,6 +154,10 @@ On Fly, bus roles default to `FORJD_INTERNODE_ENCRYPTION=required`. Set
 `FORJD_INTERNODE_ACTIVE_KID` / `FORJD_INTERNODE_KEYS` with
 [`scripts/sync_engine_dataplane_secrets.sh`](scripts/sync_engine_dataplane_secrets.sh).
 Process-only mode: `fly secrets set FORJD_ROLE=engine -a forjd-engine`.
+Role-aware `/ready` checks the dependencies each selected role needs. Probe/all
+roles additionally require every configured status target to have a recently
+persisted observation; target outages remain product state, while stale probe
+progress makes the engine itself not ready.
 
 End-to-end partner path: partner BFF → FORJD API (`fjsvc_`) →
 Supabase Postgres (ciphertext + projections) → optional engine sealed pipeline

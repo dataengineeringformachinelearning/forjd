@@ -110,17 +110,13 @@ async fn main() {
             }
         };
         let state = if let Some(pool) = pool {
-            if cfg.role.enable_ingest() || cfg.role.enable_cpe() {
-                match forjd_engine::data_plane::build_state(pool, &cfg).await {
-                    Ok(state) => Some(state),
-                    Err(error) => {
-                        tracing::error!(error = %error, "data plane HTTP state failed");
-                        eprintln!("forjd-engine: data plane HTTP state failed: {error:#}");
-                        std::process::exit(1);
-                    }
+            match forjd_engine::data_plane::build_state(pool, &cfg).await {
+                Ok(state) => Some(state),
+                Err(error) => {
+                    tracing::error!(error = %error, "data plane HTTP state failed");
+                    eprintln!("forjd-engine: data plane HTTP state failed: {error:#}");
+                    std::process::exit(1);
                 }
-            } else {
-                None
             }
         } else {
             None

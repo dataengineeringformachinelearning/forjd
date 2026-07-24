@@ -32,10 +32,10 @@ See `libs/forjd-ui/README.md` for Chromatic first-time setup.
 
 ### Public Storybook (ui.forjd.co)
 
-| Vercel project | Domain | Build | Output |
-|----------------|--------|-------|--------|
-| `forjd` | forjd.co | `npm run build` | `dist/frontend/browser` |
-| `ui` | ui.forjd.co | `npm run build-storybook` | `dist/storybook/forjd-ui` |
+| Vercel project | Domain      | Build                     | Output                    |
+| -------------- | ----------- | ------------------------- | ------------------------- |
+| `forjd`        | forjd.co    | `npm run build`           | `dist/frontend/browser`   |
+| `ui`           | ui.forjd.co | `npm run build-storybook` | `dist/storybook/forjd-ui` |
 
 Both use Root Directory `frontend/`. Build commands are set **per project** in Vercel.
 `vercel.json` has shared SPA rewrites + PWA headers; Storybook may use `vercel.ui.json`.

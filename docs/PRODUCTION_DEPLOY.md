@@ -14,12 +14,29 @@ partner's own deploy runbook.
 
 ---
 
-## 1. Schema (Supabase)
+## 1. Expansion-safe release order
+
+Migration `027` expands active DEML credentials with `ml:write`. Freeze DEML
+provisioning and ML writes first, then deploy the hardened API image before
+granting that scope. The new API remains compatible with schema `026`; do not
+unfreeze traffic until the migrations and verifier both pass.
+
+1. Freeze DEML provisioning and ML fit/score requests.
+2. Deploy the new `forjd-backend` image and confirm `/health`.
+3. Apply `027` and `028`, then require the post-migration verifier to pass.
+4. Deploy/restart the ML worker and engine, confirm `/ready`, then run the DEML
+   tenant-bound ML smoke before unfreezing traffic.
+
+If organizational policy requires schema-first deployment, keep DEML
+provisioning and ML writes disabled until the hardened API is live and the
+verifier passes.
+
+### Supabase schema
 
 ```bash
 cd backend
 # Requires POSTGRES_DSN / DATABASE_URL in env (never commit)
-uv run python scripts/apply_sql_migrations.py   # 003 → 026
+uv run python scripts/apply_sql_migrations.py   # 003 → 028
 
 POSTGRES_DSN='…' uv run python scripts/verify_supabase_post_migration.py
 ```
@@ -40,6 +57,19 @@ export FORJD_TENANT_ID='…'
 # Dedicated account-deletion credential only; erase is excluded by default:
 FORJD_INCLUDE_ERASE=1 ./scripts/remint_service_account.sh partner-deletion
 ```
+
+Migration `027` fails closed if a provision ledger credential belongs to a
+different tenant or multiple provision identities alias one tenant/credential,
+then enforces one-to-one mapping and the composite credential/tenant FK. It
+upgrades every active DEML credential with tenant-bound `ml:write` in place; opaque
+authentication reads current database scopes, so no token rotation is required.
+New DEML provisions receive the same explicit profile, while generic
+service-account defaults remain unchanged.
+Migration `028` fails closed on mismatched status children, then validates
+composite page/tenant foreign keys for services and incidents and a
+service/tenant foreign key for probe observations. It also indexes each
+service's newest probe observation for bounded readiness checks; schedule the
+migration during a low-write window if that history table is already large.
 
 ---
 
@@ -110,10 +140,20 @@ DNS: `backend.forjd.co` → Fly `forjd-backend` (`fly certs add backend.forjd.co
 | Bad API deploy | `fly releases -a forjd-backend` → prior image (SQL forward-only) |
 | Bad engine deploy | Prior engine release; or `FORJD_ROLE=engine` (process-only) |
 | Ingest errors | Check `/ready`, Dragonfly, crypto sessions, workflow YAML |
-| Scope 403s | Remint `fjsvc_` (defaults do not rewrite existing rows) |
+| Scope 403s | Run the post-migration verifier first; `027` updates active DEML scopes in place, while generic credentials may require intentional remint |
 | Partner freeze | Partner sets write/read `off`; ciphertext remains in Supabase |
 
 Do not soft-migrate schema in prod. Do not accept `service_role` JWTs.
+SQL migrations are forward-only. After `027` permits the same `external_ref`
+in different partner namespaces, never roll the API back to a version that
+queries `external_ref` without `partner`; freeze provisioning and prove global
+reference uniqueness first if an emergency code rollback crosses that boundary.
+Do not roll the API back to pre-hardening ML behavior while any DEML credential
+retains the `ml:write` grant introduced by `027`; freeze ML writes instead.
+The migration runner and verifier reject ledger versions unknown to the
+checked-out release, so use a code revision that knows the live schema.
+Do not blanket-remove `ml:write` to reverse `027`, because preexisting explicit
+grants are indistinguishable from the in-place upgrade.
 
 ---
 
@@ -170,8 +210,11 @@ partner, and daemon clients must use FastAPI `/api/v1/ingest/events:batch`.
 | sql/023 durable export jobs | **Deploy required** |
 | sql/024 durable ingest processing recovery | **Deploy required** |
 | sql/025 replay-safe SIEM/SOAR receipts + continuation recovery | **Deploy required** |
+| sql/026 partner provision ledger | **Deploy required** |
+| sql/027 partner isolation + DEML ML scope | **Deploy required** |
+| sql/028 status child tenant integrity | **Deploy required** |
 
 **Verdict:** the implementation is ready for the staging launch gate. Do not
-declare a production cutover complete until `020`–`025` are applied, object
+declare a production cutover complete until `020`–`028` are applied, object
 storage and worker checks are green, partner tokens are reminted, and the smoke
 suite above passes against live Supabase, Dragonfly, engine, and object storage.

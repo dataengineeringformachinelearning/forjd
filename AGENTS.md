@@ -18,7 +18,7 @@ Agents: read this briefing first, then enforce constraints in `.cursorrules`.
 |-------|--------|
 | API | FastAPI |
 | Orchestration | Prefect 3 |
-| Streams | Pathway |
+| Streams | Rust data plane + dependency-free Python fallback |
 | Batch tables | Polars |
 | Engine | Rust (`engine/`) — one `forjd-engine` binary: Arrow/Parquet **59** + PyO3 + axum process HTTP + data plane (`FORJD_ROLE`, Postgres outbox, Dragonfly Streams) |
 | Cache / DB | Dragonfly (Fly.io) + Postgres (Supabase) |
@@ -29,10 +29,10 @@ Agents: read this briefing first, then enforce constraints in `.cursorrules`.
 | External fetchers | Typed TET pipeline under `app/services/fetchers/` (query → extract → transform + `FetchResult`); OSINT/HIBP use it — no OpenBB/pandas finance stack |
 | ML (optional) | `/api/v1/ml` catalog + Supabase `training_runs` / `embedding_vectors` / `ml_scores` (`sql/016`); hydrate from `stream_results` metadata only (`uv sync --group ml`) |
 | Auth / E2EE | Supabase Auth **user** JWTs + tenant-scoped **service accounts** (`sql/014`–`015`, `017`–`018`, `backend/docs/AUTH.md`); X25519/HKDF + AES-256-GCM sealed ingest (`sql/003`–`008`, `013`); partner erase `POST /api/v1/tenants/{id}/erase`; headless SIEM/SOAR (`sql/020`, `025`) |
-| Workflows | YAML under `backend/workflows/` → Prefect + **Rust sealed pipeline** (Pathway fallback) + pluggable detectors |
+| Workflows | YAML under `backend/workflows/` → Prefect + **Rust sealed pipeline** (pure-Python fallback) + pluggable detectors |
 | Projections | Checkpointed durable `stream_results` + replay/DLQ (`/api/v1/projections`, `/api/v1/replay`) |
 | Rollups / ML refresh | Supervised `analytics-rollup` worker — hourly `aggregated_analytics` upserts + throttled `classical_anomaly` `ml_scores` refresh (`ANALYTICS_ROLLUP_INTERVAL_SECONDS`) |
-| Scheduled training | Supervised `ml-training` worker — daily SLA/threat/temporal retrains per active tenant (`TRAINING_*`); optional Hugging Face publish (`HF_MODEL_REPO_ID` + `HF_TOKEN`, hashed tenant paths) |
+| Scheduled training | Supervised `ml-training` worker — daily SLA/threat plus real-telemetry NorseSSN fit+score per active tenant (`TRAINING_*`), persisted to `training_runs`/`ml_scores`; optional Hugging Face publish (`HF_MODEL_REPO_ID` + `HF_TOKEN`, hashed tenant paths) |
 | Data retention | Supervised `retention` worker — bounded deletes for aged `telemetry_events`/`stream_results`, expired `crypto_sessions`, completed ingest receipts (`RETENTION_*`) |
 | Reports / exports / ingest durability | Report documents (`sql/022`); durable exports (`sql/023`); durable ingest-processing receipts (`sql/024`) |
 | Status | Tenant status pages (`/api/v1/status`) — public when published |
@@ -44,8 +44,8 @@ Agents: read this briefing first, then enforce constraints in `.cursorrules`.
 
 Partner apps are **subprocessors**: they keep their own end-user auth (e.g. Firebase) and call FORJD with a tenant-bound service token — never with end-user tokens.
 Rust owns the hot-path sealed pipeline (`/v1/sealed/pipeline`, PyO3 `run_sealed_pipeline`) and data-plane roles.
-Pathway is soft-fallback for sealed rollups; Polars owns finite batch DataFrames.
-Backend Python is pinned to **3.12** with Pathway ≥0.31 (`beartype<0.16` via uv override).
+Dependency-free Python is the soft-fallback for sealed rollups; Polars owns finite batch DataFrames.
+Backend Python is pinned to **3.12** for stable, reproducible production builds.
 
 ## How to work
 
@@ -64,7 +64,7 @@ Backend Python is pinned to **3.12** with Pathway ≥0.31 (`beartype<0.16` via u
 
 Last updated: 2026-07-21
 
-**Deploy:** [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md) + [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md) — SQL `003`–`026`, mint `fjsvc_`, Fly backend/engine + Vercel frontend. Partners integrate via YAML workflows and tenant-bound service tokens.
+**Deploy:** [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md) + [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md) — SQL `003`–`028`, mint `fjsvc_`, Fly backend/engine + Vercel frontend. Partners integrate via YAML workflows and tenant-bound service tokens.
 
 ## Cursor Cloud specific instructions
 
@@ -103,9 +103,8 @@ in for Dragonfly (wire-compatible); the app reports it as `dragonfly`.
 - Web: `cd frontend && npm start` (http://localhost:4200 — static landing; docs links only)
 - Ops probes: `GET /health`, `GET /ready`, `GET /api/v1/capabilities`. Partner
   traffic uses sealed ingest + tenant service tokens — not a browser console.
-  Backend pins Python 3.12 (`requires-python <3.14`), so `uv run` uses a
-  Pathway-compatible interpreter; a `pathway` failure only appears if the API
-  runs on the system CPython 3.14 instead of the uv-managed 3.12.
+  Backend pins Python 3.12 (`requires-python <3.14`), so `uv run` selects the
+  supported interpreter instead of the system CPython 3.14.
 
 ### Frontend install scripts
 

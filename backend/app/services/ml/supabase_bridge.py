@@ -194,6 +194,8 @@ async def persist_score(
                         "uses_norse",
                         "backend",
                         "kind",
+                        "sample_count",
+                        "seq_len",
                     )
                     if k in result
                 },

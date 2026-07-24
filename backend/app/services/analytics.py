@@ -257,13 +257,13 @@ def _bucket_label(bucket_start: Any) -> str:
     return text[11:16] if len(text) >= 16 else text
 
 
-def _spiking_temporal_forecast(rollups: list[Any]) -> float:
+def _spiking_temporal_forecast(rollups: list[Any]) -> float | None:
     """Simple half-window spike score from threats + error rate (0–100).
 
     Expects newest-first rollup rows (matching overview SQL order).
     """
     if len(rollups) < 2:
-        return 0.0
+        return None
     chronological = list(reversed(rollups))
     mid = max(1, len(chronological) // 2)
     older, newer = chronological[:mid], chronological[mid:]
@@ -277,11 +277,27 @@ def _spiking_temporal_forecast(rollups: list[Any]) -> float:
 
     older_p = _pressure(older)
     newer_p = _pressure(newer)
+    # No threat/error pressure is "no signal", not a scored spike risk of 0.00.
     if older_p <= 0 and newer_p <= 0:
-        return 0.0
+        return None
     delta = max(0.0, newer_p - older_p)
     baseline = max(older_p, 1.0)
     return round(min(100.0, (newer_p / baseline) * 40.0 + delta * 2.0), 1)
+
+
+async def _latest_temporal_signal(
+    pool: asyncpg.Pool,
+    *,
+    tenant_id: UUID,
+) -> dict[str, Any]:
+    from app.services.ml import store as ml_store
+
+    try:
+        return await ml_store.latest_temporal_signal(pool, tenant_id=tenant_id)
+    except asyncpg.UndefinedTableError:
+        return ml_store.empty_temporal_signal()
+    except Exception:  # noqa: BLE001 — optional ML store must not hide analytics
+        return ml_store.empty_temporal_signal(status="error")
 
 
 async def overview(
@@ -297,6 +313,7 @@ async def overview(
         required_scopes=frozenset({"analytics:read"}),
     )
     await ensure_analytics_schema(pool)
+    temporal = await _latest_temporal_signal(pool, tenant_id=tenant_id)
     since = datetime.now(UTC) - timedelta(hours=24)
     rollups = await pool.fetch(
         """
@@ -385,7 +402,7 @@ async def overview(
                 "ces_sla": 0.0,
                 "ces_stability": 0.0,
                 "ces_level": 0.0,
-                "spiking_temporal_forecast": 0.0,
+                **temporal,
                 "latest_benchmark_score": empty_benchmark["current_scope"].get("score_percent"),
                 "latest_benchmark": empty_benchmark["current_scope"],
             },
@@ -489,14 +506,6 @@ async def overview(
     except Exception:  # noqa: BLE001 — ML tables optional on bare deploys
         pass
 
-    uses_norse = False
-    try:
-        from app.services.ml.norse_ssn import norse_available
-
-        uses_norse = bool(norse_available())
-    except Exception:  # noqa: BLE001 — optional ml-spiking group
-        uses_norse = False
-
     return {
         "ok": True,
         "window_hours": window_hours,
@@ -511,10 +520,9 @@ async def overview(
         "benchmarking": benchmarking,
         "ces": {
             **ces,
-            "spiking_temporal_forecast": _spiking_temporal_forecast(list(rollups)),
+            **temporal,
             "latest_benchmark_score": latest_benchmark_score,
             "latest_benchmark": benchmarking["current_scope"],
-            "uses_norse": uses_norse,
         },
         "time_series": time_series,
         "uptime_series": uptime_series,

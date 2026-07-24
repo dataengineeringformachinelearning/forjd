@@ -16,12 +16,13 @@ partner repo. Deploy commands: [`PRODUCTION_DEPLOY.md`](./PRODUCTION_DEPLOY.md).
 
 | Step | Action |
 |------|--------|
-| A1 | Run `apply_sql_migrations.py` for `003` → `026`; confirm `forjd_schema_migrations` checksum parity (run once on SQL-editor-managed DBs to backfill ledger) |
-| A2 | Mint `fjsvc_` (`scripts/remint_service_account.sh` or mint API) |
-| A3 | Confirm `/ready` reports `schema_rls=true` |
-| A4 | Set `OUTBOUND_HOST_ALLOWLIST` to exact custom TAXII/webhook hosts (or deliberate `*.` suffixes); empty fails closed in production |
-| A5 | Put webhook HMAC keys in the deployment secret manager as `WEBHOOK_SIGNING_SECRETS_JSON`; playbooks store only opaque `secret_ref` keys |
-| A6 | Configure a private S3-compatible export bucket, least-privilege list/get/put/delete credentials, encryption/retention policy, and `OBJECT_STORAGE_*`; production `/ready` must report `object_storage=true` |
+| A1 | Run `apply_sql_migrations.py` for `003` → `028`; confirm `forjd_schema_migrations` checksum parity (run once on SQL-editor-managed DBs to backfill ledger) |
+| A2 | Mint generic `fjsvc_` credentials with `scripts/remint_service_account.sh`; confirm `027` upgraded every active DEML credential with `ml:write` in place |
+| A3 | Run `verify_supabase_post_migration.py`; require zero partner duplicates/aliases, credential/tenant mismatches, status/probe child mismatches, and active DEML scope gaps, plus validated `027`/`028` constraints |
+| A4 | Confirm `/ready` reports `schema_rls=true` |
+| A5 | Set `OUTBOUND_HOST_ALLOWLIST` to exact custom TAXII/webhook hosts (or deliberate `*.` suffixes); empty fails closed in production |
+| A6 | Put webhook HMAC keys in the deployment secret manager as `WEBHOOK_SIGNING_SECRETS_JSON`; playbooks store only opaque `secret_ref` keys |
+| A7 | Configure a private S3-compatible export bucket, least-privilege list/get/put/delete credentials, encryption/retention policy, and `OBJECT_STORAGE_*`; production `/ready` must report `object_storage=true` |
 
 ```bash
 ./scripts/remint_service_account.sh partner-production
@@ -33,10 +34,12 @@ FORJD_INCLUDE_ERASE=1 ./scripts/remint_service_account.sh partner-deletion
 
 | Step | Action |
 |------|--------|
-| B1 | Secrets on `forjd-backend` (`POSTGRES_DSN`, `REDIS_URL`, `SUPABASE_*`, `ENGINE_*`, `OBJECT_STORAGE_*`, `ENVIRONMENT=prod`) |
-| B2 | Deploy API + engine (`FORJD_ROLE=all` + internode keys) |
-| B3 | Confirm `https://backend.forjd.co/ready` |
-| B4 | Optional `verify_supabase_post_migration.py` after schema apply |
+| B1 | Freeze DEML provisioning and ML writes before the `027` scope expansion |
+| B2 | Confirm secrets on `forjd-backend` (`POSTGRES_DSN`, `REDIS_URL`, `SUPABASE_*`, `ENGINE_*`, `OBJECT_STORAGE_*`, `ENVIRONMENT=prod`) |
+| B3 | Deploy the hardened API while schema `026` is still live; confirm `/health` |
+| B4 | Apply `027`/`028` and require `verify_supabase_post_migration.py` to pass |
+| B5 | Deploy/restart the ML worker + engine (`FORJD_ROLE=all` + internode keys); confirm `https://backend.forjd.co/ready` |
+| B6 | Run the DEML tenant-bound ML smoke, then unfreeze traffic |
 
 ## C. Partner smoke
 
@@ -47,6 +50,10 @@ FORJD_INCLUDE_ERASE=1 ./scripts/remint_service_account.sh partner-deletion
    restart verify the leased ingest worker completes the returned receipt and
    `GET /api/v1/ingest/processing/{batch_id}` reports `completed`.
 2. Analytics overview → status page CRUD → exports/vulns as scoped.
+   For DEML, fit and score one tenant-bound ML model and confirm the provisioned
+   service account has `ml:write` without wildcard scope.
+   Race two ordinary provision requests and confirm one tenant/account is
+   created; serialize explicit remints per external identity.
 3. Normalized signal exact retry → one signal, one correlated case, idempotent playbook runs.
 4. Case/vulnerability/playbook PATCH; manual execute; idempotent control-plane ACK; leased webhook retry and explicit operator retry.
 5. Edit a playbook while a run is paused and verify its immutable action plan is unchanged; verify correlation and legacy alert exact replay/conflict behavior.
@@ -91,6 +98,6 @@ FORJD_INCLUDE_ERASE=1 ./scripts/remint_service_account.sh partner-deletion
 
 | Issue | Action |
 |-------|--------|
-| Bad API/engine deploy | Prior Fly release; engine → `FORJD_ROLE=engine` |
+| Bad API/engine deploy | Freeze DEML ML writes before any API rollback; never run pre-hardening ML behavior with `027` grants; engine → `FORJD_ROLE=engine` |
 | Ingest errors | `/ready`, Dragonfly, crypto sessions, workflows |
-| Scope 403s | Remint `fjsvc_` |
+| Scope 403s | Run the verifier; `027` updates active DEML scopes in place, while generic credentials may require an intentional remint |

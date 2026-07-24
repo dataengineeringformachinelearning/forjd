@@ -6,7 +6,7 @@
 #   docker build -f engine/Dockerfile -t forjd-engine engine/
 
 # --- build ---
-FROM rust:1.97.0-bookworm AS builder
+FROM rust:1.97.1-bookworm AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \

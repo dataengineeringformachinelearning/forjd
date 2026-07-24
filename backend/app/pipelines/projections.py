@@ -1,7 +1,7 @@
 """Prefect flows for durable projections and replay (soft-fail).
 
 Config-driven: resolves YAML workflow → processor registry (Rust preferred,
-Pathway fallback). Same path for catch-up ticks and any other SaaS.
+pure-Python fallback). Same path for catch-up ticks and any other SaaS.
 """
 
 from __future__ import annotations

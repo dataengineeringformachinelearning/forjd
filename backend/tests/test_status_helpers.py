@@ -5,7 +5,9 @@ from __future__ import annotations
 import unittest
 from datetime import UTC, date, datetime
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
+from app.services import status as status_svc
 from app.services.status import (
     _day_status,
     _fill_uptime_history,
@@ -136,6 +138,90 @@ class TestUptimeHistoryHelpers(unittest.TestCase):
             "https://probe.example",
         )
         self.assertIsNone(_resolve_probe_url(None, "Primary API"))
+
+
+class TestStatusTelemetryTruthfulness(unittest.IsolatedAsyncioTestCase):
+    async def test_unprobed_service_does_not_inherit_healthy_page_metrics(self) -> None:
+        today = datetime.now(UTC).date()
+        probe_rows = [
+            {
+                "service_id": "healthy-service",
+                "day": today,
+                "active": 10,
+                "total": 10,
+                "p99_ms": 5.0,
+            }
+        ]
+        with (
+            patch.object(
+                status_svc,
+                "_probe_day_rollups",
+                new=AsyncMock(return_value=probe_rows),
+            ),
+            patch.object(
+                status_svc,
+                "_analytics_kpis_24h",
+                new=AsyncMock(return_value={"total_requests": 100, "p99_latency": 99.0}),
+            ),
+        ):
+            telemetry = await status_svc._public_page_telemetry(
+                MagicMock(),
+                tenant_id="11111111-1111-1111-1111-111111111111",
+                service_ids=["healthy-service", "unprobed-service"],
+            )
+
+        self.assertEqual(telemetry["overall_uptime"], 100.0)
+        self.assertEqual(telemetry["service_sla"]["healthy-service"], 100.0)
+        self.assertIsNone(telemetry["service_sla"]["unprobed-service"])
+        self.assertIsNone(telemetry["service_latency"]["unprobed-service"])
+        self.assertTrue(
+            all(
+                point["status"] == "no_data"
+                for point in telemetry["service_history"]["unprobed-service"]
+            )
+        )
+
+    async def test_public_intelligence_uses_norse_and_classical_families_only(self) -> None:
+        pool = MagicMock()
+        pool.fetch = AsyncMock(return_value=[{"threats_detected": 2, "error_rate_percent": 0.0}])
+        temporal = {
+            "spiking_temporal_forecast": 37.5,
+            "temporal_status": "ready",
+            "temporal_backend": "norse_lif",
+            "temporal_sample_count": 48,
+            "temporal_scored_at": "2026-07-23T12:00:00+00:00",
+            "uses_norse": True,
+        }
+        classical = [
+            {"score": 0.8, "is_anomaly": True},
+            {"score": 0.2, "is_anomaly": False},
+        ]
+        with (
+            patch(
+                "app.services.ml.store.latest_temporal_signal",
+                new=AsyncMock(return_value=temporal),
+            ) as latest,
+            patch(
+                "app.services.ml.store.list_recent_scores",
+                new=AsyncMock(return_value=classical),
+            ) as scores,
+        ):
+            intelligence = await status_svc._public_page_intelligence(
+                pool,
+                tenant_id="11111111-1111-1111-1111-111111111111",
+            )
+
+        self.assertEqual(intelligence["spiking_temporal_forecast"], 37.5)
+        self.assertEqual(intelligence["temporal_backend"], "norse_lif")
+        self.assertTrue(intelligence["uses_norse"])
+        self.assertEqual(intelligence["threat_anomaly_score"], 0.8)
+        self.assertEqual(intelligence["threat_suspicious_ratio"], 0.5)
+        self.assertEqual(intelligence["threats_detected_24h"], 2)
+        self.assertEqual(
+            str(latest.await_args.kwargs["tenant_id"]),
+            "11111111-1111-1111-1111-111111111111",
+        )
+        self.assertEqual(scores.await_args.kwargs["family"], "classical_anomaly")
 
 
 if __name__ == "__main__":

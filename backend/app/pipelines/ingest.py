@@ -1,7 +1,7 @@
 """Prefect flow for configurable sealed-stream ingest.
 
 Loads a WorkflowDefinition (YAML under ``backend/workflows/``), runs the
-registered processor (Rust sealed pipeline preferred; Pathway/Python fallback),
+registered processor (Rust sealed pipeline preferred; pure-Python fallback),
 and returns result rows for Supabase ``stream_results``.
 
 Use-case agnostic: any SaaS select a workflow via ``content_type`` /

@@ -1,7 +1,7 @@
 """Event replay + projection DLQ (checkpointed reliability, E2EE-safe).
 
 Replays sealed-event *metadata* through configured workflows. Ciphertext is
-never loaded into Pathway. Failures land in projection_dlq for retry.
+never loaded into processors. Failures land in projection_dlq for retry.
 """
 
 from __future__ import annotations

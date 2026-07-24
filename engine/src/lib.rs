@@ -491,7 +491,6 @@ mod python_api {
         m.add_class::<SummarizeResultPy>()?;
         m.add("process_event", m.getattr("process_event_py")?)?;
         m.add("summarize_values", m.getattr("summarize_values_py")?)?;
-        m.add("run_sealed_pipeline", m.getattr("run_sealed_pipeline_py")?)?;
         m.add("SCHEMA_VERSION", SCHEMA_VERSION)?;
         m.add("MAX_VALUES", MAX_VALUES)?;
         Ok(())

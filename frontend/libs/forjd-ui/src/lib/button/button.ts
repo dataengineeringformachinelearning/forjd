@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 /**
  * First forjd-ui primitive — keep it tiny on purpose.
@@ -10,6 +10,7 @@ import { Component, input } from '@angular/core';
  */
 @Component({
   selector: 'forjd-button',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [NgTemplateOutlet],
   template: `
     <ng-template #label><ng-content /></ng-template>

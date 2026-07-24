@@ -156,7 +156,7 @@ async def remote_version() -> dict[str, Any] | None:
         return {"ok": False, "error": str(exc)}
 
 
-# --- Sealed-metadata pipeline (sync; used from Pathway/Prefect hot path) ---
+# --- Sealed-metadata pipeline (sync; used from the Prefect hot path) ---
 def run_sealed_pipeline_sync(
     events: list[dict[str, Any]],
     *,

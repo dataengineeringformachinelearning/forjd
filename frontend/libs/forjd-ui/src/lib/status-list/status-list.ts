@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 export interface FjStatusItem {
   name: string;
@@ -12,6 +12,7 @@ export interface FjStatusItem {
  */
 @Component({
   selector: 'forjd-status-list',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <ul class="fj-status-list">
       @for (item of items(); track item.name) {

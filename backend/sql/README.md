@@ -3,7 +3,8 @@
 Apply with `backend/scripts/apply_sql_migrations.py`. It discovers the
 contiguous `003+` sequence, runs each file in its own transaction, fails fast,
 and records/checks SHA-256 in `public.forjd_schema_migrations`. The verifier
-requires ledger/checksum parity through every current file. Existing databases
+requires exact ledger/checksum parity through every current file; both tools
+reject migration versions unknown to the checked-out release. Existing databases
 that were maintained only through the SQL editor must run the script once; the
 idempotent migrations are reapplied to backfill the ledger.
 
@@ -13,7 +14,7 @@ idempotent migrations are reapplied to backfill the ledger.
 | `historical/002_anomaly_embeddings.sql` | Archived — unused; prefer tenant-scoped `/api/v1/ml` + `016` |
 | `003_secure_tenancy.sql` | **Production path** — tenants, RLS, E2EE telemetry, vector embeddings |
 | `004_crypto_sessions.sql` | X25519 public-key session directory (private keys never stored) |
-| `005_stream_results.sql` | Pathway/Prefect outputs (metadata scores; RLS) |
+| `005_stream_results.sql` | Rust/Python/Prefect outputs (metadata scores; RLS) |
 | `006_universal_stream.sql` | `event_type` / `workflow_id`, `use_cases`, `sealed_events` view |
 | `007_projections.sql` | Durable projections, checkpoints, DLQ |
 | `008_status_pages.sql` | Status pages / services / incidents (public when published) |
@@ -35,11 +36,13 @@ idempotent migrations are reapplied to backfill the ledger.
 | `024_durable_ingest_processing.sql` | Atomic sealed-acceptance processing receipts, immutable workflow snapshots, leased restart recovery, and status state |
 | `025_siem_soar_replay_continuation.sql` | Immutable completed SIEM/correlation result snapshots and indexed SOAR continuation recovery |
 | `026_partner_provisions.sql` | Idempotent partner (DEML) tenant + service-account provision ledger |
+| `027_partner_provision_isolation.sql` | Partner uniqueness, credential/tenant + revocation integrity, and active DEML `ml:write` upgrade |
+| `028_status_child_tenant_integrity.sql` | Validated page/service/probe tenant FKs plus latest-observation readiness index |
 
-## Secure path (`003`–`026`)
+## Secure path (`003`–`028`)
 
 1. Enable extensions **vector** and **pgcrypto** (Dashboard → Database → Extensions).
-2. Run `uv run python scripts/apply_sql_migrations.py` for `003` → `026` and
+2. Run `uv run python scripts/apply_sql_migrations.py` for `003` → `028` and
    confirm the migration ledger/checksums.
 3. Realtime: `015`/`016` add `stream_results`, `telemetry_events`, `ml_scores`, `training_runs` when publication exists.
 4. Set backend env: `SUPABASE_URL`, `SUPABASE_JWT_SECRET` (or rely on JWKS), `POSTGRES_DSN` (Supabase only — not Neon).
@@ -68,7 +71,7 @@ idempotent migrations are reapplied to backfill the ledger.
 | Double Ratchet | Client-owned forward secrecy; `ratchet_header` opaque to server |
 | `telemetry_events.ciphertext` | Encrypted payload only (server-blind) |
 | `crypto_sessions` | Public keys for peer discovery — never private keys |
-| Pathway | Rolls up metadata + size anomalies, never decrypts |
+| Rust/Python processors | Roll up metadata + size anomalies, never decrypt |
 | `stream_results` | Consumer-facing scores/rollups (no ciphertext) |
 | `projection_feed` | View over `stream_results` for Realtime / polling clients |
 | `use_cases` | Optional DB catalog of workflows |

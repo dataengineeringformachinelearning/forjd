@@ -31,10 +31,12 @@ def fit(
     from sklearn.ensemble import IsolationForest
     from sklearn.svm import OneClassSVM
 
+    if tenant_id and not features:
+        raise ValueError("real features are required for tenant-scoped classical anomaly fit")
     if features:
         x = np.asarray(features, dtype=np.float32)
-        if x.ndim != 2 or x.shape[0] < 8:
-            raise ValueError("features must be a 2-d matrix with >= 8 rows")
+        if x.ndim != 2 or x.shape[0] < 8 or x.shape[1] == 0 or not np.isfinite(x).all():
+            raise ValueError("features must be a finite 2-d matrix with >= 8 rows")
     else:
         x, _ = mlc.synthetic_feature_matrix()
 
@@ -84,6 +86,8 @@ def score(
     x = np.asarray(features, dtype=np.float32)
     if x.ndim == 1:
         x = x.reshape(1, -1)
+    if x.ndim != 2 or x.shape[1] == 0 or not np.isfinite(x).all():
+        raise ValueError("features must be a finite non-empty 2-d matrix")
     paths = _paths(tenant_id)
     if not paths["isolation_forest"].exists() or not paths["one_class_svm"].exists():
         raise RuntimeError("classical anomaly models not fitted; POST .../fit first")

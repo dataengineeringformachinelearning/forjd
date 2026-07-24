@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from app.services.ml import (
@@ -13,6 +15,7 @@ from app.services.ml import (
     threat_ensemble,
     transformer_anomaly,
 )
+from app.services.ml import common as mlc
 from app.services.ml.common import sklearn_available
 from app.services.ml.lstm_autoencoder import torch_available
 
@@ -22,6 +25,13 @@ FitFn = Callable[..., dict[str, Any]]
 ScoreFn = Callable[..., dict[str, Any]]
 
 
+def _lstm_path(tenant_id: object) -> Path:
+    value = str(tenant_id or "").strip()
+    if not value:
+        raise ValueError("tenant_id is required for lstm_autoencoder")
+    return mlc.model_dir("lstm_autoencoder", tenant_id=value) / "lstm_autoencoder.pt"
+
+
 def _lstm_fit(**kwargs: Any) -> dict[str, Any]:
     """Thin wrapper so LSTM-AE participates in the unified registry."""
     from app.core.config import settings
@@ -29,17 +39,21 @@ def _lstm_fit(**kwargs: Any) -> dict[str, Any]:
 
     seq_len = int(kwargs.get("seq_len") or settings.ML_SEQ_LEN)
     epochs = int(kwargs.get("epochs") or 8)
+    path = _lstm_path(kwargs.get("tenant_id"))
     series = kwargs.get("series")
-    if series:
-        windows = lae.windows_from_series(list(series), seq_len)
-    else:
-        windows = lae.synthetic_normal_windows(seq_len=seq_len)
+    if not series:
+        raise ValueError("real series is required for tenant-scoped lstm_autoencoder fit")
+    values = [float(value) for value in series]
+    if len(values) < seq_len:
+        raise ValueError(f"series must contain at least {seq_len} points")
+    if not all(math.isfinite(value) for value in values):
+        raise ValueError("series must contain only finite values")
+    windows = lae.windows_from_series(values, seq_len)
     model = lae.build_model(
         hidden_dim=settings.ML_HIDDEN_DIM,
         latent_dim=settings.ML_LATENT_DIM,
     )
     loss = lae.fit_model(model, windows, epochs=epochs)
-    path = __import__("pathlib").Path(settings.ML_MODEL_DIR) / f"{settings.ML_MODEL_VERSION}.pt"
     lae.save_checkpoint(
         model,
         path,
@@ -65,7 +79,7 @@ def _lstm_score(**kwargs: Any) -> dict[str, Any]:
     series = kwargs.get("series") or []
     if not series:
         raise ValueError("series required for lstm_autoencoder score")
-    path = __import__("pathlib").Path(settings.ML_MODEL_DIR) / f"{settings.ML_MODEL_VERSION}.pt"
+    path = _lstm_path(kwargs.get("tenant_id"))
     if not path.exists():
         raise RuntimeError("lstm_autoencoder not fitted")
     model, meta = lae.load_checkpoint(
@@ -74,7 +88,12 @@ def _lstm_score(**kwargs: Any) -> dict[str, Any]:
         latent_dim=settings.ML_LATENT_DIM,
     )
     seq_len = int(meta.get("seq_len") or settings.ML_SEQ_LEN)
-    window = lae.pad_or_truncate(list(series), seq_len)
+    values = [float(value) for value in series]
+    if len(values) < seq_len:
+        raise ValueError(f"series must contain at least {seq_len} points")
+    if not all(math.isfinite(value) for value in values):
+        raise ValueError("series must contain only finite values")
+    window = lae.pad_or_truncate(values[-seq_len:], seq_len)
     result = lae.score_window(model, window)
     return {
         "ok": True,

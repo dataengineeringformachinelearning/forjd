@@ -18,7 +18,7 @@ ProcessorFn = Callable[[list[dict[str, Any]], WorkflowDefinition], dict[str, Any
 
 # --- Registered processors (extend without touching ingest routes) ---
 REGISTRY: dict[str, ProcessorFn] = {
-    # Rust sealed pipeline with Pathway/Python soft-fallback.
+    # Rust sealed pipeline with dependency-free Python soft-fallback.
     "sealed_metadata": sealed_metadata.process,
 }
 

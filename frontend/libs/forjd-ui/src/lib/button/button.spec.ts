@@ -36,7 +36,9 @@ describe('FjButton projected label', () => {
     const { Component } = await import('@angular/core');
     @Component({
       imports: [FjButton],
-      template: `<forjd-button variant="primary" href="https://backend.forjd.co/docs">API docs</forjd-button>`,
+      template: `<forjd-button variant="primary" href="https://backend.forjd.co/docs"
+        >API docs</forjd-button
+      >`,
     })
     class Host {}
 

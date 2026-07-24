@@ -571,7 +571,7 @@ async def run_projection_core(
         try:
             # Briefly fence canonical acceptance while taking the cursor
             # snapshot. The long-running processor lease remains separate, so
-            # ingest never waits on Rust/Pathway/Prefect execution.
+            # ingest never waits on Rust/Python/Prefect execution.
             async with conn.transaction():
                 await conn.fetchval(
                     "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",

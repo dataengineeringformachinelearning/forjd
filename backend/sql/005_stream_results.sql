@@ -1,5 +1,5 @@
 -- =============================================================================
--- FORJD stream processing results (Pathway → Supabase; consumer-readable)
+-- FORJD stream processing results (processors → Supabase; consumer-readable)
 -- =============================================================================
 -- Apply after 003_secure_tenancy.sql.
 --
@@ -10,7 +10,7 @@
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
--- Pathway / Prefect outputs for downstream consumers (dashboards, SaaS apps)
+-- Rust / Python / Prefect outputs for downstream consumers (dashboards, SaaS apps)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.stream_results (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

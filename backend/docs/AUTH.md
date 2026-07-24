@@ -325,6 +325,19 @@ response bodies.
 - Global `API_KEY` (if set) is a platform gate only — not a tenant credential.
 - Partner bootstrap: `POST /api/v1/partner/provision` uses `FORJD_PROVISION_TOKEN`
   (not `fjsvc_`) so DEML can auto-mint per-account tenants without end-user FORJD access.
+  DEML provisions an explicit least-privilege runtime profile that includes
+  `ml:write`; generic service-account defaults remain read-only for ML.
+- Provision idempotency is bound to `(partner, external_ref)`. Repeating a
+  request returns the same tenant without exposing its token; an authorized
+  `remint_if_exists: true` request revokes and replaces the runtime credential.
+  Remint is an intentional rotation, not a replay-safe read: callers must
+  serialize it per external identity and retain only the newest returned token.
+- The provision ledger binds `(service_account_id, tenant_id)` to the same
+  tenant at the database boundary and permits only one external provision
+  identity and runtime credential per provisioned tenant. Required audit
+  insertion commits atomically with tenant/account creation or remint.
+- Active service accounts must retain valid opaque or JWT credential material;
+  revoked rows may clear token hashes.
 - Rust `daemon_api_keys` remain a separate edge for `forjd-engine` ingest.
 - Audit actors: humans = Supabase `sub`; services = `svc:<service_accounts.id>`.
 
@@ -339,10 +352,14 @@ domain scopes). `tenants:erase` is **allowlisted but opt-in** (`sql/019` /
 Apply `sql/021` for sealed-ingest/projection/replay reliability state, `sql/022`
 for report documents and scopes, `sql/023` for durable exports, `sql/024`
 for durable ingest-processing recovery, `sql/025` for immutable SIEM/SOAR
-replay snapshots and continuation recovery, and `sql/026` for partner provision /
-service-principal cutover support. Mint or rotate opaque `fjsvc_` tokens
-after `017`–`026` (`scripts/remint_service_account.sh`; erase is opt-in via
+replay snapshots and continuation recovery, `sql/026` for the partner provision
+ledger, `sql/027` for partner-qualified isolation, and `sql/028` for composite
+status page/service/probe tenant integrity. Mint or rotate opaque `fjsvc_` tokens
+after `017`–`028` (`scripts/remint_service_account.sh`; erase is opt-in via
 `FORJD_INCLUDE_ERASE=1`) — existing rows keep previously stored scopes until
-rotated. Durable partner deletion: `POST /api/v1/tenants/{id}/erase`.
+rotated, except `sql/027` upgrades every active, non-revoked DEML credential
+identified by normalized subprocessor or provision ledger with the explicit
+`ml:write` permission in place. Durable partner deletion:
+`POST /api/v1/tenants/{id}/erase`.
 Full deploy sequence: [`docs/PRODUCTION_DEPLOY.md`](../../docs/PRODUCTION_DEPLOY.md) and
 [`docs/PRODUCTION_CHECKLIST.md`](../../docs/PRODUCTION_CHECKLIST.md).

@@ -55,7 +55,10 @@ async def _check(conn: Any) -> list[tuple[str, bool, str]]:
         "stream_results",
         "projection_checkpoints",
         "projection_dlq",
+        "status_incidents",
         "status_pages",
+        "status_services",
+        "health_probe_observations",
         "service_accounts",
         "embedding_vectors",
         "security_signals",
@@ -64,6 +67,7 @@ async def _check(conn: Any) -> list[tuple[str, bool, str]]:
         "playbook_action_results",
         "tenant_erase_receipts",
         "ingest_processing_batches",
+        "partner_provisions",
         "forjd_schema_migrations",
     )
     for table in needed:
@@ -89,12 +93,17 @@ async def _check(conn: Any) -> list[tuple[str, bool, str]]:
         "embedding_vectors",
         "projection_checkpoints",
         "projection_dlq",
+        "status_incidents",
+        "status_pages",
+        "status_services",
+        "health_probe_observations",
         "security_signals",
         "correlation_receipts",
         "playbook_runs",
         "playbook_action_results",
         "tenant_erase_receipts",
         "ingest_processing_batches",
+        "partner_provisions",
     )
     for table in rls_tables:
         enabled = await conn.fetchval(
@@ -178,7 +187,7 @@ async def _check(conn: Any) -> list[tuple[str, bool, str]]:
                 )
             )
 
-    for index in (
+    required_indexes = (
         "stream_results_projection_result_uidx",
         "projection_dlq_open_dedupe_uidx",
         "telemetry_events_projector_cursor_idx",
@@ -191,16 +200,87 @@ async def _check(conn: Any) -> list[tuple[str, bool, str]]:
         "export_jobs_artifact_cleanup_idx",
         "security_signals_processing_idx",
         "playbook_runs_continuation_ready_idx",
-    ):
-        exists = await conn.fetchval(
-            """
-            SELECT EXISTS (
-              SELECT 1 FROM pg_indexes
-              WHERE schemaname = 'public' AND indexname = $1
+        "partner_provisions_partner_external_ref_uidx",
+        "partner_provisions_tenant_uidx",
+        "partner_provisions_service_account_uidx",
+        "service_accounts_id_tenant_uidx",
+        "health_probe_observations_service_observed_idx",
+    )
+    index_contracts = {
+        "partner_provisions_partner_external_ref_uidx": (
+            "partner_provisions",
+            ("partner", "external_ref"),
+            2,
+            True,
+        ),
+        "partner_provisions_tenant_uidx": (
+            "partner_provisions",
+            ("tenant_id",),
+            1,
+            True,
+        ),
+        "partner_provisions_service_account_uidx": (
+            "partner_provisions",
+            ("service_account_id",),
+            1,
+            True,
+        ),
+        "service_accounts_id_tenant_uidx": (
+            "service_accounts",
+            ("id", "tenant_id"),
+            2,
+            True,
+        ),
+        "health_probe_observations_service_observed_idx": (
+            "health_probe_observations",
+            ("service_id", "observed_at DESC", "is_active"),
+            2,
+            False,
+        ),
+    }
+    for index in required_indexes:
+        if contract := index_contracts.get(index):
+            table, columns, key_columns, unique = contract
+            exists = await conn.fetchval(
+                """
+                SELECT EXISTS (
+                  SELECT 1
+                  FROM pg_index i
+                  JOIN pg_class c ON c.oid = i.indexrelid
+                  JOIN pg_namespace n ON n.oid = c.relnamespace
+                  WHERE n.nspname = 'public'
+                    AND c.relname = $1
+                    AND i.indrelid = ('public.' || $2)::regclass
+                    AND i.indisunique = $3
+                    AND i.indisvalid
+                    AND i.indisready
+                    AND i.indpred IS NULL
+                    AND i.indexprs IS NULL
+                    AND i.indnkeyatts = $4
+                    AND i.indnatts = CARDINALITY($5::text[])
+                    AND ARRAY(
+                      SELECT pg_get_indexdef(i.indexrelid, ordinal, FALSE)
+                      FROM generate_series(1, i.indnatts) AS ordinal
+                      ORDER BY ordinal
+                    ) = $5::text[]
+                )
+                """,
+                index,
+                table,
+                unique,
+                key_columns,
+                list(columns),
             )
-            """,
-            index,
-        )
+        else:
+            exists = await conn.fetchval(
+                """
+                SELECT EXISTS (
+                  SELECT 1 FROM pg_indexes
+                  WHERE schemaname = 'public' AND indexname = $1
+                )
+                """,
+                index,
+            )
         results.append((f"index_{index}", bool(exists), "ok" if exists else "MISSING"))
 
     for trigger in (
@@ -230,6 +310,158 @@ async def _check(conn: Any) -> list[tuple[str, bool, str]]:
             )
         )
 
+    for table, constraint, constraint_type in (
+        ("service_accounts", "service_accounts_auth_or_opaque", "c"),
+        ("partner_provisions", "partner_provisions_partner_format", "c"),
+        ("partner_provisions", "partner_provisions_service_account_tenant_fkey", "f"),
+        ("status_pages", "status_pages_id_tenant_key", "u"),
+        ("status_services", "status_services_id_tenant_key", "u"),
+        ("status_services", "status_services_page_tenant_fkey", "f"),
+        ("status_incidents", "status_incidents_page_tenant_fkey", "f"),
+        (
+            "health_probe_observations",
+            "health_probe_observations_service_tenant_fkey",
+            "f",
+        ),
+    ):
+        exists = await conn.fetchval(
+            """
+            SELECT EXISTS (
+              SELECT 1
+              FROM pg_constraint c
+              JOIN pg_class t ON t.oid = c.conrelid
+              JOIN pg_namespace n ON n.oid = t.relnamespace
+              WHERE n.nspname = 'public'
+                AND t.relname = $1
+                AND c.conname = $2
+                AND c.contype = $3::"char"
+                AND c.convalidated
+            )
+            """,
+            table,
+            constraint,
+            constraint_type,
+        )
+        results.append(
+            (
+                f"constraint_{constraint}",
+                bool(exists),
+                "validated" if exists else "MISSING",
+            )
+        )
+
+    # --- Cross-table tenant and provision data contracts ---
+    contract_queries = (
+        (
+            "contract_partner_provision_duplicates",
+            """
+            SELECT COUNT(*)
+            FROM (
+              SELECT partner, external_ref
+              FROM public.partner_provisions
+              GROUP BY partner, external_ref
+              HAVING COUNT(*) > 1
+            ) AS duplicates
+            """,
+        ),
+        (
+            "contract_partner_provision_tenant_mismatch",
+            """
+            SELECT COUNT(*)
+            FROM public.partner_provisions AS provision
+            LEFT JOIN public.service_accounts AS account
+              ON account.id = provision.service_account_id
+             AND account.tenant_id = provision.tenant_id
+            WHERE account.id IS NULL
+            """,
+        ),
+        (
+            "contract_partner_provision_tenant_aliases",
+            """
+            SELECT COUNT(*)
+            FROM (
+              SELECT tenant_id
+              FROM public.partner_provisions
+              GROUP BY tenant_id
+              HAVING COUNT(*) > 1
+            ) AS aliases
+            """,
+        ),
+        (
+            "contract_partner_provision_credential_aliases",
+            """
+            SELECT COUNT(*)
+            FROM (
+              SELECT service_account_id
+              FROM public.partner_provisions
+              GROUP BY service_account_id
+              HAVING COUNT(*) > 1
+            ) AS aliases
+            """,
+        ),
+        (
+            "contract_status_service_tenant_mismatch",
+            """
+            SELECT COUNT(*)
+            FROM public.status_services AS child
+            LEFT JOIN public.status_pages AS parent
+              ON parent.id = child.page_id
+             AND parent.tenant_id = child.tenant_id
+            WHERE parent.id IS NULL
+            """,
+        ),
+        (
+            "contract_status_incident_tenant_mismatch",
+            """
+            SELECT COUNT(*)
+            FROM public.status_incidents AS child
+            LEFT JOIN public.status_pages AS parent
+              ON parent.id = child.page_id
+             AND parent.tenant_id = child.tenant_id
+            WHERE parent.id IS NULL
+            """,
+        ),
+        (
+            "contract_health_probe_tenant_mismatch",
+            """
+            SELECT COUNT(*)
+            FROM public.health_probe_observations AS child
+            LEFT JOIN public.status_services AS parent
+              ON parent.id = child.service_id
+             AND parent.tenant_id = child.tenant_id
+            WHERE parent.id IS NULL
+            """,
+        ),
+        (
+            "contract_active_deml_ml_write",
+            """
+            SELECT COUNT(*)
+            FROM public.service_accounts AS account
+            WHERE account.is_active
+              AND account.revoked_at IS NULL
+              AND NOT ('ml:write' = ANY(account.scopes))
+              AND (
+                LOWER(BTRIM(COALESCE(account.subprocessor, ''))) = 'deml'
+                OR EXISTS (
+                  SELECT 1
+                  FROM public.partner_provisions AS provision
+                  WHERE provision.service_account_id = account.id
+                    AND LOWER(BTRIM(provision.partner)) = 'deml'
+                )
+              )
+            """,
+        ),
+    )
+    for name, query in contract_queries:
+        violations = int(await conn.fetchval(query) or 0)
+        results.append(
+            (
+                name,
+                violations == 0,
+                "ok" if violations == 0 else f"{violations} violation(s)",
+            )
+        )
+
     # --- Migration ledger: every local migration must match its applied checksum ---
     migration_paths: dict[int, Path] = {}
     for path in _SQL_DIR.glob("*.sql"):
@@ -245,10 +477,13 @@ async def _check(conn: Any) -> list[tuple[str, bool, str]]:
             """
             SELECT version, name, checksum_sha256
             FROM public.forjd_schema_migrations
+            WHERE version >= 3
             ORDER BY version
             """
         )
         applied = {int(row["version"]): row for row in applied_rows}
+        for version in sorted(set(applied) - set(migration_paths)):
+            ledger_errors.append(f"{version:03d}:unknown")
         for version, path in sorted(migration_paths.items()):
             row = applied.get(version)
             checksum = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -357,6 +592,8 @@ async def main() -> int:
         "policy_",
         "column_",
         "index_",
+        "constraint_",
+        "contract_",
         "migration_ledger",
         "publication_supabase_realtime",
         "realtime_",

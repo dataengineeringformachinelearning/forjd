@@ -136,7 +136,7 @@ async def list_events(
     return {"ok": True, "tenant_id": str(tenant_id), "events": rows}
 
 
-# --- Stream results (Pathway/Rust scores; no ciphertext) ---
+# --- Stream results (Rust/Python scores; no ciphertext) ---
 @router.get(
     "/results",
     summary="List stream_results for a tenant",
@@ -157,7 +157,7 @@ async def list_results(
     ),
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """List Pathway/Prefect/Rust stream_results for a tenant (any SaaS consumer)."""
+    """List Rust/Python/Prefect stream_results for a tenant (any SaaS consumer)."""
     pool = require_db_pool(request)
     rows = await ingest_svc.list_stream_results(
         pool,

@@ -38,7 +38,13 @@ class TestAnalyticsFormulas(unittest.TestCase):
         self.assertEqual(_bucket_label("2026-07-19T14:00:00+00:00"), "14:00")
 
     def test_spiking_forecast_empty_and_rising(self) -> None:
-        self.assertEqual(_spiking_temporal_forecast([]), 0.0)
+        self.assertIsNone(_spiking_temporal_forecast([]))
+        # No threat/error pressure is an absent signal, not Spike Risk 0.00.
+        flat = [
+            {"threats_detected": 0, "error_rate_percent": 0.0},
+            {"threats_detected": 0, "error_rate_percent": 0.0},
+        ]
+        self.assertIsNone(_spiking_temporal_forecast(flat))
         # Newest-first (same order as overview SQL).
         rising_desc = [
             {"threats_detected": 6, "error_rate_percent": 25.0},
@@ -84,6 +90,20 @@ class TestAnalyticsOverviewFallback(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(analytics_svc.tenant_svc, "require_tenant_access", new=AsyncMock()),
             patch.object(analytics_svc, "ensure_analytics_schema", new=AsyncMock()),
+            patch.object(
+                analytics_svc,
+                "_latest_temporal_signal",
+                new=AsyncMock(
+                    return_value={
+                        "spiking_temporal_forecast": 42.5,
+                        "temporal_status": "ready",
+                        "temporal_backend": "norse_lif",
+                        "temporal_sample_count": 64,
+                        "temporal_scored_at": "2026-07-20T21:00:00+00:00",
+                        "uses_norse": True,
+                    }
+                ),
+            ),
         ):
             out = await analytics_svc.overview(pool, user=user, tenant_id=tenant_id)
         self.assertEqual(out["total_requests"], 24)
@@ -94,6 +114,10 @@ class TestAnalyticsOverviewFallback(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(out["origin_distribution"][0]["region"], "iad")
         self.assertEqual(out["http_statuses"][0]["status"], "2xx")
         self.assertEqual(out["endpoint_counts"][0]["endpoint"], "analytics.overview")
+        self.assertEqual(out["ces"]["spiking_temporal_forecast"], 42.5)
+        self.assertEqual(out["ces"]["temporal_status"], "ready")
+        self.assertEqual(out["ces"]["temporal_backend"], "norse_lif")
+        self.assertTrue(out["ces"]["uses_norse"])
 
 
 if __name__ == "__main__":

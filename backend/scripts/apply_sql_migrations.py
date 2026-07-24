@@ -46,6 +46,7 @@ NEEDED = [
     "lighthouse_scans",
     "ml_scores",
     "outbox_events",
+    "partner_provisions",
     "playbook_action_results",
     "playbook_actions",
     "playbook_runs",
@@ -134,6 +135,27 @@ async def main() -> int:
         await conn.fetchval(
             "SELECT pg_advisory_lock(hashtextextended('forjd-schema-migrations', 0))"
         )
+
+        local_versions = {version for version, _ in files}
+        applied_versions = {
+            int(row["version"])
+            for row in await conn.fetch(
+                """
+                SELECT version
+                FROM public.forjd_schema_migrations
+                WHERE version >= 3
+                """
+            )
+        }
+        unknown_versions = sorted(applied_versions - local_versions)
+        if unknown_versions:
+            versions = ", ".join(f"{version:03d}" for version in unknown_versions)
+            print(
+                "ERROR database contains migration version(s) newer than or "
+                f"unknown to this checkout: {versions}",
+                file=sys.stderr,
+            )
+            return 1
 
         for version, path in files:
             name = path.name

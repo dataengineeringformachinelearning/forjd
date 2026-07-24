@@ -6,7 +6,7 @@ Ingest path guarantees:
   • Tenant isolation checked before any write (`require_tenant_access`).
   • Envelope fields are validated but **never decrypted**.
   • Workflow YAML/JSON selects processor + thresholds (not product forks).
-  • Prefect + Pathway receive metadata only; results land in `stream_results`.
+  • Prefect + Rust/Python processors receive metadata only; results land in `stream_results`.
 
 How a partner SaaS calls FORJD as a subprocessor
 ----------------------------------------------------

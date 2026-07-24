@@ -2,7 +2,7 @@
 -- FORJD durable projections + checkpoints + DLQ (universal SaaS)
 -- =============================================================================
 -- Apply after 006. Metadata-only projections — never store plaintext/ciphertext.
--- Checkpointed projectors + DLQ via Pathway + Postgres.
+-- Checkpointed projectors + DLQ via Rust/Python processors + Postgres.
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
