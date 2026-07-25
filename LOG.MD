@@ -3,6 +3,7 @@
 > **Engineering journal (historical).** Current architecture lives in `ARCHITECTURE.md` and `AGENTS.md`. Entries below may describe superseded experiments (console PoC, cutover diary, rejected stacks). Do not treat this file as the deploy contract.
 
 ## Log
+- 2026-07-24: Wired first-party GA4 + Clarity + Sentry + Rollbar across forjd.co, ui.forjd.co Storybook, and backend HTML/API (Docker now installs `--group sentry`).
 - 2026-07-24: Premium Void/Operator pass — expanded forjd-ui tokens (motion, elevation, display type), cinematic forjd.co hero, themed ReDoc shell, demoted PDF JSON as report-only.
 - 2026-07-24: Hardened forjd-ui Storybook — added Button link/panel card/token stories, declared `@angular/animations`, and stopped double-loading token SCSS in preview so the iframe stops hanging on clean installs.
 - 2026-07-24: Replaced the backend `/` marketing landing with a minimal FJORD splash (solid background + centered mark). Swagger/ReDoc stay at `/docs` and `/redoc`; product CTAs live on forjd.co.
@@ -213,6 +214,8 @@ Direct dependencies only. Star these on GitHub.
 - [angular](https://github.com/angular/angular) — UI framework (+ CLI / build tooling)
 - [rxjs](https://github.com/ReactiveX/rxjs) — reactive streams
 - [tslib](https://github.com/microsoft/tslib) — TypeScript helpers
+- [sentry-javascript](https://github.com/getsentry/sentry-javascript) — `@sentry/angular` error + log monitoring
+- [rollbar.js](https://github.com/rollbar/rollbar.js) — browser error reporting
 - [vercel/analytics](https://github.com/vercel/analytics) — web analytics
 - [vercel/speed-insights](https://github.com/vercel/speed-insights) — performance insights
 - [storybook](https://github.com/storybookjs/storybook) — component workshop

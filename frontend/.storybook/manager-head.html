@@ -1,0 +1,40 @@
+<!-- First-party analytics for ui.forjd.co (Storybook). -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-FXYK1H70J4"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag() {
+    dataLayer.push(arguments);
+  }
+  gtag('js', new Date());
+  gtag('config', 'G-FXYK1H70J4', {
+    cookie_flags: 'SameSite=None;Secure;Partitioned',
+  });
+</script>
+<script type="text/javascript">
+  (function (c, l, a, r, i, t, y) {
+    c[a] =
+      c[a] ||
+      function () {
+        (c[a].q = c[a].q || []).push(arguments);
+      };
+    t = l.createElement(r);
+    t.async = 1;
+    t.src = 'https://www.clarity.ms/tag/' + i;
+    y = l.getElementsByTagName(r)[0];
+    y.parentNode.insertBefore(t, y);
+  })(window, document, 'clarity', 'script', 'xddv4klojn');
+</script>
+<script
+  src="https://js.sentry-cdn.com/7e7f97b63bbe45fdcf95898127963301.min.js"
+  crossorigin="anonymous"
+></script>
+<script>
+  window.Sentry &&
+    window.Sentry.onLoad(function () {
+      window.Sentry.init({
+        dsn: 'https://7e7f97b63bbe45fdcf95898127963301@o4511437520044032.ingest.us.sentry.io/4511793592336384',
+        environment: 'production',
+        tracesSampleRate: 0.05,
+      });
+    });
+</script>

@@ -40,11 +40,17 @@ _HTML_SHELL_CSP = (
     "base-uri 'none'; "
     "frame-ancestors 'none'; "
     "form-action 'self'; "
-    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net "
+    "https://www.googletagmanager.com https://*.googletagmanager.com "
+    "https://www.clarity.ms https://*.clarity.ms; "
     "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-    "img-src 'self' data: https://cdn.jsdelivr.net; "
+    "img-src 'self' data: https://cdn.jsdelivr.net "
+    "https://c.clarity.ms https://*.clarity.ms "
+    "https://*.google-analytics.com https://*.googletagmanager.com; "
     "font-src 'self' data: https://cdn.jsdelivr.net; "
-    "connect-src 'self'"
+    "connect-src 'self' "
+    "https://*.google-analytics.com https://*.analytics.google.com "
+    "https://*.googletagmanager.com https://*.clarity.ms https://*.bing.com"
 )
 _HTML_SHELL_PATHS = frozenset({"/", "/docs", "/redoc"})
 

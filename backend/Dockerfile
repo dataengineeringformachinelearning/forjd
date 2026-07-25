@@ -24,14 +24,14 @@ COPY backend/pyproject.toml backend/uv.lock backend/README.md /app/
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/root/.cargo/git \
-    uv sync --locked --group ml --group ml-spiking --group storage --no-install-project
+    uv sync --locked --group ml --group ml-spiking --group storage --group sentry --no-install-project
 
 COPY backend/ /app/
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/root/.cargo/git \
-    uv sync --locked --group ml --group ml-spiking --group storage --no-editable
+    uv sync --locked --group ml --group ml-spiking --group storage --group sentry --no-editable
 
 # --- runtime: slim image, non-root via entrypoint, torch/Norse CPU + engine ---
 FROM python:3.12-slim-bookworm AS runtime

@@ -51,6 +51,46 @@
         "description": "Universal secure streaming engine for sealed ingest, configurable workflows, durable projections, analytics, replay, and machine learning."
       }
     </script>
+    <!-- Analytics: deferred until interaction or idle timeout. -->
+    <script>
+      (() => {
+        let loaded = false;
+        const loadAnalytics = () => {
+          if (loaded) return;
+          loaded = true;
+
+          window.dataLayer = window.dataLayer || [];
+          window.gtag = (...args) => window.dataLayer.push(args);
+
+          const googleTag = document.createElement('script');
+          googleTag.async = true;
+          googleTag.src = 'https://www.googletagmanager.com/gtag/js?id=G-XM161XLZN9';
+          document.head.appendChild(googleTag);
+          window.gtag('js', new Date());
+          window.gtag('config', 'G-XM161XLZN9', {
+            cookie_flags: 'SameSite=None;Secure;Partitioned',
+          });
+
+          window.clarity =
+            window.clarity ||
+            ((...args) => {
+              window.clarity.q = window.clarity.q || [];
+              window.clarity.q.push(args);
+            });
+          const clarityTag = document.createElement('script');
+          clarityTag.async = true;
+          clarityTag.src = 'https://www.clarity.ms/tag/xddv4klojn';
+          document.head.appendChild(clarityTag);
+        };
+
+        for (const event of ['pointerdown', 'keydown']) {
+          window.addEventListener(event, loadAnalytics, { once: true, passive: true });
+        }
+        window.addEventListener('load', () => window.setTimeout(loadAnalytics, 5000), {
+          once: true,
+        });
+      })();
+    </script>
   </head>
   <body>
     <app-root></app-root>

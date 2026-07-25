@@ -173,7 +173,7 @@ Config: [`../fly.api.toml`](../fly.api.toml) (repo root — build context must i
 fly apps create forjd-backend
 fly volumes create ml_models --size 1 --region iad -a forjd-backend
 fly secrets set POSTGRES_DSN='…' REDIS_URL='redis://:…@forjd-dragonfly.internal:6379/0' \
-  ENGINE_API_TOKEN='…' ROLLBAR_ACCESS_TOKEN='…' -a forjd-backend
+  ENGINE_API_TOKEN='…' ROLLBAR_ACCESS_TOKEN='…' SENTRY_DSN='…' -a forjd-backend
 fly deploy --config fly.api.toml --ha=false
 ```
 

@@ -58,6 +58,8 @@ class TestSecurityHeadersMiddleware(unittest.IsolatedAsyncioTestCase):
             response = await middleware.dispatch(_request(path), call_next)
             csp = response.headers["Content-Security-Policy"]
             self.assertIn("cdn.jsdelivr.net", csp)
+            self.assertIn("googletagmanager.com", csp)
+            self.assertIn("clarity.ms", csp)
             self.assertIn("style-src", csp)
             self.assertIn("script-src", csp)
             self.assertIn("connect-src 'self'", csp)
