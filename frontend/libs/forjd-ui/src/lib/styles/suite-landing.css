@@ -804,6 +804,23 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   word-break: break-all;
 }
 
+/* Center copy with the single free-plan card */
+:is(.pricing-showcase) {
+  align-items: center;
+}
+
+:is(.pricing-showcase) .pricing-header {
+  align-items: center;
+  text-align: center;
+  width: 100%;
+  max-width: 28rem;
+  margin-inline: auto;
+}
+
+:is(.pricing-showcase) .pricing-header p {
+  max-width: none;
+}
+
 :is(.pricing-cards-container) {
   display: grid;
   justify-items: center;

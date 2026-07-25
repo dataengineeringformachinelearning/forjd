@@ -68,8 +68,9 @@
   font-family: var(--suite-font-sans);
   font-size: var(--_btn-fs);
   font-weight: var(--suite-weight-semibold);
-  letter-spacing: var(--suite-tracking-wide);
+  letter-spacing: var(--suite-tracking-caps);
   line-height: var(--suite-leading-snug);
+  text-transform: uppercase;
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
