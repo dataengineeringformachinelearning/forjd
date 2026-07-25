@@ -19,3 +19,8 @@ body {
   color: var(--fj-text);
   -webkit-font-smoothing: antialiased;
 }
+
+::selection {
+  background: color-mix(in srgb, var(--fj-primary) 35%, transparent);
+  color: var(--fj-text);
+}

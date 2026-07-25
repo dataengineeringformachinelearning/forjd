@@ -1,10 +1,18 @@
 <main class="landing">
-  <section class="landing__hero">
-    <p class="fj-brand">{{ title }}</p>
-    <h1 class="fj-headline">Universal secure streaming engine</h1>
+  <section class="landing__hero" aria-labelledby="forjd-brand">
+    <img
+      class="landing__hero-mark"
+      src="/forjd.svg"
+      width="64"
+      height="64"
+      alt=""
+      aria-hidden="true"
+    />
+    <h1 class="fj-brand landing__brand" id="forjd-brand">{{ title }}</h1>
+    <p class="fj-headline landing__hero-line">Operate at the edge of the data plane</p>
     <p class="fj-lede landing__lede">
-      Sealed end-to-end encrypted ingest, configurable YAML workflows, durable projections, and
-      replay/DLQ — driven by a Rust hot-path and FastAPI control plane.
+      Sealed end-to-end encrypted ingest, YAML workflows, durable projections, and replay/DLQ —
+      Rust hot-path with a FastAPI control plane.
     </p>
     <div class="landing__actions">
       <forjd-button variant="primary" [href]="docsUrl" target="_blank">Swagger</forjd-button>

@@ -6,6 +6,7 @@ import unittest
 
 from app.core.docs_page import render_docs
 from app.core.landing_page import render_landing
+from app.core.redoc_page import render_redoc
 
 
 class TestLandingPage(unittest.TestCase):
@@ -24,6 +25,14 @@ class TestLandingPage(unittest.TestCase):
         self.assertIn("--fj-primary", html)
         self.assertIn("https://forjd.co/", html)
         self.assertIn('href="/redoc"', html)
+        self.assertIn("--fj-font-sans", html)
+
+    def test_redoc_shell_keeps_fjord_theme(self) -> None:
+        html = render_redoc()
+        self.assertIn("redoc", html)
+        self.assertIn("--fj-primary", html)
+        self.assertIn("https://forjd.co/", html)
+        self.assertIn('href="/docs"', html)
 
 
 if __name__ == "__main__":

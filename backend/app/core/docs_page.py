@@ -29,8 +29,8 @@ _DOCS_HTML = """<!doctype html>
     --fj-border: #222222; --fj-text: #f0f0f0; --fj-text-muted: #888888;
     --fj-primary: #00b4ff; --fj-primary-hover: #33c3ff; --fj-success: #00e6a6;
     --fj-warning: #ff9500; --fj-danger: #ff2d55; --fj-radius: 4px;
-    --fj-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
-    --fj-mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --fj-font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --fj-font-mono: ui-monospace, 'SFMono-Regular', Consolas, monospace;
   }}
   html, body {{ margin: 0; background: var(--fj-bg); }}
 
@@ -38,21 +38,21 @@ _DOCS_HTML = """<!doctype html>
   .fj-topbar {{
     display: flex; align-items: center; justify-content: space-between;
     padding: 0.85rem 1.5rem; background: var(--fj-surface);
-    border-bottom: 1px solid var(--fj-border); font-family: var(--fj-sans);
+    border-bottom: 1px solid var(--fj-border); font-family: var(--fj-font-sans);
   }}
   .fj-topbar a {{ text-decoration: none; }}
   .fj-topbar .fj-brand {{
-    font-family: var(--fj-mono); letter-spacing: 0.12em; text-transform: uppercase;
+    font-family: var(--fj-font-mono); letter-spacing: 0.12em; text-transform: uppercase;
     font-size: 0.8rem; color: var(--fj-primary); font-weight: 600;
   }}
-  .fj-topbar nav {{ display: flex; gap: 1rem; }}
+  .fj-topbar nav {{ display: flex; gap: 1rem; flex-wrap: wrap; }}
   .fj-topbar nav a {{
-    color: var(--fj-text-muted); font-size: 0.8125rem; font-family: var(--fj-mono);
+    color: var(--fj-text-muted); font-size: 0.8125rem; font-family: var(--fj-font-mono);
   }}
   .fj-topbar nav a:hover {{ color: var(--fj-primary); }}
 
   /* --- Swagger UI dark overrides (FJORD palette) --- */
-  body {{ font-family: var(--fj-sans); }}
+  body {{ font-family: var(--fj-font-sans); }}
   .swagger-ui {{ color: var(--fj-text); }}
   .swagger-ui .topbar {{ display: none; }}
   .swagger-ui .info .title, .swagger-ui .info h1, .swagger-ui .info h2,
@@ -106,7 +106,7 @@ _DOCS_HTML = """<!doctype html>
   .swagger-ui .copy-to-clipboard {{ background: var(--fj-surface-2); }}
   .swagger-ui .responses-inner {{ color: var(--fj-text-muted); }}
   .swagger-ui .markdown p, .swagger-ui .markdown li, .swagger-ui .renderedMarkdown p {{ color: var(--fj-text-muted); }}
-  .swagger-ui .markdown code, .swagger-ui code {{ color: var(--fj-success); font-family: var(--fj-mono); }}
+  .swagger-ui .markdown code, .swagger-ui code {{ color: var(--fj-success); font-family: var(--fj-font-mono); }}
   .swagger-ui svg:not(:root) {{ fill: var(--fj-text-muted); }}
   .swagger-ui .expand-operation svg, .swagger-ui .expand-methods svg {{ fill: var(--fj-text-muted); }}
   .swagger-ui .loading-container .loading::after {{ color: var(--fj-text-muted); }}

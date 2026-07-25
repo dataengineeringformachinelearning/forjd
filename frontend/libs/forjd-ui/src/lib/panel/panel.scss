@@ -4,14 +4,39 @@
 
 :host([data-variant='section']) {
   border-top: 1px solid var(--fj-border);
-  padding-top: var(--fj-space-6);
+  padding-top: var(--fj-space-8);
 }
 
 :host([data-variant='card']) {
   background: var(--fj-surface);
   border: 1px solid var(--fj-border);
   border-radius: var(--fj-radius);
-  padding: var(--fj-space-4);
+  padding: var(--fj-space-5);
+  position: relative;
+  overflow: hidden;
+  transition:
+    border-color var(--fj-duration-fast) var(--fj-ease),
+    transform var(--fj-duration-fast) var(--fj-ease),
+    background-color var(--fj-duration-fast) var(--fj-ease);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      var(--fj-hairline),
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+
+  &:hover {
+    border-color: var(--fj-border-strong);
+    background: var(--fj-surface-elevated);
+    transform: translateY(-1px);
+  }
 }
 
 .fj-panel-title {
@@ -22,4 +47,14 @@
   letter-spacing: var(--fj-tracking-wide);
   text-transform: uppercase;
   color: var(--fj-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host([data-variant='card']) {
+    transition: none;
+
+    &:hover {
+      transform: none;
+    }
+  }
 }

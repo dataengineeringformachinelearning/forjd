@@ -20,6 +20,7 @@ from app.core.docs_page import render_docs
 from app.core.ingest_body_limit import IngestBodyLimitMiddleware
 from app.core.ingest_limits import ingest_write_paths
 from app.core.landing_page import render_landing
+from app.core.redoc_page import render_redoc
 from app.core.logging import configure_logging
 from app.core.rate_limit import PublicRateLimitMiddleware
 from app.core.request_context import RequestContextMiddleware
@@ -292,6 +293,7 @@ app = FastAPI(
     version=settings.PROJECT_VERSION,
     lifespan=lifespan,
     docs_url=None,
+    redoc_url=None,
 )
 
 # Sentry (SDK-level, before middleware), Rollbar, then security headers, API key, CORS
@@ -331,7 +333,7 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-# --- Root splash + FJORD Swagger docs ---
+# --- Root splash + FJORD Swagger / ReDoc ---
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def landing() -> HTMLResponse:
     """Minimal brand splash — docs live on forjd.co → /docs and /redoc."""
@@ -342,6 +344,12 @@ async def landing() -> HTMLResponse:
 async def docs() -> HTMLResponse:
     """Interactive Swagger docs, restyled with the FJORD palette."""
     return HTMLResponse(content=render_docs())
+
+
+@app.get("/redoc", response_class=HTMLResponse, include_in_schema=False)
+async def redoc() -> HTMLResponse:
+    """ReDoc reference, restyled with the FJORD palette."""
+    return HTMLResponse(content=render_redoc())
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse, include_in_schema=False)

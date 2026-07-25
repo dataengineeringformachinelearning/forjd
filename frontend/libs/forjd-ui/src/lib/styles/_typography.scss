@@ -3,10 +3,22 @@
 .fj-brand {
   margin: 0;
   font-family: var(--fj-font-mono);
-  font-size: var(--fj-text-sm);
+  font-size: clamp(1.25rem, 3.5vw, 1.75rem);
+  font-weight: 600;
   letter-spacing: var(--fj-tracking-brand);
   text-transform: uppercase;
   color: var(--fj-accent);
+  line-height: var(--fj-leading-tight);
+}
+
+.fj-eyebrow {
+  margin: 0;
+  font-family: var(--fj-font-mono);
+  font-size: var(--fj-text-sm);
+  letter-spacing: var(--fj-tracking-caps);
+  text-transform: uppercase;
+  color: var(--fj-gold);
+  font-weight: 500;
 }
 
 .fj-headline {
@@ -16,6 +28,18 @@
   letter-spacing: var(--fj-tracking-tight);
   line-height: var(--fj-leading-tight);
   color: var(--fj-text);
+  text-wrap: balance;
+}
+
+.fj-display {
+  margin: 0;
+  font-size: var(--fj-text-display);
+  font-weight: 700;
+  letter-spacing: var(--fj-tracking-tight);
+  line-height: var(--fj-leading-tight);
+  color: var(--fj-text);
+  text-transform: uppercase;
+  text-wrap: balance;
 }
 
 .fj-lede {
@@ -23,11 +47,13 @@
   color: var(--fj-text-muted);
   font-size: var(--fj-text-base);
   line-height: var(--fj-leading-normal);
-  max-width: 36rem;
+  max-width: var(--fj-readable-max);
+  text-wrap: pretty;
 }
 
 .fj-panel-title {
   margin: 0;
+  font-family: var(--fj-font-mono);
   font-size: var(--fj-text-xs);
   letter-spacing: var(--fj-tracking-wide);
   text-transform: uppercase;

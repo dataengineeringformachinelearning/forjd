@@ -2,7 +2,7 @@
   "meta": {
     "name": "fjord",
     "version": "2.1.0",
-    "description": "Canonical FJORD design tokens — single source of truth for primitives, semantic aliases, and component foundations",
+    "description": "PDF report token set only (not product UI). Live Void/Operator UI tokens live in frontend/libs/forjd-ui/src/lib/styles/_tokens.scss.",
     "consumer": "app/services/pdf_report.py"
   },
   "color": {

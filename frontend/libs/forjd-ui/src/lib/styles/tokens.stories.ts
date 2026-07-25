@@ -3,8 +3,10 @@ import type { Meta, StoryObj } from '@storybook/angular-vite';
 const swatches = [
   ['--fj-bg', 'Void'],
   ['--fj-surface', 'Surface'],
+  ['--fj-surface-elevated', 'Elevated'],
   ['--fj-surface-2', 'Surface 2'],
   ['--fj-border', 'Border'],
+  ['--fj-border-strong', 'Border Strong'],
   ['--fj-primary', 'Primary'],
   ['--fj-success', 'Success'],
   ['--fj-warning', 'Warning'],
