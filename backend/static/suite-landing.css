@@ -794,6 +794,12 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   word-break: break-all;
 }
 
+:is(.pricing-cards-container) {
+  display: grid;
+  justify-items: center;
+  width: 100%;
+}
+
 :is(.pricing-card) {
   padding: var(--suite-space-5);
   border: 1px solid var(--suite-border);
@@ -803,7 +809,10 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   display: flex;
   flex-direction: column;
   gap: var(--suite-space-3);
+  width: 100%;
   max-width: 28rem;
+  justify-self: center;
+  margin-inline: auto;
 }
 
 :is(.pricing-card) h3 {
