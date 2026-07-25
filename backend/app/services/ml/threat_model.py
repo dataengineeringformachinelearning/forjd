@@ -87,9 +87,17 @@ async def ensure_ml_domain_schema(pool: asyncpg.Pool) -> None:
             status TEXT NOT NULL DEFAULT 'completed',
             metrics JSONB NOT NULL DEFAULT '{}'::jsonb,
             artifact_path TEXT,
+            family TEXT NOT NULL DEFAULT '',
+            kind TEXT NOT NULL DEFAULT 'fit',
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
         """
+    )
+    await pool.execute(
+        "ALTER TABLE training_runs ADD COLUMN IF NOT EXISTS family TEXT NOT NULL DEFAULT ''"
+    )
+    await pool.execute(
+        "ALTER TABLE training_runs ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'fit'"
     )
     await pool.execute(
         """

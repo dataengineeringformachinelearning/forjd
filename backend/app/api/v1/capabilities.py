@@ -90,6 +90,7 @@ _REQUIRED_ROUTES: dict[str, tuple[tuple[str, str], ...]] = {
     ),
     "status_pages": (
         ("GET", "/api/v1/status/pages"),
+        ("GET", "/api/v1/status/pages/published"),
         ("POST", "/api/v1/status/pages"),
         ("GET", "/api/v1/status/pages/{page_id}/services"),
     ),

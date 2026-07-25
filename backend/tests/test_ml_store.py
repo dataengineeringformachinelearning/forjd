@@ -189,6 +189,16 @@ class TestScoreHydration(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(score.call_args.kwargs["features"], [newest])
 
 
+class TestPredictedSlaMetrics(unittest.TestCase):
+    def test_extracts_average_sla_and_clamps(self) -> None:
+        self.assertEqual(ml_store.predicted_sla_from_metrics({"average_sla": 97.256}), 97.26)
+        self.assertEqual(ml_store.predicted_sla_from_metrics({"predicted_sla": 101}), 100.0)
+        self.assertEqual(ml_store.predicted_sla_from_metrics({"average_sla": -5}), 0.0)
+        self.assertIsNone(ml_store.predicted_sla_from_metrics({"ces_sla": 99.0}))
+        self.assertIsNone(ml_store.predicted_sla_from_metrics({}))
+        self.assertIsNone(ml_store.predicted_sla_from_metrics(None))
+
+
 class TestTemporalSignal(unittest.TestCase):
     def test_missing_score_is_explicitly_insufficient(self) -> None:
         signal = ml_store.temporal_signal_from_score(None)

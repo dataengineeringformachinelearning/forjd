@@ -185,9 +185,10 @@ async def train_tenant_sla(
     run = await pool.fetchrow(
         """
         INSERT INTO training_runs (
-            tenant_id, model_name, model_version, status, metrics, artifact_path
+            tenant_id, model_name, model_version, status, metrics, artifact_path,
+            family, kind
         )
-        VALUES ($1::uuid, 'sla', $2, 'completed', $3::jsonb, $4)
+        VALUES ($1::uuid, 'sla', $2, 'completed', $3::jsonb, $4, 'sla', 'fit')
         RETURNING id::text, model_name, status, metrics, artifact_path, created_at
         """,
         str(tenant_id),
@@ -196,6 +197,7 @@ async def train_tenant_sla(
             {
                 "loss": final_loss,
                 "average_sla": avg_predicted_sla,
+                "predicted_sla": avg_predicted_sla,
                 "samples": len(x_data),
                 "lr": best_lr,
                 "hidden_size": best_hidden,

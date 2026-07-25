@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -12,6 +13,8 @@ import asyncpg
 
 from app.core.auth import AuthUser
 from app.services import tenants as tenant_svc
+
+logger = logging.getLogger("forjd.analytics")
 
 
 async def ensure_analytics_schema(pool: asyncpg.Pool) -> None:
@@ -300,6 +303,23 @@ async def _latest_temporal_signal(
         return ml_store.empty_temporal_signal(status="error")
 
 
+async def _latest_predicted_sla(
+    pool: asyncpg.Pool,
+    *,
+    tenant_id: UUID,
+) -> float | None:
+    """Explicit SLA forecast from training_runs — never current ces_sla/uptime."""
+    from app.services.ml import store as ml_store
+
+    try:
+        return await ml_store.latest_predicted_sla(pool, tenant_id=tenant_id)
+    except asyncpg.UndefinedTableError:
+        return None
+    except Exception:  # noqa: BLE001 — optional ML store must not hide analytics
+        logger.exception("analytics: predicted SLA lookup failed")
+        return None
+
+
 async def overview(
     pool: asyncpg.Pool,
     *,
@@ -314,6 +334,7 @@ async def overview(
     )
     await ensure_analytics_schema(pool)
     temporal = await _latest_temporal_signal(pool, tenant_id=tenant_id)
+    predicted_sla = await _latest_predicted_sla(pool, tenant_id=tenant_id)
     since = datetime.now(UTC) - timedelta(hours=24)
     rollups = await pool.fetch(
         """
@@ -403,6 +424,8 @@ async def overview(
                 "ces_stability": 0.0,
                 "ces_level": 0.0,
                 **temporal,
+                "predicted_sla": predicted_sla,
+                "average_sla": predicted_sla,
                 "latest_benchmark_score": empty_benchmark["current_scope"].get("score_percent"),
                 "latest_benchmark": empty_benchmark["current_scope"],
             },
@@ -521,6 +544,8 @@ async def overview(
         "ces": {
             **ces,
             **temporal,
+            "predicted_sla": predicted_sla,
+            "average_sla": predicted_sla,
             "latest_benchmark_score": latest_benchmark_score,
             "latest_benchmark": benchmarking["current_scope"],
         },

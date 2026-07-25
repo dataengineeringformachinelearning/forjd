@@ -104,6 +104,11 @@ class TestAnalyticsOverviewFallback(unittest.IsolatedAsyncioTestCase):
                     }
                 ),
             ),
+            patch.object(
+                analytics_svc,
+                "_latest_predicted_sla",
+                new=AsyncMock(return_value=97.25),
+            ),
         ):
             out = await analytics_svc.overview(pool, user=user, tenant_id=tenant_id)
         self.assertEqual(out["total_requests"], 24)
@@ -118,6 +123,8 @@ class TestAnalyticsOverviewFallback(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(out["ces"]["temporal_status"], "ready")
         self.assertEqual(out["ces"]["temporal_backend"], "norse_lif")
         self.assertTrue(out["ces"]["uses_norse"])
+        self.assertEqual(out["ces"]["predicted_sla"], 97.25)
+        self.assertEqual(out["ces"]["average_sla"], 97.25)
 
 
 if __name__ == "__main__":

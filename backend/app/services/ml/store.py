@@ -495,6 +495,57 @@ def empty_temporal_signal(*, status: str = "insufficient_data") -> dict[str, Any
     }
 
 
+def predicted_sla_from_metrics(metrics: dict[str, Any] | None) -> float | None:
+    """Extract an explicit 0–100 SLA prediction from training_run metrics."""
+    if not isinstance(metrics, dict):
+        return None
+    raw = metrics.get("average_sla")
+    if raw is None:
+        raw = metrics.get("predicted_sla")
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(value):
+        return None
+    return round(max(0.0, min(100.0, value)), 2)
+
+
+async def latest_predicted_sla(
+    pool: asyncpg.Pool,
+    *,
+    tenant_id: UUID,
+) -> float | None:
+    """Latest completed SLA regressor prediction (ciphertext-free, 0–100)."""
+    try:
+        row = await pool.fetchrow(
+            """
+            SELECT metrics
+            FROM training_runs
+            WHERE tenant_id = $1::uuid
+              AND status IN ('completed', 'success', 'ok')
+              AND (
+                family = 'sla'
+                OR model_name = 'sla'
+              )
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            str(tenant_id),
+        )
+    except asyncpg.UndefinedTableError:
+        return None
+    if not row:
+        return None
+    metrics = row["metrics"]
+    if isinstance(metrics, str):
+        try:
+            metrics = json.loads(metrics)
+        except json.JSONDecodeError:
+            return None
+    return predicted_sla_from_metrics(metrics if isinstance(metrics, dict) else None)
+
+
 def temporal_signal_from_score(
     row: dict[str, Any] | None,
     *,

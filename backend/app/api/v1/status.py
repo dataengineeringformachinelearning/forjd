@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
-from app.core.auth import AuthUser, get_current_user, pool_from_request
+from app.core.auth import AuthUser, get_current_user, get_optional_user, pool_from_request
 from app.services import status as status_svc
 
 router = APIRouter(prefix="/status", tags=["status"])
@@ -146,10 +146,33 @@ async def remove_page(
     return {"ok": True}
 
 
-# --- Public published page (no auth) ---
+# --- Public published directory (cross-tenant; ciphertext-free KPIs only) ---
+@router.get("/pages/published")
+async def list_published(request: Request) -> dict[str, Any]:
+    """Explore directory: every published page with **its own** tenant stats.
+
+    Does not require auth. Never mixes DEML platform telemetry with a customer
+    tenant such as joealongi.
+    """
+    pages = await status_svc.list_published_pages(_pool(request))
+    return {"ok": True, "pages": pages}
+
+
+# --- Public published page (no auth; service principals may receive tenant_id) ---
 @router.get("/pages/slug/{slug}")
-async def public_page(request: Request, slug: str) -> dict[str, Any]:
-    page = await status_svc.get_published_page(_pool(request), slug=slug)
+async def public_page(
+    request: Request,
+    slug: str,
+    user: AuthUser | None = Depends(get_optional_user),
+) -> dict[str, Any]:
+    # Service principals (DEML BFF) get tenant_id for widget/ingest routing only.
+    # Anonymous browsers never receive tenant_id (enumeration hardening).
+    include_tenant_id = bool(user is not None and user.is_service)
+    page = await status_svc.get_published_page(
+        _pool(request),
+        slug=slug,
+        include_tenant_id=include_tenant_id,
+    )
     if page is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="status page not found")
     return {"ok": True, "page": page}

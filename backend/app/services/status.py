@@ -6,6 +6,7 @@ Managed routes accept human members or scoped service principals
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import re
 from datetime import UTC, date, datetime, timedelta
@@ -148,11 +149,127 @@ async def list_pages(
     return pages
 
 
+async def _hydrate_public_page(
+    pool: asyncpg.Pool,
+    page_row: Any,
+    *,
+    include_tenant_id: bool = False,
+    include_detail: bool = True,
+) -> dict[str, Any]:
+    """Attach per-tenant KPIs/intelligence (never another tenant's stats)."""
+    tenant_id = str(page_row["tenant_id"])
+    page_id = str(page_row["id"])
+    services = await pool.fetch(
+        """
+        SELECT id::text, name, status, description, sort_order, updated_at
+        FROM status_services
+        WHERE page_id = $1::uuid AND tenant_id = $2::uuid
+        ORDER BY sort_order ASC, name ASC
+        """,
+        page_id,
+        tenant_id,
+    )
+    service_ids = [str(s["id"]) for s in services]
+    telemetry = await _public_page_telemetry(
+        pool,
+        tenant_id=tenant_id,
+        service_ids=service_ids,
+    )
+    intelligence = await _public_page_intelligence(pool, tenant_id=tenant_id)
+    overall = _overall_status([s["status"] for s in services])
+    base = _public_page_dict(page_row) if not include_tenant_id else _page_dict(page_row)
+    if include_tenant_id:
+        # BFF-only routing field — public browsers must not receive this.
+        base["tenant_id"] = tenant_id
+    else:
+        base.pop("tenant_id", None)
+    out: dict[str, Any] = {
+        **base,
+        "overall_status": overall,
+        **_kpi_fields(telemetry, intelligence),
+    }
+    if not include_detail:
+        return out
+    incidents = await pool.fetch(
+        """
+        SELECT id::text, title, status, severity, body, started_at, resolved_at
+        FROM status_incidents
+        WHERE page_id = $1::uuid AND tenant_id = $2::uuid
+        ORDER BY started_at DESC
+        LIMIT 20
+        """,
+        page_id,
+        tenant_id,
+    )
+    out["services"] = [
+        {
+            "id": s["id"],
+            "name": s["name"],
+            "status": s["status"],
+            "description": s["description"],
+            "sort_order": s["sort_order"],
+            "updated_at": s["updated_at"].isoformat(),
+            "page_id": page_id,
+            "sla": telemetry["service_sla"].get(str(s["id"])),
+            "uptime_history": telemetry["service_history"].get(
+                str(s["id"]), telemetry["empty_history"]
+            ),
+            "p99_latency": telemetry["service_latency"].get(str(s["id"])),
+        }
+        for s in services
+    ]
+    out["incidents"] = [
+        {
+            "id": i["id"],
+            "title": i["title"],
+            "status": i["status"],
+            "severity": i["severity"],
+            "body": i["body"],
+            "started_at": i["started_at"].isoformat() if i["started_at"] else None,
+            "resolved_at": i["resolved_at"].isoformat() if i["resolved_at"] else None,
+            "page_id": page_id,
+        }
+        for i in incidents
+    ]
+    return out
+
+
+async def list_published_pages(pool: asyncpg.Pool) -> list[dict[str, Any]]:
+    """Cross-tenant published directory — each page uses its own tenant KPIs.
+
+    Used by the public explore surface so platform (DEML) and customer pages
+    (e.g. joealongi) never share analytics/ML rollups.
+    """
+    rows = await pool.fetch(
+        """
+        SELECT id::text, tenant_id::text, slug, title, description,
+               is_published, created_at, updated_at
+        FROM status_pages
+        WHERE is_published = TRUE
+        ORDER BY
+          CASE WHEN slug = 'platform-status' THEN 0 ELSE 1 END,
+          title ASC
+        """
+    )
+    pages: list[dict[str, Any]] = []
+    for row in rows:
+        pages.append(
+            await _hydrate_public_page(
+                pool,
+                row,
+                include_tenant_id=False,
+                include_detail=False,
+            )
+        )
+    return pages
+
+
 # --- Public read by slug ---
 async def get_published_page(
     pool: asyncpg.Pool,
     *,
     slug: str,
+    include_tenant_id: bool = False,
 ) -> dict[str, Any] | None:
     page = None
     for candidate in public_slug_candidates(slug):
@@ -188,66 +305,108 @@ async def get_published_page(
                 page = rows[0]
     if page is None:
         return None
-    services = await pool.fetch(
-        """
-        SELECT id::text, name, status, description, sort_order, updated_at
-        FROM status_services
-        WHERE page_id = $1::uuid
-        ORDER BY sort_order ASC, name ASC
-        """,
-        page["id"],
-    )
-    incidents = await pool.fetch(
-        """
-        SELECT id::text, title, status, severity, body, started_at, resolved_at
-        FROM status_incidents
-        WHERE page_id = $1::uuid
-        ORDER BY started_at DESC
-        LIMIT 20
-        """,
-        page["id"],
-    )
-    service_ids = [str(s["id"]) for s in services]
-    telemetry = await _public_page_telemetry(
+    return await _hydrate_public_page(
         pool,
-        tenant_id=str(page["tenant_id"]),
-        service_ids=service_ids,
+        page,
+        include_tenant_id=include_tenant_id,
+        include_detail=True,
     )
-    intelligence = await _public_page_intelligence(pool, tenant_id=str(page["tenant_id"]))
-    overall = _overall_status([s["status"] for s in services])
+
+
+async def rehome_status_page(
+    pool: asyncpg.Pool,
+    *,
+    slug: str,
+    target_tenant_id: UUID,
+) -> dict[str, Any]:
+    """Move a published page (and its services/incidents) onto another tenant.
+
+    Does **not** move historical stream_results / ML artifacts — those stay on
+    the source tenant. New telemetry for the page must use the target tenant.
+    """
+    page = await pool.fetchrow(
+        """
+        SELECT id::text, tenant_id::text, slug, title
+        FROM status_pages
+        WHERE slug = $1
+        """,
+        slug,
+    )
+    if page is None:
+        raise ValueError("status page not found")
+    source_tenant = str(page["tenant_id"])
+    page_id = str(page["id"])
+    target = str(target_tenant_id)
+    if source_tenant == target:
+        return {
+            "ok": True,
+            "moved": False,
+            "page_id": page_id,
+            "slug": page["slug"],
+            "tenant_id": target,
+            "message": "already on target tenant",
+        }
+    tenant_exists = await pool.fetchval(
+        "SELECT 1 FROM tenants WHERE id = $1::uuid",
+        target,
+    )
+    if not tenant_exists:
+        raise ValueError("target tenant not found")
+
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute(
+                """
+                UPDATE status_services
+                SET tenant_id = $1::uuid
+                WHERE page_id = $2::uuid AND tenant_id = $3::uuid
+                """,
+                target,
+                page_id,
+                source_tenant,
+            )
+            await conn.execute(
+                """
+                UPDATE status_incidents
+                SET tenant_id = $1::uuid
+                WHERE page_id = $2::uuid AND tenant_id = $3::uuid
+                """,
+                target,
+                page_id,
+                source_tenant,
+            )
+            # Probe observations reference service_id + tenant_id; rebind when present.
+            with contextlib.suppress(asyncpg.UndefinedTableError):
+                await conn.execute(
+                    """
+                    UPDATE health_probe_observations AS h
+                    SET tenant_id = $1::uuid
+                    FROM status_services AS s
+                    WHERE h.service_id = s.id
+                      AND s.page_id = $2::uuid
+                      AND h.tenant_id = $3::uuid
+                    """,
+                    target,
+                    page_id,
+                    source_tenant,
+                )
+            await conn.execute(
+                """
+                UPDATE status_pages
+                SET tenant_id = $1::uuid, updated_at = NOW()
+                WHERE id = $2::uuid AND tenant_id = $3::uuid
+                """,
+                target,
+                page_id,
+                source_tenant,
+            )
     return {
-        **_public_page_dict(page),
-        "overall_status": overall,
-        **_kpi_fields(telemetry, intelligence),
-        "services": [
-            {
-                "id": s["id"],
-                "name": s["name"],
-                "status": s["status"],
-                "description": s["description"],
-                "sort_order": s["sort_order"],
-                "updated_at": s["updated_at"].isoformat(),
-                "page_id": page["id"],
-                "sla": telemetry["service_sla"].get(str(s["id"])),
-                "uptime_history": telemetry["service_history"].get(
-                    str(s["id"]), telemetry["empty_history"]
-                ),
-                "p99_latency": telemetry["service_latency"].get(str(s["id"])),
-            }
-            for s in services
-        ],
-        "incidents": [
-            {
-                "id": i["id"],
-                "title": i["title"],
-                "status": i["status"],
-                "severity": i["severity"],
-                "body": i["body"],
-                "started_at": i["started_at"].isoformat(),
-                "resolved_at": i["resolved_at"].isoformat() if i["resolved_at"] else None,
-            }
-            for i in incidents
-        ],
+        "ok": True,
+        "moved": True,
+        "page_id": page_id,
+        "slug": page["slug"],
+        "from_tenant_id": source_tenant,
+        "tenant_id": target,
     }
 
 
@@ -767,6 +926,7 @@ def _kpi_fields(
         "temporal_backend": intelligence["temporal_backend"],
         "temporal_sample_count": intelligence["temporal_sample_count"],
         "temporal_scored_at": intelligence["temporal_scored_at"],
+        "predicted_sla": intelligence["predicted_sla"],
         "threat_anomaly_score": intelligence["threat_anomaly_score"],
         "threat_suspicious_ratio": intelligence["threat_suspicious_ratio"],
         "uses_norse": intelligence["uses_norse"],
@@ -831,8 +991,20 @@ async def _public_page_intelligence(
     except Exception:
         logger.exception("status: public intelligence ml_scores lookup failed")
 
+    predicted_sla: float | None = None
+    try:
+        predicted_sla = await ml_store.latest_predicted_sla(
+            pool,
+            tenant_id=UUID(tenant_id),
+        )
+    except asyncpg.UndefinedTableError:
+        pass
+    except Exception:
+        logger.exception("status: public intelligence predicted SLA lookup failed")
+
     return {
         **temporal,
+        "predicted_sla": predicted_sla,
         "threat_anomaly_score": anomaly_score,
         "threat_suspicious_ratio": suspicious_ratio,
         "threats_detected_24h": threats_24h,

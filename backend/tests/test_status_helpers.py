@@ -181,6 +181,105 @@ class TestStatusTelemetryTruthfulness(unittest.IsolatedAsyncioTestCase):
             )
         )
 
+    async def test_hydrate_uses_page_tenant_not_caller_tenant(self) -> None:
+        """KPIs must bind to the page's tenant_id (DEML vs joealongi isolation)."""
+        platform = {
+            "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            "tenant_id": "11111111-1111-1111-1111-111111111111",
+            "slug": "platform-status",
+            "title": "Platform Status",
+            "description": "DEML",
+            "is_published": True,
+            "created_at": datetime(2026, 7, 19, 12, 0, tzinfo=UTC),
+            "updated_at": datetime(2026, 7, 19, 12, 0, tzinfo=UTC),
+        }
+        customer = {
+            "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+            "tenant_id": "22222222-2222-2222-2222-222222222222",
+            "slug": "joealongi-dev",
+            "title": "joealongi.dev",
+            "description": "Customer",
+            "is_published": True,
+            "created_at": datetime(2026, 7, 19, 12, 0, tzinfo=UTC),
+            "updated_at": datetime(2026, 7, 19, 12, 0, tzinfo=UTC),
+        }
+        pool = MagicMock()
+        pool.fetch = AsyncMock(return_value=[])
+
+        async def _telemetry(_pool: Any, *, tenant_id: str, service_ids: list[str]) -> dict:
+            del service_ids
+            if tenant_id.endswith("1111"):
+                return {
+                    "overall_uptime": 100.0,
+                    "page_history": [],
+                    "p99_latency": 5.0,
+                    "total_requests": 4953,
+                    "service_sla": {},
+                    "service_history": {},
+                    "service_latency": {},
+                    "empty_history": [],
+                }
+            return {
+                "overall_uptime": 99.5,
+                "page_history": [],
+                "p99_latency": 42.0,
+                "total_requests": 12,
+                "service_sla": {},
+                "service_history": {},
+                "service_latency": {},
+                "empty_history": [],
+            }
+
+        async def _intelligence(_pool: Any, *, tenant_id: str) -> dict:
+            if tenant_id.endswith("1111"):
+                return {
+                    "spiking_temporal_forecast": 49.67,
+                    "temporal_status": "ready",
+                    "temporal_backend": "norse_lif",
+                    "temporal_sample_count": 256,
+                    "temporal_scored_at": "2026-07-25T00:00:00+00:00",
+                    "uses_norse": True,
+                    "predicted_sla": 97.0,
+                    "threat_anomaly_score": 0.6,
+                    "threat_suspicious_ratio": 0.1,
+                    "threats_detected_24h": 0,
+                }
+            return {
+                "spiking_temporal_forecast": 8.0,
+                "temporal_status": "ready",
+                "temporal_backend": "norse_lif",
+                "temporal_sample_count": 64,
+                "temporal_scored_at": "2026-07-25T00:00:00+00:00",
+                "uses_norse": True,
+                "predicted_sla": 91.0,
+                "threat_anomaly_score": 0.1,
+                "threat_suspicious_ratio": 0.0,
+                "threats_detected_24h": 0,
+            }
+
+        with (
+            patch.object(status_svc, "_public_page_telemetry", new=_telemetry),
+            patch.object(status_svc, "_public_page_intelligence", new=_intelligence),
+        ):
+            deml = await status_svc._hydrate_public_page(pool, platform, include_detail=False)
+            joe = await status_svc._hydrate_public_page(pool, customer, include_detail=False)
+            joe_bff = await status_svc._hydrate_public_page(
+                pool,
+                customer,
+                include_tenant_id=True,
+                include_detail=False,
+            )
+
+        self.assertEqual(deml["total_requests"], 4953)
+        self.assertEqual(deml["spiking_temporal_forecast"], 49.67)
+        self.assertNotIn("tenant_id", deml)
+        self.assertEqual(joe["total_requests"], 12)
+        self.assertEqual(joe["p99_latency"], 42.0)
+        self.assertEqual(joe["spiking_temporal_forecast"], 8.0)
+        self.assertEqual(joe["predicted_sla"], 91.0)
+        self.assertNotIn("tenant_id", joe)
+        self.assertEqual(joe_bff["tenant_id"], "22222222-2222-2222-2222-222222222222")
+
     async def test_public_intelligence_uses_norse_and_classical_families_only(self) -> None:
         pool = MagicMock()
         pool.fetch = AsyncMock(return_value=[{"threats_detected": 2, "error_rate_percent": 0.0}])
@@ -205,6 +304,10 @@ class TestStatusTelemetryTruthfulness(unittest.IsolatedAsyncioTestCase):
                 "app.services.ml.store.list_recent_scores",
                 new=AsyncMock(return_value=classical),
             ) as scores,
+            patch(
+                "app.services.ml.store.latest_predicted_sla",
+                new=AsyncMock(return_value=96.5),
+            ) as predicted,
         ):
             intelligence = await status_svc._public_page_intelligence(
                 pool,
@@ -214,6 +317,7 @@ class TestStatusTelemetryTruthfulness(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(intelligence["spiking_temporal_forecast"], 37.5)
         self.assertEqual(intelligence["temporal_backend"], "norse_lif")
         self.assertTrue(intelligence["uses_norse"])
+        self.assertEqual(intelligence["predicted_sla"], 96.5)
         self.assertEqual(intelligence["threat_anomaly_score"], 0.8)
         self.assertEqual(intelligence["threat_suspicious_ratio"], 0.5)
         self.assertEqual(intelligence["threats_detected_24h"], 2)
@@ -222,6 +326,10 @@ class TestStatusTelemetryTruthfulness(unittest.IsolatedAsyncioTestCase):
             "11111111-1111-1111-1111-111111111111",
         )
         self.assertEqual(scores.await_args.kwargs["family"], "classical_anomaly")
+        self.assertEqual(
+            str(predicted.await_args.kwargs["tenant_id"]),
+            "11111111-1111-1111-1111-111111111111",
+        )
 
 
 if __name__ == "__main__":
