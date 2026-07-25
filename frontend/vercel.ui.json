@@ -6,7 +6,7 @@
   "framework": null,
   "rewrites": [
     {
-      "source": "/((?!assets/).*)",
+      "source": "/((?!assets/|sb-|vite-|index\\.json|stories\\.json|project\\.json|iframe\\.html|index\\.html|.*\\.(?:js|mjs|css|map|png|jpe?g|gif|ico|svg|webp|woff2?|json|txt|xml)$).*)",
       "destination": "/index.html"
     }
   ],
