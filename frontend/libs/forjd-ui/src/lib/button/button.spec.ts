@@ -13,8 +13,10 @@ describe('FjButton', () => {
     fixture.detectChanges();
   });
 
-  it('renders a button', () => {
-    const button = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
+  it('renders a primary button', () => {
+    const button = fixture.nativeElement.querySelector(
+      'button.fj-btn',
+    ) as HTMLButtonElement;
     expect(button).toBeTruthy();
     expect(button.dataset['variant']).toBe('primary');
   });

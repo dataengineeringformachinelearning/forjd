@@ -1,0 +1,160 @@
+/*!
+ * SUITE BACKEND — operational twin stage (Pass 4)
+ * ----------------------------------------------------------------------------
+ * Quiet, centered, authoritative shells for backend.forjd.co + backend.deml.app.
+ * Tokens only. Dual selectors keep FORJD / DEML class names in lockstep.
+ */
+
+/* --- Document base --- */
+:is(
+  html:has(.suite-backend-shell),
+  html:has(.backend-splash-shell),
+  body.suite-backend-splash,
+  body.backend-splash,
+  body.suite-backend-docs,
+  body.backend-swagger,
+  body.backend-redoc
+) {
+  margin: 0;
+  min-height: 100%;
+  background: var(--suite-bg);
+  color: var(--suite-ink);
+  font-family: var(--suite-font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+:is(body.suite-backend-splash, body.backend-splash) {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(
+      70% 48% at 50% 42%,
+      color-mix(in srgb, var(--suite-primary) 8%, transparent),
+      transparent 62%
+    ),
+    var(--suite-bg);
+}
+
+:is(body.suite-backend-docs, body.backend-swagger, body.backend-redoc) {
+  margin: 0;
+  background: var(--suite-bg);
+}
+
+/* --- Splash: perfect center, logo only --- */
+:is(.suite-backend-shell, .backend-splash-shell) {
+  box-sizing: border-box;
+  min-height: 100dvh;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  justify-items: center;
+  align-content: center;
+  padding: var(--suite-space-6);
+  margin: 0;
+}
+
+:is(.suite-backend-logo, .backend-splash-logo) {
+  display: block;
+  width: min(8rem, 38vw);
+  height: auto;
+  margin: 0 auto;
+  border: 0;
+  text-decoration: none;
+  line-height: 0;
+  filter: drop-shadow(
+    0 0 18px color-mix(in srgb, var(--suite-primary) 14%, transparent)
+  );
+  transition:
+    transform var(--suite-duration-fast) var(--suite-ease),
+    filter var(--suite-duration-fast) var(--suite-ease);
+}
+
+:is(.suite-backend-logo, .backend-splash-logo):hover {
+  transform: translateY(-1px);
+  filter: drop-shadow(
+    0 0 22px color-mix(in srgb, var(--suite-primary) 20%, transparent)
+  );
+}
+
+:is(.suite-backend-logo, .backend-splash-logo):focus-visible {
+  outline: var(--suite-ring-width) solid var(--suite-ring);
+  outline-offset: var(--suite-ring-offset);
+  border-radius: var(--suite-radius);
+}
+
+:is(.suite-backend-logo, .backend-splash-logo) img {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.suite-backend-logo, .backend-splash-logo) {
+    transition: none;
+  }
+
+  :is(.suite-backend-logo, .backend-splash-logo):hover {
+    transform: none;
+  }
+}
+
+/* --- Docs topbar (Swagger / ReDoc) --- */
+:is(.suite-backend-topbar, .backend-docs-topbar, .fj-topbar) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--suite-space-3);
+  flex-wrap: wrap;
+  box-sizing: border-box;
+  padding: var(--suite-space-2) var(--suite-space-4);
+  background: var(--suite-surface);
+  border-bottom: 1px solid var(--suite-border);
+  font-family: var(--suite-font-sans);
+}
+
+:is(.suite-backend-topbar, .backend-docs-topbar, .fj-topbar) a {
+  text-decoration: none;
+}
+
+:is(.suite-backend-brand, .backend-docs-brand, .fj-topbar .fj-brand) {
+  font-family: var(--suite-font-mono);
+  letter-spacing: var(--suite-tracking-caps);
+  text-transform: uppercase;
+  font-size: var(--suite-text-sm);
+  font-weight: var(--suite-weight-semibold);
+  color: var(--suite-primary);
+}
+
+:is(.suite-backend-topbar, .backend-docs-topbar, .fj-topbar) nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--suite-space-3);
+}
+
+:is(.suite-backend-topbar, .backend-docs-topbar, .fj-topbar) nav a {
+  color: var(--suite-ink-muted);
+  font-size: var(--suite-text-sm);
+  font-family: var(--suite-font-mono);
+  letter-spacing: var(--suite-tracking-wide);
+  min-height: var(--suite-touch);
+  display: inline-flex;
+  align-items: center;
+  transition: color var(--suite-duration-fast) var(--suite-ease);
+}
+
+:is(.suite-backend-topbar, .backend-docs-topbar, .fj-topbar) nav a:hover,
+:is(.suite-backend-topbar, .backend-docs-topbar, .fj-topbar)
+  nav
+  a:focus-visible {
+  color: var(--suite-primary);
+}
+
+:is(.suite-backend-topbar, .backend-docs-topbar, .fj-topbar)
+  nav
+  a:focus-visible {
+  outline: var(--suite-ring-width) solid var(--suite-ring);
+  outline-offset: var(--suite-ring-offset);
+  border-radius: var(--suite-radius);
+}

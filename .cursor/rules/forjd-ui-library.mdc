@@ -6,6 +6,8 @@ alwaysApply: false
 
 # forjd-ui is the source of UI primitives
 
+Suite law: `docs/SUITE_UI_UNIFICATION.md` — `--fj-*` must match DEML Viking-UI (void + electric `#2176ff` + gold). forjd-ui is an adapter, not a second design system.
+
 When adding a **component** or **typography** style to the frontend app, add it to `frontend/libs/forjd-ui/` in the same change (or immediately before the app consumes it). Do not leave reusable UI only in `frontend/src/`.
 
 ## What belongs in forjd-ui

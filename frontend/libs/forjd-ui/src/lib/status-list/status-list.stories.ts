@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/angular-vite';
 import { FjStatusList } from './status-list';
 
 const meta: Meta<FjStatusList> = {
-  title: 'Primitives/StatusList',
+  title: 'Product/StatusList',
   component: FjStatusList,
   tags: ['autodocs'],
   args: {

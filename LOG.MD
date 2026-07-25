@@ -3,6 +3,14 @@
 > **Engineering journal (historical).** Current architecture lives in `ARCHITECTURE.md` and `AGENTS.md`. Entries below may describe superseded experiments (console PoC, cutover diary, rejected stacks). Do not treat this file as the deploy contract.
 
 ## Log
+- 2026-07-25: Pass 6 purity — removed leftover `_typography.scss`/`status-list.scss`, vendored Inter with `sync:suite`, zero style npm deps; DEML `npm run suite:purity` gates cyan + suite drift.
+- 2026-07-25: Pass 5 Storybook lockstep — `suite-docs.css` + shared Foundation/Primitives taxonomy; ui.forjd.co manager/theme/shell match ui.deml.app; preview imports suite CSS + `@storybook/angular-vite` decorators so `build-storybook` succeeds.
+- 2026-07-25: Pass 4 backend lockstep — `suite-backend.css` centered splash + docs topbar; FORJD landing/docs/redoc drop inline chrome; vendored with suite sync.
+- 2026-07-24: Pass 3 frontend lockstep — `suite-landing.css` stage shared with DEML/marketing; forjd.co landing is composition-only; logo cyan retired to `#2176FF`; sync vendors tokens+components+landing.
+- 2026-07-24: Pass 2 suite components — owned `suite-components.css` + forjd-ui primitives (button/input/select/dialog/tabs/table/toast/…) on dual `.suite-*`/`.fj-*`/`.viking-*` selectors; vendored to backend static; Storybook Forms/Overlay/Surface stories.
+- 2026-07-24: Pass 1 suite tokens — locked `suite-tokens.css` (`--suite-*` + aliases) as the only style SoT; FORJD vendors the file (no npm CSS); backend shells link `/static/suite-tokens.css`.
+- 2026-07-24: Suite UI unification Phases 2–4 — forjd-ui primitives + landing shells aligned to suite chrome.
+- 2026-07-24: Suite UI unification Phase 1 — locked forjd-ui / backend docs tokens to DEML Viking void + electric `#2176ff` + gold; `docs/SUITE_UI_UNIFICATION.md` is law (adapter, not a second design system).
 - 2026-07-24: Wired first-party GA4 + Clarity + Sentry + Rollbar across forjd.co, ui.forjd.co Storybook, and backend HTML/API (Docker now installs `--group sentry`).
 - 2026-07-24: Premium Void/Operator pass — expanded forjd-ui tokens (motion, elevation, display type), cinematic forjd.co hero, themed ReDoc shell, demoted PDF JSON as report-only.
 - 2026-07-24: Hardened forjd-ui Storybook — added Button link/panel card/token stories, declared `@angular/animations`, and stopped double-loading token SCSS in preview so the iframe stops hanging on clean installs.

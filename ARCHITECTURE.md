@@ -2,6 +2,10 @@
 
 Universal secure streaming engine. Stability and E2EE over novelty.
 
+## Suite UI (chrome)
+
+Visual identity is **suite-locked** with DEML Viking-UI: void-black surfaces, electric command `#2176ff`, institutional gold. FORJD `forjd-ui` is a thin `--fj-*` adapter — not a second design system. Contract: [`docs/SUITE_UI_UNIFICATION.md`](docs/SUITE_UI_UNIFICATION.md). Hosts: forjd.co, backend.forjd.co, ui.forjd.co must match deml.app / ui.deml.app / marketing chrome.
+
 ## Principles
 
 1. **Supabase-first** — Postgres + pgvector + Auth + Realtime for platform identity and durable storage.

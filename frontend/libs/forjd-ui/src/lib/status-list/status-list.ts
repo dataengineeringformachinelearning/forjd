@@ -9,23 +9,23 @@ export interface FjStatusItem {
 
 /**
  * Compact name + state rows for health / layer checks.
+ * Chrome: suite-components.css (`.suite-status-list` / `.fj-status-list`).
  */
 @Component({
   selector: 'forjd-status-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <ul class="fj-status-list">
+    <ul class="suite-status-list fj-status-list">
       @for (item of items(); track item.name) {
         <li [attr.data-ok]="item.ok">
-          <span class="fj-status-list__name">{{ item.name }}</span>
-          <span class="fj-status-list__state">{{
+          <span class="suite-status-list__name fj-status-list__name">{{ item.name }}</span>
+          <span class="suite-status-list__state fj-status-list__state">{{
             item.stateLabel ?? (item.ok ? 'ok' : 'down')
           }}</span>
         </li>
       }
     </ul>
   `,
-  styleUrl: './status-list.scss',
 })
 export class FjStatusList {
   readonly items = input.required<readonly FjStatusItem[]>();

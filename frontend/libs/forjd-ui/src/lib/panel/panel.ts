@@ -1,22 +1,32 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
-/**
- * Labeled content section — use for status blocks and landing capability cards.
- */
+/** forjd-panel — section or suite-card surface. */
 @Component({
   selector: 'forjd-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [NgTemplateOutlet],
   host: {
     role: 'region',
     '[attr.data-variant]': 'variant()',
   },
   template: `
-    @if (title()) {
-      <h2 class="fj-panel-title">{{ title() }}</h2>
+    <ng-template #body><ng-content /></ng-template>
+    @if (variant() === 'card') {
+      <div class="suite-card fj-card viking-card">
+        @if (title()) {
+          <h2 class="suite-panel-title fj-panel-title">{{ title() }}</h2>
+        }
+        <ng-container [ngTemplateOutlet]="body" />
+      </div>
+    } @else {
+      @if (title()) {
+        <h2 class="suite-panel-title fj-panel-title">{{ title() }}</h2>
+      }
+      <ng-container [ngTemplateOutlet]="body" />
     }
-    <ng-content />
   `,
-  styleUrl: './panel.scss',
+  styles: [`:host { display: block; }`],
 })
 export class FjPanel {
   readonly title = input<string>();

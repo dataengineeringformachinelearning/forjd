@@ -1,62 +1,52 @@
 # forjd-ui
 
 Custom Angular UI primitives for FORJD. Built from scratch — no Material.
+**Pass 1–2:** vendored suite tokens + component chrome from DEML Viking-UI.
 
-## What's here now
+| Artifact | Path |
+| -------- | ---- |
+| Tokens | [`suite-tokens.css`](./src/lib/styles/suite-tokens.css) |
+| Chrome | [`suite-components.css`](./src/lib/styles/suite-components.css) |
+| Landing | [`suite-landing.css`](./src/lib/styles/suite-landing.css) |
+| Contracts | [`SUITE_TOKENS.md`](./src/lib/styles/SUITE_TOKENS.md), [`SUITE_COMPONENTS.md`](./src/lib/styles/SUITE_COMPONENTS.md) |
 
-- Dark-first FJORD design tokens (`src/lib/styles/_tokens.scss`)
-- Semantic typography roles (`src/lib/styles/_typography.scss`) — `.fj-brand`, `.fj-headline`, `.fj-lede`, …
-- `FjButton` (`<forjd-button>`)
-- `FjPanel` (`<forjd-panel>`)
-- `FjStatusList` (`<forjd-status-list>`)
+Load order (app): **suite-tokens → suite-components → suite-landing → app**.  
+Load order (Storybook / ui.forjd.co): **suite-tokens → suite-components → suite-docs**.
+
+No npm install for styles. Canonical source: DEML `packages/viking-ui/src/tokens/`.
+
+## Primitives
+
+Button, Input, Textarea, Select, Checkbox, Switch, Card, Badge, Dialog, Sheet, Tabs, Table, Nav, Toast, Skeleton, Empty, Avatar, Separator, Field, Callout, Panel, PageShell / Section / Stack, StatusList.
+
+Pattern: **headless behavior + suite classes** (`.suite-*` / `.fj-*` / `.viking-*`). Same look as DEML with zero extra styling.
 
 ## Local consumption
 
-The app imports via path mapping to source (`tsconfig.json` → `forjd-ui`).
-No library rebuild needed while iterating.
-
 ```ts
-import { FjButton, FjPanel, FjStatusList } from 'forjd-ui';
+import {
+  FjButton,
+  FjCard,
+  FjDialog,
+  FjField,
+  FjInput,
+  FjToastHost,
+  FjToastService,
+} from 'forjd-ui';
 ```
 
-Global styles (tokens + typography) are pulled in from the app `styles.scss`.
+Load order (angular.json / Storybook): **suite-tokens → suite-components → app styles**.
+
+```bash
+npm run sync:suite
+```
 
 ## Storybook + Chromatic
 
-Develop components in isolation, then publish visual baselines.
-
 ```bash
-# local component workshop (http://localhost:6006)
 npm run storybook
-
-# static build (also what Chromatic uploads)
 npm run build-storybook
-
-# publish to Chromatic (needs CHROMATIC_PROJECT_TOKEN)
 npm run chromatic
 ```
 
-### Public site (ui.forjd.co)
-
-Vercel project **`ui`** builds Storybook; **`forjd`** builds the app. See [`ui/README.md`](../../ui/README.md).
-
-```bash
-# from repo root
-npx vercel deploy --prod --yes --project ui
-```
-
-### First-time Chromatic link
-
-1. Create a project at [chromatic.com](https://www.chromatic.com) (GitHub login).
-2. Copy the project token.
-3. Either export it once: `export CHROMATIC_PROJECT_TOKEN=…`
-   or add it as a GitHub Actions / Vercel secret later.
-4. Run `npm run chromatic` from `frontend/`.
-
-Add a new `*.stories.ts` next to each component as you build the library.
-
-## Build the package (later)
-
-```bash
-ng build forjd-ui
-```
+Public Storybook: [ui.forjd.co](https://ui.forjd.co) — see [`ui/README.md`](../../ui/README.md).

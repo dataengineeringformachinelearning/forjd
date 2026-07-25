@@ -1,23 +1,23 @@
 import type { Meta, StoryObj } from '@storybook/angular-vite';
 
 const swatches = [
-  ['--fj-bg', 'Void'],
-  ['--fj-surface', 'Surface'],
-  ['--fj-surface-elevated', 'Elevated'],
-  ['--fj-surface-2', 'Surface 2'],
-  ['--fj-border', 'Border'],
-  ['--fj-border-strong', 'Border Strong'],
-  ['--fj-primary', 'Primary'],
-  ['--fj-success', 'Success'],
-  ['--fj-warning', 'Warning'],
-  ['--fj-danger', 'Danger'],
-  ['--fj-gold', 'Gold'],
-  ['--fj-text', 'Text'],
-  ['--fj-text-muted', 'Muted'],
+  ['--suite-bg', 'Void'],
+  ['--suite-surface', 'Surface'],
+  ['--suite-surface-elevated', 'Elevated'],
+  ['--suite-surface-2', 'Surface 2'],
+  ['--suite-border', 'Border'],
+  ['--suite-border-strong', 'Border Strong'],
+  ['--suite-primary', 'Primary'],
+  ['--suite-success', 'Success'],
+  ['--suite-warning', 'Warning'],
+  ['--suite-danger', 'Danger'],
+  ['--suite-gold', 'Gold'],
+  ['--suite-ink', 'Ink'],
+  ['--suite-ink-muted', 'Muted'],
 ] as const;
 
 /**
- * Foundation token board — Chromatic baseline for the FJORD palette.
+ * Canonical suite token board — must match DEML suite-tokens.css.
  */
 const meta: Meta = {
   title: 'Foundation/Tokens',
@@ -50,28 +50,28 @@ export const Palette: StoryObj = {
         .sb-tokens {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-          gap: var(--fj-space-3);
+          gap: var(--suite-space-compact);
           width: min(100%, 48rem);
           text-align: left;
         }
         .sb-token {
           display: grid;
-          gap: var(--fj-space-2);
-          padding: var(--fj-space-3);
-          border: 1px solid var(--fj-border);
-          border-radius: var(--fj-radius);
-          background: var(--fj-surface);
+          gap: var(--suite-space-1);
+          padding: var(--suite-space-2);
+          border: 1px solid var(--suite-border);
+          border-radius: var(--suite-radius);
+          background: var(--suite-surface);
         }
         .sb-token__swatch {
           display: block;
           height: 2.5rem;
-          border-radius: var(--fj-radius);
-          border: 1px solid var(--fj-border);
+          border-radius: var(--suite-radius);
+          border: 1px solid var(--suite-border);
         }
         .sb-token code {
           display: block;
-          font-family: var(--fj-font-mono);
-          font-size: var(--fj-text-xs);
+          font-family: var(--suite-font-mono);
+          font-size: var(--suite-text-xs);
         }
       `,
     ],

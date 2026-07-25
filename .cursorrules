@@ -35,10 +35,10 @@ Follow these unless the user explicitly overrides them.
 - Standalone components + Signals by default.
 - Build UI in `libs/forjd-ui/` (generate with `ng generate library`); consume from `frontend`.
 - No heavy component libraries for core primitives (avoid Angular Material there).
-- Product frontend is a static FJORD landing; optional forjd-ui library uses FJORD tokens via `--fj-*` CSS variables (no full operational console).
+- Product frontend is a static FJORD landing; forjd-ui is a **suite adapter** — `--fj-*` must match DEML Viking-UI (void + electric `#2176ff` + gold). Law: `docs/SUITE_UI_UNIFICATION.md`. Own every class; patterns from Spartan/shadcn only — never their CSS.
 - Accessibility: aim for WCAG AA on new UI.
 - Storybook: add `*.stories.ts` next to each forjd-ui component; publish visuals with Chromatic.
-- Precision and density over flashy design.
+- Precision and density over flashy design. Chrome must be visually identical to deml.app / ui.deml.app.
 
 ## Docker
 - Multi-stage builds mandatory.

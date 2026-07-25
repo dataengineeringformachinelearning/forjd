@@ -1,5 +1,25 @@
-@use '../libs/forjd-ui/src/lib/styles/tokens';
-@use '../libs/forjd-ui/src/lib/styles/typography';
+/* suite-tokens → suite-components → suite-landing load first via angular.json. */
+/* Self-hosted Inter — same faces as viking-ui (no Google Fonts CDN). */
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src:
+    url('/fonts/inter/InterVariable.woff2') format('woff2 supports variations'),
+    url('/fonts/inter/InterVariable.woff2') format('woff2-variations');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src:
+    url('/fonts/inter/InterVariable-Italic.woff2') format('woff2 supports variations'),
+    url('/fonts/inter/InterVariable-Italic.woff2') format('woff2-variations');
+}
 
 *,
 *::before,
@@ -14,13 +34,13 @@ body {
 }
 
 body {
-  font-family: var(--fj-font-sans);
-  background: var(--fj-bg);
-  color: var(--fj-text);
+  font-family: var(--suite-font-sans);
+  background: var(--suite-bg);
+  color: var(--suite-ink);
   -webkit-font-smoothing: antialiased;
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--fj-primary) 35%, transparent);
-  color: var(--fj-text);
+  background: color-mix(in srgb, var(--suite-primary) 35%, transparent);
+  color: var(--suite-ink);
 }

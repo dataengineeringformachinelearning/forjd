@@ -1,13 +1,14 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
-/**
- * First forjd-ui primitive — keep it tiny on purpose.
- * More variants / sizes come later when we need them.
- *
- * Label content is captured once via ng-template: Angular will not project
- * <ng-content> from both @if / @else branches when href toggles the host.
- */
+export type FjButtonVariant =
+  | 'primary'
+  | 'secondary'
+  | 'outline'
+  | 'danger'
+  | 'ghost';
+
+/** Matches viking-button variants / suite-btn chrome. */
 @Component({
   selector: 'forjd-button',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -16,25 +17,50 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
     <ng-template #label><ng-content /></ng-template>
     @if (href(); as url) {
       <a
-        [attr.href]="url"
+        class="suite-btn fj-btn"
+        [attr.data-variant]="variant()"
+        [attr.href]="disabled() ? null : url"
         [attr.target]="target()"
         [attr.rel]="target() === '_blank' ? 'noopener noreferrer' : null"
-        [attr.data-variant]="variant()"
+        [attr.aria-disabled]="disabled() ? 'true' : null"
+        [attr.tabindex]="disabled() ? -1 : null"
       >
         <ng-container [ngTemplateOutlet]="label" />
       </a>
     } @else {
-      <button [attr.type]="type()" [attr.data-variant]="variant()">
+      <button
+        class="suite-btn fj-btn"
+        [attr.data-variant]="variant()"
+        [attr.type]="type()"
+        [disabled]="disabled()"
+      >
         <ng-container [ngTemplateOutlet]="label" />
       </button>
     }
   `,
-  styleUrl: './button.scss',
+  styles: [
+    `
+      :host {
+        display: inline-flex;
+        max-width: 100%;
+        vertical-align: middle;
+      }
+      :host(.fj-full) {
+        display: flex;
+        width: 100%;
+      }
+      :host(.fj-full) .suite-btn {
+        width: 100%;
+      }
+    `,
+  ],
+  host: { '[class.fj-full]': 'fullWidth()' },
 })
 export class FjButton {
-  readonly variant = input<'primary' | 'ghost'>('primary');
+  readonly variant = input<FjButtonVariant>('primary');
   readonly type = input<'button' | 'submit' | 'reset'>('button');
-  /** When set, renders an anchor with the same FJORD button styles. */
   readonly href = input<string | undefined>(undefined);
   readonly target = input<'_self' | '_blank'>('_self');
+  readonly disabled = input(false);
+  readonly fullWidth = input(false);
 }

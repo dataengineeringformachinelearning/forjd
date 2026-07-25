@@ -22,7 +22,7 @@ Agents: read this briefing first, then enforce constraints in `.cursorrules`.
 | Batch tables | Polars |
 | Engine | Rust (`engine/`) — one `forjd-engine` binary: Arrow/Parquet **59** + PyO3 + axum process HTTP + data plane (`FORJD_ROLE`, Postgres outbox, Dragonfly Streams) |
 | Cache / DB | Dragonfly (Fly.io) + Postgres (Supabase) |
-| UI | Angular static FJORD landing + optional forjd-ui (Storybook / Chromatic); no product console |
+| UI | Angular static FJORD landing + forjd-ui adapter (Storybook / Chromatic); suite-locked to DEML Viking-UI — [docs/SUITE_UI_UNIFICATION.md](docs/SUITE_UI_UNIFICATION.md); no product console |
 | Observability | Rollbar (API) + optional Sentry (`SENTRY_DSN`, `uv sync --group sentry`); Vercel Analytics + Speed Insights (frontend) |
 | Rate limiting | Config-gated Dragonfly/Redis limiter (`app/core/rate_limit.py`; `RATE_LIMIT_ENABLED` + per-bucket RPM) |
 | Add-ons (optional) | Config-gated integrations under `app/addons/` — disabled by default, `FORJD_ADDONS=<slug,…>` or `all`; catalog at `GET /api/v1/addons` (OSV/nuclei/HoneyDB/CVE + ML/testing descriptors) |
@@ -53,6 +53,7 @@ Backend Python is pinned to **3.12** for stable, reproducible production builds.
 - Prefer configuration (YAML/JSON) over hardcoding.
 - Keep dependencies minimal — add a package only when a concrete use case needs it.
 - After meaningful progress, optionally append a `LOG.MD` entry (engineering journal — see `.cursorrules`); primary architecture docs are `ARCHITECTURE.md` and `AGENTS.md`.
+- **Suite UI law:** chrome on forjd.co / backend.forjd.co / ui.forjd.co must match deml.app / ui.deml.app / marketing. Own every class; no Material/Bootstrap look packages. **Pass 1 tokens:** vendored `suite-tokens.css` (`--suite-*`; `--fj-*` aliases). No npm install for styles — `npm run sync:suite` from DEML sibling. Expand primitives in `frontend/libs/forjd-ui/` first.
 
 ## Quality gates
 

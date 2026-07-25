@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/angular-vite';
 import { FjPanel } from './panel';
 
 const meta: Meta<FjPanel> = {
-  title: 'Primitives/Panel',
+  title: 'Product/Panel',
   component: FjPanel,
   tags: ['autodocs'],
   args: {

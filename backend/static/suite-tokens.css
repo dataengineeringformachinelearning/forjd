@@ -1,0 +1,429 @@
+/*!
+ * SUITE TOKENS — canonical design system (DEML + FORJD)
+ * ----------------------------------------------------------------------------
+ * Authoritative source: packages/viking-ui/src/tokens/suite-tokens.css
+ * Docs: packages/viking-ui/src/tokens/SUITE_TOKENS.md
+ * Law: docs/SUITE_UI_UNIFICATION.md
+ *
+ * Consumed by:
+ *   - viking-ui (build → dist/suite-tokens.css + design-tokens.css)
+ *   - forjd-ui (vendored copy — no npm install for styles)
+ *   - deml.app / marketing / backend / forjd.co / backend.forjd.co / ui.*
+ *
+ * Strategy: high-end dark-first (void austerity). Light is opt-in only.
+ * Do not hard-code colors/spacing outside these variables.
+ *
+ * Provenance (existing hexes only — no new brand hues):
+ *   Void surfaces ← forjd.co · Electric command ← DEML · Gold ← FORJD institutional
+ */
+
+/* =============================================================================
+   DARK (default) — product suite identity
+   ============================================================================= */
+:root,
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* --- Brand artwork only (logos / favicons / OG — not product chrome) --- */
+  --suite-brand-navy: #070c20;
+  --suite-brand-blue: #0078ff;
+
+  /* --- Surface levels --- */
+  --suite-bg: #0a0a0a;
+  --suite-bg-subtle: #050505;
+  --suite-surface: #111111;
+  --suite-surface-2: #1a1a1a;
+  --suite-surface-elevated: #141414;
+  --suite-surface-inset: #050505;
+  --suite-overlay: color-mix(in srgb, var(--suite-bg) 72%, transparent);
+
+  /* --- Ink / text --- */
+  --suite-ink: #f5f5f5;
+  --suite-ink-muted: #aaaaaa;
+  --suite-ink-subtle: #999999;
+  --suite-ink-disabled: #777777;
+  --suite-ink-on-primary: #ffffff;
+  --suite-ink-inverse: #0a0a0a;
+
+  /* --- Borders --- */
+  --suite-border: #222222;
+  --suite-border-strong: #333333;
+  --suite-border-subtle: color-mix(
+    in srgb,
+    var(--suite-border) 70%,
+    transparent
+  );
+  --suite-hairline: color-mix(in srgb, var(--suite-primary) 28%, transparent);
+
+  /* --- Primary / accent (electric command) --- */
+  --suite-primary: #2176ff;
+  --suite-primary-hover: #4d94ff;
+  --suite-primary-active: #0a4fd4;
+  --suite-primary-soft: color-mix(
+    in srgb,
+    var(--suite-primary) 18%,
+    transparent
+  );
+  --suite-primary-strong: #7ab0ff;
+  --suite-accent: var(--suite-primary);
+  --suite-accent-hover: var(--suite-primary-hover);
+  --suite-gold: #d4af37;
+  --suite-gold-soft: color-mix(in srgb, var(--suite-gold) 16%, transparent);
+
+  /* --- Status --- */
+  --suite-success: #2a9d8f;
+  --suite-success-soft: color-mix(
+    in srgb,
+    var(--suite-success) 16%,
+    transparent
+  );
+  --suite-warning: #d69e2e;
+  --suite-warning-soft: color-mix(
+    in srgb,
+    var(--suite-warning) 16%,
+    transparent
+  );
+  --suite-danger: #a83344;
+  --suite-danger-soft: color-mix(in srgb, var(--suite-danger) 16%, transparent);
+  --suite-info: var(--suite-primary-strong);
+
+  /* --- Focus / ring --- */
+  --suite-focus: var(--suite-primary-hover);
+  --suite-ring: var(--suite-primary-hover);
+  --suite-ring-width: 2px;
+  --suite-ring-offset: 2px;
+
+  /* --- Typography --- */
+  --suite-font-sans:
+    "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --suite-font-mono:
+    ui-monospace, "JetBrains Mono", "SF Mono", "Cascadia Code", Consolas,
+    monospace;
+
+  --suite-text-2xs: 0.6875rem; /* 11px */
+  --suite-text-xs: 0.75rem; /* 12px */
+  --suite-text-sm: 0.875rem; /* 14px */
+  --suite-text-md: 0.875rem; /* 14px UI */
+  --suite-text-base: 1rem; /* 16px */
+  --suite-text-lg: 1.125rem; /* 18px */
+  --suite-text-xl: 1.5rem; /* 24px */
+  --suite-text-2xl: 1.875rem; /* 30px */
+  --suite-text-3xl: 2.25rem; /* 36px */
+  --suite-text-4xl: 3rem; /* 48px */
+  --suite-text-display: clamp(2.5rem, 7vw, 3rem);
+
+  --suite-weight-regular: 400;
+  --suite-weight-medium: 500;
+  --suite-weight-semibold: 600;
+  --suite-weight-bold: 700;
+  --suite-weight-extrabold: 800;
+
+  --suite-leading-none: 1;
+  --suite-leading-tight: 1.2;
+  --suite-leading-snug: 1.35;
+  --suite-leading-normal: 1.5;
+  --suite-leading-relaxed: 1.6;
+
+  --suite-tracking-tight: -0.03em;
+  --suite-tracking-normal: 0;
+  --suite-tracking-wide: 0.08em;
+  --suite-tracking-caps: 0.1em;
+  --suite-tracking-brand: 0.14em;
+
+  /* --- Spacing (8px primary grid; 4px tight exception) --- */
+  --suite-space-unit: 8px;
+  --suite-space-0: 0;
+  --suite-space-px: 1px;
+  --suite-space-0-5: 4px;
+  --suite-space-1: 8px;
+  --suite-space-2: 16px;
+  --suite-space-3: 24px;
+  --suite-space-4: 32px;
+  --suite-space-5: 40px;
+  --suite-space-6: 48px;
+  --suite-space-7: 56px;
+  --suite-space-8: 64px;
+  --suite-space-10: 80px;
+  --suite-space-12: 96px;
+
+  --suite-space-compact: 12px;
+  --suite-page-gutter: clamp(1rem, 4vw, 1.5rem);
+  --suite-section-gap: clamp(2.5rem, 6vw, 4rem);
+  --suite-content-max: 78.75rem; /* 1260px */
+  --suite-readable-max: 42rem;
+  --suite-touch: 2.75rem; /* 44px */
+
+  /* --- Radius --- */
+  --suite-radius-xs: 4px;
+  --suite-radius-sm: 6px;
+  --suite-radius: 8px;
+  --suite-radius-lg: 12px;
+  --suite-radius-xl: 16px;
+  --suite-radius-pill: 999px;
+
+  /* --- Elevation --- */
+  --suite-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --suite-shadow-sm:
+    0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.12);
+  --suite-shadow-md:
+    0 2px 4px rgba(0, 0, 0, 0.18), 0 10px 24px rgba(0, 0, 0, 0.16);
+  --suite-shadow-lg:
+    0 4px 8px rgba(0, 0, 0, 0.2), 0 20px 40px rgba(0, 0, 0, 0.2);
+  --suite-shadow-hover:
+    0 2px 4px rgba(0, 0, 0, 0.2), 0 12px 28px rgba(0, 0, 0, 0.2);
+  --suite-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.055);
+
+  /* --- Motion --- */
+  --suite-ease: cubic-bezier(0.2, 0, 0, 1);
+  --suite-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --suite-duration-fast: 150ms;
+  --suite-duration: 250ms;
+  --suite-duration-slow: 350ms;
+  --suite-transition:
+    background-color var(--suite-duration-fast) var(--suite-ease),
+    border-color var(--suite-duration-fast) var(--suite-ease),
+    color var(--suite-duration-fast) var(--suite-ease),
+    opacity var(--suite-duration-fast) var(--suite-ease),
+    transform var(--suite-duration-fast) var(--suite-ease);
+
+  /* --- Breakpoints (documentation contract) --- */
+  --suite-bp-sm: 640px;
+  --suite-bp-md: 768px;
+  --suite-bp-lg: 1024px;
+  --suite-bp-xl: 1280px;
+
+  /* =========================================================================
+     Compatibility aliases — viking-ui + forjd-ui
+     Prefer --suite-* in new code. Aliases stay byte-identical.
+     ========================================================================= */
+
+  /* Viking semantic */
+  --viking-bg: var(--suite-bg);
+  --viking-bg-subtle: var(--suite-bg-subtle);
+  --viking-surface: var(--suite-surface);
+  --viking-surface-alt: var(--suite-surface-2);
+  --viking-surface-raised: var(--suite-surface-elevated);
+  --viking-surface-inset: var(--suite-surface-inset);
+  --viking-surface-overlay: var(--suite-surface);
+  --viking-surface-recipe: var(--suite-surface);
+  --viking-surface-recipe-elevated: var(--suite-surface-elevated);
+  --viking-border: var(--suite-border);
+  --viking-border-strong: var(--suite-border-strong);
+  --viking-border-subtle: var(--suite-border-subtle);
+  --viking-border-container: var(--suite-border);
+  --viking-border-accent: var(--suite-hairline);
+  --viking-text: var(--suite-ink);
+  --viking-text-muted: var(--suite-ink-muted);
+  --viking-text-subtle: var(--suite-ink-subtle);
+  --viking-text-disabled: var(--suite-ink-disabled);
+  --viking-accent: var(--suite-primary);
+  --viking-accent-hover: var(--suite-primary-hover);
+  --viking-accent-active: var(--suite-primary-active);
+  --viking-accent-soft: var(--suite-primary-soft);
+  --viking-accent-strong: var(--suite-primary-strong);
+  --viking-accent-content: var(--suite-ink-on-primary);
+  --viking-gold-500: var(--suite-gold);
+  --viking-success: var(--suite-success);
+  --viking-warning: var(--suite-warning);
+  --viking-danger: var(--suite-danger);
+  --viking-ring: var(--suite-ring);
+  --viking-ring-width: var(--suite-ring-width);
+  --viking-ring-offset: var(--suite-ring-offset);
+  --viking-font-family: var(--suite-font-sans);
+  --viking-font-family-mono: var(--suite-font-mono);
+  --viking-font-size-2xs: var(--suite-text-2xs);
+  --viking-font-size-xs: var(--suite-text-xs);
+  --viking-font-size-sm: var(--suite-text-sm);
+  --viking-font-size-ui: var(--suite-text-md);
+  --viking-font-size-base: var(--suite-text-base);
+  --viking-font-size-md: var(--suite-text-lg);
+  --viking-font-size-lg: var(--suite-text-xl);
+  --viking-font-size-xl: var(--suite-text-xl);
+  --viking-font-size-2xl: var(--suite-text-2xl);
+  --viking-font-size-3xl: var(--suite-text-3xl);
+  --viking-font-size-4xl: var(--suite-text-4xl);
+  --viking-font-weight-regular: var(--suite-weight-regular);
+  --viking-font-weight-medium: var(--suite-weight-medium);
+  --viking-font-weight-semibold: var(--suite-weight-semibold);
+  --viking-font-weight-bold: var(--suite-weight-bold);
+  --viking-font-weight-extrabold: var(--suite-weight-extrabold);
+  --viking-line-height-none: var(--suite-leading-none);
+  --viking-line-height-tight: var(--suite-leading-tight);
+  --viking-line-height-snug: var(--suite-leading-snug);
+  --viking-line-height-normal: var(--suite-leading-normal);
+  --viking-line-height-relaxed: var(--suite-leading-relaxed);
+  --viking-letter-spacing-tight: var(--suite-tracking-tight);
+  --viking-letter-spacing-normal: var(--suite-tracking-normal);
+  --viking-letter-spacing-wide: var(--suite-tracking-wide);
+  --viking-letter-spacing-caps: var(--suite-tracking-caps);
+  --viking-letter-spacing-display: var(--suite-tracking-brand);
+  --viking-space-0-5: var(--suite-space-0-5);
+  --viking-space-1: var(--suite-space-1);
+  --viking-space-2: var(--suite-space-2);
+  --viking-space-3: var(--suite-space-3);
+  --viking-space-4: var(--suite-space-4);
+  --viking-space-5: var(--suite-space-5);
+  --viking-space-6: var(--suite-space-6);
+  --viking-space-7: var(--suite-space-7);
+  --viking-space-8: var(--suite-space-8);
+  --viking-space-compact-gap: var(--suite-space-compact);
+  --viking-radius-xs: var(--suite-radius-xs);
+  --viking-radius-sm: var(--suite-radius-sm);
+  --viking-radius: var(--suite-radius);
+  --viking-radius-lg: var(--suite-radius-lg);
+  --viking-radius-xl: var(--suite-radius-xl);
+  --viking-radius-pill: var(--suite-radius-pill);
+  --viking-shadow-xs: var(--suite-shadow-xs);
+  --viking-shadow-sm: var(--suite-shadow-sm);
+  --viking-shadow-md: var(--suite-shadow-md);
+  --viking-shadow-lg: var(--suite-shadow-lg);
+  --viking-shadow-hover: var(--suite-shadow-hover);
+  --viking-surface-highlight: var(--suite-highlight);
+  --viking-duration-fast: var(--suite-duration-fast);
+  --viking-duration: var(--suite-duration);
+  --viking-duration-slow: var(--suite-duration-slow);
+  --viking-ease-out: var(--suite-ease-out);
+  --viking-ease-emphasized: var(--suite-ease);
+  --viking-transition-interactive: var(--suite-transition);
+  --viking-control-height: var(--suite-touch);
+  --viking-page-gutter: var(--suite-page-gutter);
+  --viking-page-section-gap: var(--suite-section-gap);
+  --viking-container-max-width: var(--suite-content-max);
+  --viking-content-readable-max-width: var(--suite-readable-max);
+  --viking-bp-sm: var(--suite-bp-sm);
+  --viking-bp-md: var(--suite-bp-md);
+  --viking-bp-lg: var(--suite-bp-lg);
+  --viking-bp-xl: var(--suite-bp-xl);
+  --viking-brand-navy: var(--suite-brand-navy);
+  --viking-brand-blue: var(--suite-brand-blue);
+
+  /* FORJD aliases */
+  --fj-bg: var(--suite-bg);
+  --fj-surface: var(--suite-surface);
+  --fj-surface-2: var(--suite-surface-2);
+  --fj-surface-elevated: var(--suite-surface-elevated);
+  --fj-border: var(--suite-border);
+  --fj-border-strong: var(--suite-border-strong);
+  --fj-hairline: var(--suite-hairline);
+  --fj-overlay: var(--suite-overlay);
+  --fj-primary: var(--suite-primary);
+  --fj-primary-hover: var(--suite-primary-hover);
+  --fj-primary-soft: var(--suite-primary-soft);
+  --fj-focus: var(--suite-focus);
+  --fj-gold: var(--suite-gold);
+  --fj-gold-soft: var(--suite-gold-soft);
+  --fj-accent: var(--suite-accent);
+  --fj-accent-hover: var(--suite-accent-hover);
+  --fj-warning: var(--suite-warning);
+  --fj-danger: var(--suite-danger);
+  --fj-success: var(--suite-success);
+  --fj-text: var(--suite-ink);
+  --fj-text-muted: var(--suite-ink-muted);
+  --fj-text-subtle: var(--suite-ink-subtle);
+  --fj-text-on-primary: var(--suite-ink-on-primary);
+  --fj-font-sans: var(--suite-font-sans);
+  --fj-font-mono: var(--suite-font-mono);
+  --fj-text-xs: var(--suite-text-xs);
+  --fj-text-sm: var(--suite-text-sm);
+  --fj-text-md: var(--suite-text-md);
+  --fj-text-base: var(--suite-text-base);
+  --fj-text-lg: var(--suite-text-lg);
+  --fj-text-xl: var(--suite-text-xl);
+  --fj-text-2xl: var(--suite-text-2xl);
+  --fj-text-display: var(--suite-text-display);
+  --fj-leading-tight: var(--suite-leading-tight);
+  --fj-leading-snug: var(--suite-leading-snug);
+  --fj-leading-normal: var(--suite-leading-normal);
+  --fj-tracking-tight: var(--suite-tracking-tight);
+  --fj-tracking-wide: var(--suite-tracking-wide);
+  --fj-tracking-brand: var(--suite-tracking-brand);
+  --fj-tracking-caps: var(--suite-tracking-caps);
+  --fj-radius: var(--suite-radius);
+  --fj-radius-lg: var(--suite-radius-lg);
+  --fj-space-1: var(--suite-space-0-5);
+  --fj-space-2: var(--suite-space-1);
+  --fj-space-3: var(--suite-space-compact);
+  --fj-space-4: var(--suite-space-2);
+  --fj-space-5: var(--suite-space-2);
+  --fj-space-6: var(--suite-space-3);
+  --fj-space-7: var(--suite-space-3);
+  --fj-space-8: var(--suite-space-4);
+  --fj-space-10: var(--suite-space-5);
+  --fj-space-12: var(--suite-space-6);
+  --fj-touch-target: var(--suite-touch);
+  --fj-page-gutter: var(--suite-page-gutter);
+  --fj-section-gap: var(--suite-section-gap);
+  --fj-content-max: var(--suite-content-max);
+  --fj-readable-max: var(--suite-readable-max);
+  --fj-bp-md: var(--suite-bp-md);
+  --fj-bp-lg: var(--suite-bp-lg);
+  --fj-ease: var(--suite-ease);
+  --fj-ease-out: var(--suite-ease-out);
+  --fj-duration-fast: var(--suite-duration-fast);
+  --fj-duration: var(--suite-duration);
+  --fj-duration-slow: var(--suite-duration-slow);
+  --fj-transition-interactive: var(--suite-transition);
+}
+
+/* =============================================================================
+   LIGHT (opt-in) — same roles, shifted lightness only (no hue inversion)
+   Activate: <html data-theme="light">
+   ============================================================================= */
+html[data-theme="light"] {
+  color-scheme: light;
+
+  --suite-bg: #fbfcfe;
+  --suite-bg-subtle: #f4f7fb;
+  --suite-surface: #ffffff;
+  --suite-surface-2: #f4f7fb;
+  --suite-surface-elevated: #ffffff;
+  --suite-surface-inset: #f4f7fb;
+  --suite-overlay: color-mix(in srgb, #ffffff 72%, transparent);
+
+  --suite-ink: #080d1f;
+  --suite-ink-muted: #555555;
+  --suite-ink-subtle: #666666;
+  --suite-ink-disabled: #999999;
+  --suite-ink-on-primary: #ffffff;
+  --suite-ink-inverse: #f5f5f5;
+
+  --suite-border: #d7e0ef;
+  --suite-border-strong: #8fa2c2;
+  --suite-border-subtle: color-mix(
+    in srgb,
+    var(--suite-border) 70%,
+    transparent
+  );
+
+  --suite-primary: #1565f0;
+  --suite-primary-hover: #2176ff;
+  --suite-primary-active: #0a4fd4;
+  --suite-primary-soft: color-mix(
+    in srgb,
+    var(--suite-primary) 12%,
+    transparent
+  );
+  --suite-primary-strong: #073a99;
+  --suite-focus: var(--suite-primary);
+  --suite-ring: var(--suite-primary);
+
+  --suite-shadow-xs: 0 1px 2px rgba(8, 13, 31, 0.06);
+  --suite-shadow-sm:
+    0 1px 2px rgba(8, 13, 31, 0.06), 0 4px 12px rgba(8, 13, 31, 0.06);
+  --suite-shadow-md:
+    0 2px 4px rgba(8, 13, 31, 0.06), 0 10px 24px rgba(8, 13, 31, 0.08);
+  --suite-shadow-lg:
+    0 4px 8px rgba(8, 13, 31, 0.08), 0 20px 40px rgba(8, 13, 31, 0.1);
+  --suite-shadow-hover:
+    0 2px 4px rgba(8, 13, 31, 0.08), 0 12px 28px rgba(8, 13, 31, 0.1);
+  --suite-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --suite-duration-fast: 0ms;
+    --suite-duration: 0ms;
+    --suite-duration-slow: 0ms;
+  }
+}

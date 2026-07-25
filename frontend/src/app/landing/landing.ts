@@ -1,15 +1,20 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { FjButton, FjPanel } from 'forjd-ui';
+import {
+  FjButton,
+  FjPageShell,
+  FjPanel,
+  FjSection,
+  FjSeparator,
+} from 'forjd-ui';
 
 import { environment } from '../../environments/environment';
 
-// --- Public product landing (static; forjd-ui primitives) ---
+// --- Public product landing (composition only — suite-landing.css owns look) ---
 @Component({
   selector: 'app-landing',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FjButton, FjPanel],
+  imports: [FjButton, FjPageShell, FjPanel, FjSection, FjSeparator],
   templateUrl: './landing.html',
-  styleUrl: './landing.scss',
 })
 export class Landing {
   protected readonly title = 'FORJD';
