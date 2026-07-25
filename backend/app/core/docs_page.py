@@ -114,10 +114,9 @@ _DOCS_HTML = """<!doctype html>
 </head>
 <body>
   <header class="fj-topbar">
-    <a href="/"><span class="fj-brand">{project}</span></a>
+    <a href="https://forjd.co/"><span class="fj-brand">{project}</span></a>
     <nav>
-      <a href="/">home</a>
-      <a href="https://forjd.co">product</a>
+      <a href="https://forjd.co/">product</a>
       <a href="/redoc">redoc</a>
       <a href="/openapi.json">openapi</a>
       <a href="/health">health</a>

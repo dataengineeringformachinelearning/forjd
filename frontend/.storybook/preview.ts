@@ -1,10 +1,9 @@
 import type { Preview } from '@storybook/angular-vite';
 
-import '../libs/forjd-ui/src/lib/styles/_tokens.scss';
-import '../libs/forjd-ui/src/lib/styles/_typography.scss';
-
 /**
- * Global Storybook chrome: FJORD dark canvas so components look like production.
+ * Global Storybook chrome: FJORD dark canvas.
+ * Token/typography CSS comes from angular.json `styles: ["src/styles.scss"]`
+ * so we do not double-import SCSS here.
  */
 const preview: Preview = {
   parameters: {
@@ -12,8 +11,8 @@ const preview: Preview = {
     backgrounds: {
       default: 'void',
       values: [
-        { name: 'void', value: '#0A0A0A' },
-        { name: 'surface', value: '#111111' },
+        { name: 'void', value: 'var(--fj-bg, #0A0A0A)' },
+        { name: 'surface', value: 'var(--fj-surface, #111111)' },
       ],
     },
     a11y: {
@@ -23,6 +22,12 @@ const preview: Preview = {
       matchers: {
         color: /(background|color)$/i,
         date: /Date$/i,
+      },
+    },
+    options: {
+      storySort: {
+        method: 'alphabetical',
+        order: ['Foundation', 'Primitives'],
       },
     },
   },

@@ -7,7 +7,7 @@
       replay/DLQ — driven by a Rust hot-path and FastAPI control plane.
     </p>
     <div class="landing__actions">
-      <forjd-button variant="primary" [href]="docsUrl" target="_blank">API docs</forjd-button>
+      <forjd-button variant="primary" [href]="docsUrl" target="_blank">Swagger</forjd-button>
       <forjd-button variant="ghost" [href]="redocUrl" target="_blank">ReDoc</forjd-button>
       <forjd-button variant="ghost" [href]="communityUrl" target="_blank">Community</forjd-button>
     </div>
@@ -91,10 +91,14 @@
 
   <footer class="landing__meta">
     <div>
-      <span>api</span><code>{{ apiBaseUrl }}</code>
+      <span>api</span><a [href]="apiBaseUrl" target="_blank" rel="noopener noreferrer"><code>{{ apiBaseUrl }}</code></a>
     </div>
-    <div><span>product</span><code>forjd.co</code></div>
-    <div><span>community</span><code>dataengineeringformachinelearning.com</code></div>
+    <div>
+      <span>swagger</span><a [href]="docsUrl" target="_blank" rel="noopener noreferrer"><code>/docs</code></a>
+    </div>
+    <div>
+      <span>redoc</span><a [href]="redocUrl" target="_blank" rel="noopener noreferrer"><code>/redoc</code></a>
+    </div>
     <div><span>engine</span><code>rust · arrow · parquet</code></div>
   </footer>
 </main>

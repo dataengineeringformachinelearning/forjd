@@ -3,6 +3,8 @@
 > **Engineering journal (historical).** Current architecture lives in `ARCHITECTURE.md` and `AGENTS.md`. Entries below may describe superseded experiments (console PoC, cutover diary, rejected stacks). Do not treat this file as the deploy contract.
 
 ## Log
+- 2026-07-24: Hardened forjd-ui Storybook — added Button link/panel card/token stories, declared `@angular/animations`, and stopped double-loading token SCSS in preview so the iframe stops hanging on clean installs.
+- 2026-07-24: Replaced the backend `/` marketing landing with a minimal FJORD splash (solid background + centered mark). Swagger/ReDoc stay at `/docs` and `/redoc`; product CTAs live on forjd.co.
 - 2026-07-22: Removed Pathway and its vulnerable transitive diskcache/pyarrow packages from the production backend. Rust remains the hot path; a tested dependency-free Python rollup now preserves successful engine-outage semantics.
 
 - 2026-07-22: Enriched status list/slug KPIs (latency, uptime history, public ML intelligence) and enabled FORJD_ADDONS=all in production so explore/status cards and add-on catalog are fully populated.

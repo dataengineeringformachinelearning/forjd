@@ -31,3 +31,19 @@ export const AllOk: Story = {
     ],
   },
 };
+
+export const AllDown: Story = {
+  args: {
+    items: [
+      { name: 'api', ok: false, stateLabel: 'unreachable' },
+      { name: 'engine', ok: false, stateLabel: 'down' },
+      { name: 'postgres', ok: false, stateLabel: 'down' },
+    ],
+  },
+};
+
+export const Empty: Story = {
+  args: {
+    items: [],
+  },
+};

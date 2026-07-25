@@ -179,6 +179,21 @@
   font-family: var(--fj-font-mono);
 }
 
+.landing__meta a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.landing__meta a:hover code,
+.landing__meta a:focus-visible code {
+  color: var(--fj-primary);
+}
+
+.landing__meta a:focus-visible {
+  outline: 2px solid var(--fj-focus, var(--fj-primary));
+  outline-offset: 2px;
+}
+
 .landing__meta code {
   color: var(--fj-success);
   font-family: var(--fj-font-mono);

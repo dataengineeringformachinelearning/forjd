@@ -12,6 +12,8 @@ const meta: Meta<FjButton> = {
   args: {
     variant: 'primary',
     type: 'button',
+    href: undefined,
+    target: '_self',
   },
   argTypes: {
     variant: {
@@ -22,10 +24,22 @@ const meta: Meta<FjButton> = {
       control: 'select',
       options: ['button', 'submit', 'reset'],
     },
+    href: { control: 'text' },
+    target: {
+      control: 'select',
+      options: ['_self', '_blank'],
+    },
   },
   render: (args) => ({
     props: args,
-    template: `<forjd-button [variant]="variant" [type]="type">Button</forjd-button>`,
+    template: `
+      <forjd-button
+        [variant]="variant"
+        [type]="type"
+        [href]="href"
+        [target]="target"
+      >Button</forjd-button>
+    `,
   }),
 };
 
@@ -38,4 +52,36 @@ export const Primary: Story = {
 
 export const Ghost: Story = {
   args: { variant: 'ghost' },
+};
+
+export const AsLink: Story = {
+  args: {
+    variant: 'primary',
+    href: 'https://backend.forjd.co/docs',
+    target: '_blank',
+  },
+  render: (args) => ({
+    props: args,
+    template: `
+      <forjd-button [variant]="variant" [href]="href" [target]="target">
+        Swagger
+      </forjd-button>
+    `,
+  }),
+};
+
+export const GhostAsLink: Story = {
+  args: {
+    variant: 'ghost',
+    href: 'https://backend.forjd.co/redoc',
+    target: '_blank',
+  },
+  render: (args) => ({
+    props: args,
+    template: `
+      <forjd-button [variant]="variant" [href]="href" [target]="target">
+        ReDoc
+      </forjd-button>
+    `,
+  }),
 };

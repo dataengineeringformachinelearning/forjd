@@ -286,7 +286,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 # --- App + middleware stack ---
-# Default Swagger UI disabled — FJORD-themed Swagger is served at / and /docs.
+# Default Swagger UI disabled — FJORD-themed Swagger is served at /docs.
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.PROJECT_VERSION,
@@ -331,10 +331,10 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-# --- Root landing + FJORD Swagger docs ---
+# --- Root splash + FJORD Swagger docs ---
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def landing() -> HTMLResponse:
-    """Public API landing — brand, purpose, probe links (not a bare JSON dump)."""
+    """Minimal brand splash — docs live on forjd.co → /docs and /redoc."""
     return HTMLResponse(content=render_landing())
 
 
