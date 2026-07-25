@@ -1,0 +1,46 @@
+/*!
+ * SUITE FONTS — self-hosted Inter (single face for the whole product suite)
+ * ----------------------------------------------------------------------------
+ * Source faces: packages/viking-ui/src/assets/fonts/inter/
+ * Served at: /fonts/inter/ (FORJD public/, DEML synced assets, Storybook staticDirs)
+ * Do not add Google Fonts CDN or competing @font-face families on product surfaces.
+ */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src:
+    url("/fonts/inter/InterVariable.woff2") format("woff2 supports variations"),
+    url("/fonts/inter/InterVariable.woff2") format("woff2-variations");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src:
+    url("/fonts/inter/InterVariable-Italic.woff2")
+      format("woff2 supports variations"),
+    url("/fonts/inter/InterVariable-Italic.woff2") format("woff2-variations");
+}
+
+html,
+body {
+  font-family: var(
+    --suite-font-sans,
+    "Inter",
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif
+  );
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

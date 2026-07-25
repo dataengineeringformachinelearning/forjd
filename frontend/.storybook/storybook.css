@@ -1,2 +1,16 @@
-/* Suite docs CSS is injected via angular.json storybook styles.
- * This file is reserved for Storybook-only overrides. */
+/* Suite Storybook — Inter + void shell (matches ui.deml.app density). */
+
+.suite-story-shell,
+.fj-story-shell {
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: var(--suite-space-6, 1.5rem);
+  background: var(--suite-bg, #0a0a0a);
+  color: var(--suite-ink, #f5f5f5);
+  font-family: var(--suite-font-sans);
+}
+
+.suite-story-panel,
+.fj-story-panel {
+  width: min(100%, 48rem);
+}

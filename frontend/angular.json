@@ -30,6 +30,7 @@
               }
             ],
             "styles": [
+              "libs/forjd-ui/src/lib/styles/suite-fonts.css",
               "libs/forjd-ui/src/lib/styles/suite-tokens.css",
               "libs/forjd-ui/src/lib/styles/suite-components.css",
               "libs/forjd-ui/src/lib/styles/suite-landing.css",

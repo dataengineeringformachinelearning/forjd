@@ -19,6 +19,7 @@ const backendStatic = path.resolve(frontendDir, '../backend/static');
 const publicFonts = path.join(frontendDir, 'public/fonts/inter');
 
 const files = [
+  'suite-fonts.css',
   'suite-tokens.css',
   'suite-components.css',
   'suite-landing.css',
@@ -45,6 +46,7 @@ for (const name of files) {
 
 mkdirSync(backendStatic, { recursive: true });
 for (const name of [
+  'suite-fonts.css',
   'suite-tokens.css',
   'suite-components.css',
   'suite-landing.css',

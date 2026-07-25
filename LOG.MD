@@ -3,6 +3,7 @@
 > **Engineering journal (historical).** Current architecture lives in `ARCHITECTURE.md` and `AGENTS.md`. Entries below may describe superseded experiments (console PoC, cutover diary, rejected stacks). Do not treat this file as the deploy contract.
 
 ## Log
+- 2026-07-25: Visual/Storybook fix — suite-fonts.css Inter SoT, zoneless Storybook preview (stops black spinner), vercel.ui.json builds Storybook; deml/marketing hero cleanup lives in DEML.
 - 2026-07-25: Minimize pass — dropped unused `@angular/animations`; SEO meta clarifies FORJD primary + DEML companion; docs/book/whitepaper stack wording aligned to Rust sealed hot path (Pathway retired).
 - 2026-07-25: Pass 6 purity — removed leftover `_typography.scss`/`status-list.scss`, vendored Inter with `sync:suite`, zero style npm deps; DEML `npm run suite:purity` gates cyan + suite drift.
 - 2026-07-25: Pass 5 Storybook lockstep — `suite-docs.css` + shared Foundation/Primitives taxonomy; ui.forjd.co manager/theme/shell match ui.deml.app; preview imports suite CSS + `@storybook/angular-vite` decorators so `build-storybook` succeeds.

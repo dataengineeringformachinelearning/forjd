@@ -1,8 +1,11 @@
 import {
+  applicationConfig,
   componentWrapperDecorator,
   type Preview,
 } from '@storybook/angular-vite';
+import { provideZonelessChangeDetection } from '@angular/core';
 
+import '../libs/forjd-ui/src/lib/styles/suite-fonts.css';
 import '../libs/forjd-ui/src/lib/styles/suite-tokens.css';
 import '../libs/forjd-ui/src/lib/styles/suite-components.css';
 import '../libs/forjd-ui/src/lib/styles/suite-docs.css';
@@ -10,6 +13,7 @@ import './storybook.css';
 
 /**
  * Pass 5 — same Foundation/Primitives taxonomy + suite story chrome as ui.deml.app.
+ * Angular 22 app is zoneless; Storybook must mirror that or canvases spin forever.
  */
 const preview: Preview = {
   parameters: {
@@ -50,6 +54,9 @@ const preview: Preview = {
   },
   tags: ['autodocs'],
   decorators: [
+    applicationConfig({
+      providers: [provideZonelessChangeDetection()],
+    }),
     componentWrapperDecorator(
       (story) =>
         `<div class="suite-story-shell fj-story-shell" data-theme="dark"><div class="suite-story-panel fj-story-panel">${story}</div></div>`,
