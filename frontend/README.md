@@ -30,21 +30,19 @@ Put new stories next to components: `libs/forjd-ui/src/lib/<name>/<name>.stories
 
 See `libs/forjd-ui/README.md` for Chromatic first-time setup.
 
-### Public Storybook (ui.forjd.co)
+### Storybook (local / Chromatic only)
 
-| Vercel project | Domain      | Build                     | Output                    |
-| -------------- | ----------- | ------------------------- | ------------------------- |
-| `forjd`        | forjd.co    | `npm run build`           | `dist/frontend/browser`   |
-| `ui`           | ui.forjd.co | `npm run build-storybook` | `dist/storybook/forjd-ui` |
+Public Storybook hosting (`ui` / `ui.forjd.co`) is **retired**. forjd-ui components stay in `libs/forjd-ui/`.
 
-Both use Root Directory `frontend/`. Build commands are set **per project** in Vercel.
-`vercel.json` has shared SPA rewrites + PWA headers; Storybook may use `vercel.ui.json`.
+| Vercel project | Domain   | Build           | Output                  |
+| -------------- | -------- | --------------- | ----------------------- |
+| `forjd`        | forjd.co | `npm run build` | `dist/frontend/browser` |
 
 ```bash
-# From repo root
-npx vercel deploy --prod --yes --project ui     # Storybook
-npx vercel deploy --prod --yes --project forjd  # app
-
-# Local check
+# Local Storybook
+cd frontend && npm run storybook
 cd frontend && npm run build-storybook && npx serve dist/storybook/forjd-ui
+
+# Product site only
+npx vercel deploy --prod --yes --project forjd
 ```

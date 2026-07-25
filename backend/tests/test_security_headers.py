@@ -40,7 +40,10 @@ class TestSecurityHeadersMiddleware(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.headers["X-Content-Type-Options"], "nosniff")
         self.assertEqual(response.headers["X-Frame-Options"], "DENY")
         self.assertEqual(response.headers["Referrer-Policy"], "no-referrer")
-        self.assertIn("geolocation=()", response.headers["Permissions-Policy"])
+        pp = response.headers["Permissions-Policy"]
+        self.assertIn("geolocation=()", pp)
+        self.assertIn("payment=()", pp)
+        self.assertIn("browsing-topics=()", pp)
         self.assertEqual(
             response.headers["Content-Security-Policy"],
             "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
@@ -57,7 +60,8 @@ class TestSecurityHeadersMiddleware(unittest.IsolatedAsyncioTestCase):
         for path in ("/", "/docs", "/redoc"):
             response = await middleware.dispatch(_request(path), call_next)
             csp = response.headers["Content-Security-Policy"]
-            self.assertIn("cdn.jsdelivr.net", csp)
+            self.assertIn("https://cdn.jsdelivr.net", csp)
+            self.assertIn("form-action 'self'", csp)
             self.assertIn("googletagmanager.com", csp)
             self.assertIn("clarity.ms", csp)
             self.assertIn("style-src", csp)

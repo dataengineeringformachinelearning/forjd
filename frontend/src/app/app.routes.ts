@@ -7,7 +7,7 @@ export const routes: Routes = [
     path: '',
     pathMatch: 'full',
     component: Landing,
-    title: 'FORJD — Universal secure streaming engine',
+    title: 'FORJD — Universal Secure Streaming Engine',
   },
   { path: '**', redirectTo: '' },
 ];

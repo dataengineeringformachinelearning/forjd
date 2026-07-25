@@ -6,20 +6,27 @@ they never manage keys with that same token.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.core.auth import AuthUser, get_current_user, pool_from_request, require_user_principal
+from app.core.http_errors import (
+    GENERIC_REQUEST_FAILED,
+    client_safe_detail,
+    intentional_detail,
+)
 from app.models.service_account import ServiceAccountCreate
 from app.services import service_accounts as svc
 
 router = APIRouter(prefix="/service-accounts", tags=["service-accounts"])
+logger = logging.getLogger("forjd.api.service_accounts")
 
 
-# --- Create (returns opaque token once) ---
-@router.post("")
+# --- Create (returns opaque token once; omit mint from public OpenAPI) ---
+@router.post("", include_in_schema=False)
 async def create_service_account(
     request: Request,
     body: ServiceAccountCreate,
@@ -42,7 +49,16 @@ async def create_service_account(
             mint_opaque_token=body.mint_opaque_token,
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=intentional_detail(exc),
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("service account create failed")
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=client_safe_detail(exc, fallback=GENERIC_REQUEST_FAILED),
+        ) from exc
     return {"ok": True, "service_account": created}
 
 

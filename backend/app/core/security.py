@@ -9,6 +9,7 @@ from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.core.auth import _log_auth_failure
 from app.core.config import settings
 
 # --- Public path helpers (no API key) ---
@@ -35,6 +36,7 @@ def _is_mutating(method: str) -> bool:
 # CSRF is not token-based here: mutating routes require Authorization / X-API-Key
 # (header credentials are not auto-attached by browsers the way cookies are).
 _API_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+# jsDelivr pinned to https://cdn.jsdelivr.net only (Swagger/ReDoc assets).
 _HTML_SHELL_CSP = (
     "default-src 'none'; "
     "base-uri 'none'; "
@@ -72,16 +74,18 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers.setdefault("Referrer-Policy", "no-referrer")
         response.headers.setdefault(
             "Permissions-Policy",
-            "geolocation=(), microphone=(), camera=()",
+            "geolocation=(), microphone=(), camera=(), payment=(), usb=(), "
+            "bluetooth=(), interest-cohort=(), browsing-topics=()",
         )
         response.headers.setdefault("Content-Security-Policy", _csp_for_path(request.url.path))
         response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
         response.headers.setdefault("Cross-Origin-Resource-Policy", "same-site")
         response.headers.setdefault("Cache-Control", "no-store")
-        # HSTS only when clearly behind TLS / production.
-        if settings.ENVIRONMENT.lower() in {"production", "prod"}:
+        # HSTS whenever Settings treats the process as production-like (prod/staging/Fly).
+        if settings.is_production:
             response.headers.setdefault(
-                "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+                "Strict-Transport-Security",
+                "max-age=31536000; includeSubDomains; preload",
             )
         return response
 
@@ -116,6 +120,7 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
             provided = token
 
         if not provided or not hmac.compare_digest(provided, expected):
+            _log_auth_failure(kind="api_key", reason="reject")
             return JSONResponse(
                 status_code=401,
                 content={"detail": "invalid or missing API key"},

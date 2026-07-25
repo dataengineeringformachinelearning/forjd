@@ -112,6 +112,7 @@ _DOCS_HTML = """<!doctype html>
       deepLinking: true,
       displayRequestDuration: true,
       defaultModelsExpandDepth: 0,
+      persistAuthorization: false,
     }});
   </script>
 </body>

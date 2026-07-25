@@ -7,11 +7,13 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.core.auth import AuthUser, get_current_user, pool_from_request
+from app.core.http_errors import client_safe_detail
 from app.models.domain import ThreatScoreRequest, ThreatTrainRequest
 from app.services import tenants as tenant_svc
 from app.services.ml import threat_model as threat_ml
 
-router = APIRouter(prefix="/threat-ml", tags=["threat-ml"])
+# Internal threat train/score — omit from public OpenAPI (runtime auth still required).
+router = APIRouter(prefix="/threat-ml", tags=["threat-ml"], include_in_schema=False)
 
 
 @router.post("/train")
@@ -34,7 +36,10 @@ async def train_threat(
             pool, tenant_id=body.tenant_id, epochs=body.epochs
         )
     except RuntimeError as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=client_safe_detail(exc),
+        ) from exc
 
 
 @router.post("/score")
@@ -50,4 +55,7 @@ async def score_threat(
     try:
         return await threat_ml.score_threat_model(pool, tenant_id=body.tenant_id)
     except RuntimeError as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=client_safe_detail(exc),
+        ) from exc

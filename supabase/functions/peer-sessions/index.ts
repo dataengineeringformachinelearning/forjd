@@ -9,14 +9,48 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+// --- Explicit CORS allow-list (no wildcard in production) ---
+const ALLOWED_ORIGINS = new Set([
+  "https://forjd.co",
+  "https://www.forjd.co",
+  "https://ui.forjd.co",
+  "https://backend.forjd.co",
+  "https://deml.app",
+  "https://www.deml.app",
+  "https://backend.deml.app",
+  "http://localhost:4200",
+  "http://127.0.0.1:4200",
+]);
+
+// --- Browser hardening (merged with CORS; never overrides Allow-Origin) ---
+const SECURITY_HEADERS: Record<string, string> = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "no-referrer",
+  "Permissions-Policy":
+    "geolocation=(), microphone=(), camera=(), payment=(), usb=(), bluetooth=(), interest-cohort=(), browsing-topics=()",
+  // Edge is HTTPS-only in production; HSTS is safe for forjd.co / deml.app callers.
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+  "Cache-Control": "no-store",
 };
+
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = (req.headers.get("Origin") || "").trim();
+  const allowOrigin = ALLOWED_ORIGINS.has(origin) ? origin : "https://forjd.co";
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Vary": "Origin",
+  };
+}
+
+function responseHeaders(req: Request, extra: Record<string, string> = {}): Record<string, string> {
+  return { ...SECURITY_HEADERS, ...corsHeaders(req), ...extra };
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: cors });
+    return new Response("ok", { headers: responseHeaders(req) });
   }
 
   try {
@@ -24,7 +58,7 @@ Deno.serve(async (req) => {
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "missing Authorization" }), {
         status: 401,
-        headers: { ...cors, "Content-Type": "application/json" },
+        headers: responseHeaders(req, { "Content-Type": "application/json" }),
       });
     }
 
@@ -33,7 +67,7 @@ Deno.serve(async (req) => {
     if (!tenantId) {
       return new Response(JSON.stringify({ error: "tenant_id required" }), {
         status: 400,
-        headers: { ...cors, "Content-Type": "application/json" },
+        headers: responseHeaders(req, { "Content-Type": "application/json" }),
       });
     }
 
@@ -52,7 +86,7 @@ Deno.serve(async (req) => {
     if (memErr || !membership) {
       return new Response(JSON.stringify({ error: "forbidden" }), {
         status: 403,
-        headers: { ...cors, "Content-Type": "application/json" },
+        headers: responseHeaders(req, { "Content-Type": "application/json" }),
       });
     }
 
@@ -67,19 +101,19 @@ Deno.serve(async (req) => {
       .limit(50);
 
     if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
+      return new Response(JSON.stringify({ error: "query failed" }), {
         status: 500,
-        headers: { ...cors, "Content-Type": "application/json" },
+        headers: responseHeaders(req, { "Content-Type": "application/json" }),
       });
     }
 
     return new Response(JSON.stringify({ ok: true, tenant_id: tenantId, sessions: data ?? [] }), {
-      headers: { ...cors, "Content-Type": "application/json" },
+      headers: responseHeaders(req, { "Content-Type": "application/json" }),
     });
-  } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }), {
+  } catch {
+    return new Response(JSON.stringify({ error: "internal error" }), {
       status: 500,
-      headers: { ...cors, "Content-Type": "application/json" },
+      headers: responseHeaders(req, { "Content-Type": "application/json" }),
     });
   }
 });

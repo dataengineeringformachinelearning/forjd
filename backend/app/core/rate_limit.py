@@ -46,9 +46,11 @@ return {1, count + 1, reset}
 # --- Anonymous public routes (IP sliding window) ---
 _PUBLIC_RATE_LIMIT_ROUTES: tuple[tuple[str, str], ...] = (
     ("GET", "/status/pages/slug/"),
+    ("GET", "/status/pages/published"),
     ("GET", "/capabilities"),
     ("GET", "/addons"),
     ("POST", "/honeypots/hit"),
+    ("POST", "/partner/provision"),
 )
 
 
@@ -126,9 +128,15 @@ async def _enforce_sliding_window(request: Request, *, key: str, limit: int) -> 
 
 
 def _client_ip(request: Request) -> str:
-    """First X-Forwarded-For hop, else request.client.host (never log raw)."""
+    """Prefer edge-trusted IP headers; never log the raw value."""
+    # Fly overwrites Fly-Client-IP; prefer it over client-spoofable XFF.
+    for header in ("fly-client-ip", "x-real-ip"):
+        value = (request.headers.get(header) or "").strip()
+        if value:
+            return value
     forwarded = (request.headers.get("x-forwarded-for") or "").strip()
     if forwarded:
+        # Last hop is typically the edge when proxies append; use first only as fallback.
         return forwarded.split(",")[0].strip() or "unknown"
     client = getattr(request, "client", None)
     host = getattr(client, "host", None) if client is not None else None

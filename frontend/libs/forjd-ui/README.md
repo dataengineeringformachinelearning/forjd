@@ -49,4 +49,4 @@ npm run build-storybook
 npm run chromatic
 ```
 
-Public Storybook: [ui.forjd.co](https://ui.forjd.co) — see [`ui/README.md`](../../ui/README.md).
+Public Storybook hosting (`ui.forjd.co`) is retired — use local `npm run storybook` / Chromatic.

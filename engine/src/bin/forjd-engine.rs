@@ -176,6 +176,7 @@ async fn main() {
     let app = app.layer(
         ServiceBuilder::new()
             .layer(HandleErrorLayer::new(|err: BoxError| async move {
+                // --- Public JSON: never echo raw tower/internal errors ---
                 if err.is::<tower::timeout::error::Elapsed>() {
                     (
                         StatusCode::REQUEST_TIMEOUT,
@@ -183,9 +184,10 @@ async fn main() {
                     )
                         .into_response()
                 } else {
+                    tracing::error!(error = %err, "engine request failed");
                     (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(serde_json::json!({"error": format!("internal error: {err}")})),
+                        Json(serde_json::json!({"error": "internal error"})),
                     )
                         .into_response()
                 }

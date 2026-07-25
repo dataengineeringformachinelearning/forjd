@@ -4,7 +4,14 @@
       <forjd-section class="suite-landing-hero landing__hero viking-unified-hero" aria-labelledby="forjd-brand">
         <p class="suite-landing-badge hero-badge">
           <span class="badge-dot pulse-dot"></span>
-          <span class="badge-text">Data plane · Sealed · Production</span>
+          <span class="badge-text">
+            Data plane · Sealed · Production
+            @if (apiReady() === 'not_ready') {
+            · API not ready
+            } @else if (apiReady() === 'unreachable') {
+            · API unreachable
+            }
+          </span>
         </p>
         <img
           class="suite-landing-mark landing__hero-mark"
@@ -25,6 +32,7 @@
         <div class="suite-landing-actions landing__actions">
           <forjd-button variant="primary" [href]="docsUrl" target="_blank">Swagger</forjd-button>
           <forjd-button variant="outline" [href]="redocUrl" target="_blank">ReDoc</forjd-button>
+          <forjd-button variant="ghost" [href]="demlUrl" target="_blank">Open DEML</forjd-button>
           <forjd-button variant="ghost" [href]="communityUrl" target="_blank">Community</forjd-button>
         </div>
       </forjd-section>
@@ -133,6 +141,10 @@
           >
         </div>
         <div>
+          <span>ready</span
+          ><a [href]="readyUrl" target="_blank" rel="noopener noreferrer"><code>/ready</code></a>
+        </div>
+        <div>
           <span>swagger</span
           ><a [href]="docsUrl" target="_blank" rel="noopener noreferrer"><code>/docs</code></a>
         </div>
@@ -141,6 +153,16 @@
           ><a [href]="redocUrl" target="_blank" rel="noopener noreferrer"><code>/redoc</code></a>
         </div>
         <div><span>engine</span><code>rust · arrow · parquet</code></div>
+        <div>
+          <span>privacy</span
+          ><a [href]="privacyUrl" target="_blank" rel="noopener noreferrer"
+            ><code>/privacy</code></a
+          >
+        </div>
+        <div>
+          <span>terms</span
+          ><a [href]="termsUrl" target="_blank" rel="noopener noreferrer"><code>/terms</code></a>
+        </div>
       </footer>
     </div>
   </forjd-page-shell>

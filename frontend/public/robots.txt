@@ -1,5 +1,4 @@
 User-agent: *
 Allow: /
-Disallow: /console
 
 Sitemap: https://forjd.co/sitemap.xml

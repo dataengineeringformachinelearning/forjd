@@ -142,10 +142,10 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
 
 .page-inner-wrapper.suite-landing .suite-landing-brand,
 .page-inner-wrapper.suite-landing .hero-brand {
-  font-size: clamp(2rem, 5.5vw, 2.75rem);
+  /* Match forjd.co display brand weight — no deml-only shrink */
+  font-size: var(--suite-text-display);
   letter-spacing: var(--suite-tracking-brand);
   color: var(--suite-ink);
-  /* Match forjd.co — no glow wash on the brand wordmark */
   text-shadow: none;
 }
 
@@ -154,10 +154,10 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   margin: 0;
   font-family: var(--suite-font-mono);
   font-size: var(--suite-text-xs);
-  font-weight: var(--suite-weight-semibold);
+  font-weight: var(--suite-weight-medium);
   letter-spacing: var(--suite-tracking-caps);
   text-transform: uppercase;
-  color: var(--suite-ink-muted);
+  color: color-mix(in srgb, var(--suite-ink-muted) 85%, transparent);
 }
 
 /* suite-card already pads — don't double-pad step/pillar tiles */
@@ -182,11 +182,6 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   min-height: min(78dvh, 40rem);
   justify-content: center;
   padding-block: var(--suite-space-10) var(--suite-space-5);
-  animation: suite-hero-in var(--suite-duration-slow) var(--suite-ease) both;
-}
-
-.hero-showcase {
-  min-height: min(78dvh, 40rem);
   animation: suite-hero-in var(--suite-duration-slow) var(--suite-ease) both;
 }
 
@@ -353,8 +348,7 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
     .fj-landing-hero,
     .landing__hero,
     .viking-unified-hero
-  ),
-  .hero-showcase {
+  ) {
     animation: none;
   }
 
@@ -487,16 +481,8 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
 }
 
 @media (min-width: 1024px) {
-  :is(.suite-landing-steps, .landing__steps) {
+  :is(.suite-landing-steps, .landing__steps, .quick-start-steps) {
     grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .quick-start-steps.viking-column-layout--4 {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .quick-start-steps.viking-column-layout--2 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -695,20 +681,6 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   font-variant-numeric: tabular-nums;
 }
 
-:is(.metric-trend) {
-  font-family: var(--suite-font-mono);
-  font-size: var(--suite-text-xs);
-  color: var(--suite-ink-subtle);
-}
-
-:is(.metric-trend.trend-up) {
-  color: var(--suite-success);
-}
-
-:is(.metric-trend.trend-down) {
-  color: var(--suite-danger);
-}
-
 :is(.visual-panel, .landing__band-panel) {
   min-height: 100%;
 }
@@ -721,43 +693,6 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   color: var(--suite-ink);
   font-weight: var(--suite-weight-semibold);
   font-size: var(--suite-text-sm);
-}
-
-/* =============================================================================
-   Integrations strip
-   ============================================================================= */
-:is(.integrations-strip) {
-  display: flex;
-  flex-direction: column;
-  gap: var(--suite-space-3);
-  padding-block: var(--suite-space-2);
-}
-
-:is(.integration-logos) {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--suite-space-2);
-}
-
-:is(.integration-logo-item) {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--suite-space-1);
-  min-height: var(--suite-control-height);
-  padding: 0 var(--suite-space-2);
-  border: 1px solid var(--suite-border);
-  border-radius: var(--suite-radius-pill);
-  background: var(--suite-surface);
-  color: var(--suite-ink-muted);
-  font-size: var(--suite-text-sm);
-  text-decoration: none;
-  transition: var(--suite-transition);
-}
-
-:is(.integration-logo-item):hover {
-  border-color: var(--suite-primary);
-  color: var(--suite-primary);
-  background: var(--suite-primary-soft);
 }
 
 /* =============================================================================

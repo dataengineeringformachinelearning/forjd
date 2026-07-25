@@ -230,6 +230,7 @@ def verify_supabase_jwt(token: str) -> AuthUser:
                 last_err = exc
 
     if claims is None:
+        _log_auth_failure(kind="jwt", reason="invalid_or_expired")
         detail = "invalid or expired token"
         if settings.DEBUG and last_err is not None:
             detail = f"invalid or expired token ({last_err})"
@@ -241,11 +242,13 @@ def verify_supabase_jwt(token: str) -> AuthUser:
 def _principal_from_claims(claims: dict[str, Any]) -> AuthUser:
     sub = claims.get("sub")
     if not sub:
+        _log_auth_failure(kind="jwt", reason="missing_sub")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="token missing sub")
 
     # Reject Supabase service_role before any forjd claim shaping (fail closed).
     role = str(claims.get("role") or "authenticated")
     if role == "service_role":
+        _log_auth_failure(kind="jwt", reason="service_role_rejected")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="service_role JWT is not accepted; use a tenant-scoped service account",
@@ -398,6 +401,7 @@ async def _bind_jwt_service_principal(pool: Any, provisional: AuthUser) -> AuthU
     )
     # Hard isolation: JWT claim tenant (if present) must match registry.
     if provisional.tenant_id and provisional.tenant_id != bound.tenant_id:
+        _log_auth_failure(kind="service_jwt", reason="tenant_mismatch")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="service token tenant mismatch",

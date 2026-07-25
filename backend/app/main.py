@@ -17,12 +17,13 @@ from app.core.auth import warm_jwks
 from app.core.clients import create_db_pool, create_redis_client
 from app.core.config import settings
 from app.core.docs_page import render_docs
+from app.core.http_errors import register_exception_handlers
 from app.core.ingest_body_limit import IngestBodyLimitMiddleware
 from app.core.ingest_limits import ingest_write_paths
 from app.core.landing_page import render_landing
-from app.core.redoc_page import render_redoc
 from app.core.logging import configure_logging
 from app.core.rate_limit import PublicRateLimitMiddleware
+from app.core.redoc_page import render_redoc
 from app.core.request_context import RequestContextMiddleware
 from app.core.rollbar import configure_rollbar
 from app.core.security import ApiKeyMiddleware, SecurityHeadersMiddleware
@@ -296,6 +297,9 @@ app = FastAPI(
     redoc_url=None,
 )
 
+# --- Exception handlers (generic 500 in production) ---
+register_exception_handlers(app)
+
 # Sentry (SDK-level, before middleware), Rollbar, then security headers, API key, CORS
 configure_sentry()
 configure_rollbar(app)
@@ -310,7 +314,8 @@ app.add_middleware(PublicRateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
+    # Auth is Bearer/header based — no cookie sessions; keep credentials off.
+    allow_credentials=False,
     # PUT/PATCH/DELETE are part of case, playbook, and credential lifecycle APIs.
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-API-Key", "X-Request-ID"],
@@ -355,7 +360,8 @@ async def redoc() -> HTMLResponse:
 @app.get("/robots.txt", response_class=PlainTextResponse, include_in_schema=False)
 async def robots() -> PlainTextResponse:
     return PlainTextResponse(
-        "User-agent: *\nAllow: /\nDisallow: /api/v1/\n"
+        "User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /docs\n"
+        "Disallow: /redoc\nDisallow: /openapi.json\n"
         "Allow: /api/v1/addons\nSitemap: https://backend.forjd.co/sitemap.xml\n"
     )
 
@@ -365,14 +371,13 @@ async def sitemap() -> Response:
     xml = """<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://backend.forjd.co/</loc><changefreq>weekly</changefreq></url>
-  <url><loc>https://backend.forjd.co/docs</loc><changefreq>weekly</changefreq></url>
   <url><loc>https://backend.forjd.co/api/v1/addons</loc><changefreq>weekly</changefreq></url>
 </urlset>"""
     return Response(content=xml, media_type="application/xml")
 
 
-# --- Probes ---
-@app.get("/health")
+# --- Probes (ops only — excluded from public OpenAPI) ---
+@app.get("/health", include_in_schema=False)
 async def health_check() -> dict[str, str]:
     """Liveness — process is up. Does not check dependencies."""
     return {
@@ -383,7 +388,7 @@ async def health_check() -> dict[str, str]:
     }
 
 
-@app.get("/ready")
+@app.get("/ready", include_in_schema=False)
 async def readiness(request: Request) -> JSONResponse:
     """Readiness — Postgres + Redis (+ optional engine) must respond."""
     checks: dict[str, bool] = {
@@ -487,4 +492,7 @@ async def readiness(request: Request) -> JSONResponse:
     }
     if engine_meta is not None:
         body["engine"] = engine_meta
+    if not ready:
+        failed = sorted(name for name, ok in checks.items() if not ok)
+        logger.warning("ready: not_ready failed_checks=%s", ",".join(failed) or "-")
     return JSONResponse(content=body, status_code=200 if ready else 503)

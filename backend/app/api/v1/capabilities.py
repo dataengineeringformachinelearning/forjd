@@ -4,13 +4,17 @@ The document is derived from the routes mounted on the running application so
 it cannot advertise a capability whose required HTTP surface was omitted from
 the deployment.  It contains no tenant or deployment secrets and is therefore
 safe to use as a pre-authentication compatibility probe.
+
+Capability discovery uses the ASGI route table (not OpenAPI), so privileged
+routes excluded from the public schema (erase, provision, mint) still report
+accurately when mounted.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, FastAPI, Request
 
 from app.core.config import settings
 from app.core.ingest_limits import (
@@ -98,7 +102,8 @@ _REQUIRED_ROUTES: dict[str, tuple[tuple[str, str], ...]] = {
 }
 
 
-def _mounted_routes(openapi: dict[str, Any]) -> set[tuple[str, str]]:
+def _mounted_routes_from_openapi(openapi: dict[str, Any]) -> set[tuple[str, str]]:
+    """Legacy OpenAPI-path scan (tests / callers without an app instance)."""
     mounted: set[tuple[str, str]] = set()
     paths = openapi.get("paths")
     if not isinstance(paths, dict):
@@ -113,9 +118,48 @@ def _mounted_routes(openapi: dict[str, Any]) -> set[tuple[str, str]]:
     return mounted
 
 
-def build_capability_document(openapi: dict[str, Any]) -> dict[str, Any]:
-    """Build the authoritative contract document for the mounted application."""
-    mounted = _mounted_routes(openapi)
+def _walk_mounted_routes(routes: list[Any], prefix: str = "") -> set[tuple[str, str]]:
+    """Recurse FastAPI include_router nesting (``_IncludedRouter`` wrappers)."""
+    mounted: set[tuple[str, str]] = set()
+    for route in routes:
+        # Nested APIRouter include — walk with accumulated prefix.
+        original = getattr(route, "original_router", None)
+        ctx = getattr(route, "include_context", None)
+        if original is not None and ctx is not None:
+            child_prefix = prefix + (getattr(ctx, "prefix", None) or "")
+            mounted |= _walk_mounted_routes(list(original.routes), child_prefix)
+            continue
+        path = getattr(route, "path", None)
+        methods = getattr(route, "methods", None)
+        if not isinstance(path, str) or not methods:
+            continue
+        full_path = prefix + path
+        for method in methods:
+            normalized = str(method).upper()
+            if normalized in {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}:
+                mounted.add((normalized, full_path))
+    return mounted
+
+
+def _mounted_routes_from_app(app: FastAPI) -> set[tuple[str, str]]:
+    """Inspect the live route table, including include_in_schema=False routes."""
+    return _walk_mounted_routes(list(app.routes))
+
+
+def build_capability_document(
+    openapi: dict[str, Any] | None = None,
+    *,
+    app: FastAPI | None = None,
+) -> dict[str, Any]:
+    """Build the authoritative contract document for the mounted application.
+
+    Prefer ``app`` (ASGI routes) so privileged endpoints hidden from OpenAPI
+    still count as available when deployed.
+    """
+    if app is not None:
+        mounted = _mounted_routes_from_app(app)
+    else:
+        mounted = _mounted_routes_from_openapi(openapi or {})
     capabilities: dict[str, dict[str, Any]] = {}
     for name, required in _REQUIRED_ROUTES.items():
         missing = [f"{method} {path}" for method, path in required if (method, path) not in mounted]
@@ -168,4 +212,4 @@ def build_capability_document(openapi: dict[str, Any]) -> dict[str, Any]:
 @router.get("/capabilities")
 async def capabilities(request: Request) -> dict[str, Any]:
     """Return the public headless integration contract and mounted features."""
-    return build_capability_document(request.app.openapi())
+    return build_capability_document(app=request.app)

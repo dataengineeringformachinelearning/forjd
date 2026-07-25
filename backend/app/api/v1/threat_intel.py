@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.encoders import jsonable_encoder
 
 from app.core.auth import AuthUser, get_current_user, pool_from_request
+from app.core.http_errors import client_safe_detail, intentional_detail
 from app.models.domain import CorrelateRequest, TaxiiIngestRequest, ThreatRefreshRequest
 from app.services import audit
 from app.services import playbooks as playbook_svc
@@ -99,9 +100,12 @@ async def ingest_taxii(
             is_platform=body.is_platform,
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=intentional_detail(exc)) from exc
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            detail=client_safe_detail(exc),
+        ) from exc
     await audit.record_required(
         pool,
         action="threat_intel.taxii_ingest",

@@ -169,9 +169,9 @@ Production deploy (SQL, mint `fjsvc_`, Fly/Vercel checklist): see [`docs/PRODUCT
 
 **Postgres:** Production uses Supabase. Optional partner control-plane co-location into a non-`public` schema: controlled ETL [`docs/NEON_TO_SUPABASE_ETL.md`](docs/NEON_TO_SUPABASE_ETL.md) (preferred) or dump/restore [`docs/NEON_TO_SUPABASE.md`](docs/NEON_TO_SUPABASE.md). Verify with `scripts/neon_supabase_etl/verify_etl.py` + `backend/scripts/verify_supabase_post_migration.py`.
 
-### Storybook → Vercel (ui.forjd.co)
+### Storybook (local / Chromatic)
 
-Public forjd-ui Storybook: [https://ui.forjd.co](https://ui.forjd.co). Separate Vercel project (`ui`) — see [`frontend/README.md`](frontend/README.md). Attach the `ui.forjd.co` domain after the first production deploy.
+Public Storybook (`ui.forjd.co` / Vercel project `ui`) is retired. forjd-ui stays in `frontend/libs/forjd-ui/` — run `npm run storybook` / `build-storybook` locally or Chromatic. See [`frontend/README.md`](frontend/README.md).
 
 ### API custom domain
 

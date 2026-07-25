@@ -20,6 +20,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.core.auth import AuthUser, get_current_user, pool_from_request
+from app.core.http_errors import client_safe_detail, intentional_detail
 from app.models.ml import MlFitRequest, MlScoreRequest
 from app.services import tenants as tenant_svc
 from app.services.ml import registry as ml_registry
@@ -197,9 +198,12 @@ async def fit_ml_model(
             **_filter_kwargs(model_id, kwargs, fit=True),
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=intentional_detail(exc)) from exc
     except RuntimeError as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=client_safe_detail(exc),
+        ) from exc
 
     return await ml_sb.persist_fit(
         pool,
@@ -261,9 +265,12 @@ async def score_ml_model(
             **_filter_kwargs(model_id, kwargs, fit=False),
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=intentional_detail(exc)) from exc
     except RuntimeError as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=client_safe_detail(exc),
+        ) from exc
 
     return await ml_sb.persist_score(
         pool,

@@ -57,6 +57,22 @@ class TestCoreRouteOpenApi(unittest.TestCase):
         batch_path = paths["/api/v1/ingest/events:batch"]
         self.assertIn("Ingest a bounded sealed event batch", str(batch_path))
 
+    def test_privileged_and_probe_routes_hidden_from_schema(self) -> None:
+        from app.main import app
+
+        paths = app.openapi()["paths"]
+        self.assertNotIn("/api/v1/partner/provision", paths)
+        self.assertNotIn("/health", paths)
+        self.assertNotIn("/ready", paths)
+        erase_keys = [p for p in paths if p.endswith("/erase")]
+        self.assertEqual(erase_keys, [])
+        # Mint/create is hidden; list/revoke may remain for operator docs.
+        create_ops = paths.get("/api/v1/service-accounts", {})
+        self.assertNotIn("post", {str(k).lower() for k in create_ops})
+        self.assertNotIn("/api/v1/replay", paths)
+        self.assertFalse(any(p.startswith("/api/v1/replay/") for p in paths))
+        self.assertFalse(any("/threat-ml" in p for p in paths))
+
 
 if __name__ == "__main__":
     unittest.main()

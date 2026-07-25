@@ -10,7 +10,7 @@
 | ---- | ------- |
 | [forjd.co](https://forjd.co) | Angular landing (`frontend/`) |
 | [backend.forjd.co](https://backend.forjd.co) | Splash + Swagger `/docs` + ReDoc `/redoc` |
-| [ui.forjd.co](https://ui.forjd.co) | forjd-ui Storybook |
+| forjd-ui Storybook (local / Chromatic) | Public `ui.forjd.co` retired |
 
 ## Local ownership
 

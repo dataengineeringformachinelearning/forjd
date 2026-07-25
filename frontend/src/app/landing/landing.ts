@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  PLATFORM_ID,
+  afterNextRender,
+  inject,
+  signal,
+} from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import {
   FjButton,
   FjPageShell,
@@ -17,11 +25,55 @@ import { environment } from '../../environments/environment';
   templateUrl: './landing.html',
 })
 export class Landing {
+  private readonly platformId = inject(PLATFORM_ID);
+
   protected readonly title = 'FORJD';
+  // --- Suite cross-links (env + stable product/legal hosts) ---
   protected readonly apiBaseUrl = environment.apiBaseUrl;
   protected readonly docsUrl = `${environment.apiBaseUrl}/docs`;
   protected readonly redocUrl = `${environment.apiBaseUrl}/redoc`;
+  protected readonly readyUrl = `${environment.apiBaseUrl}/ready`;
   protected readonly communityUrl = 'https://dataengineeringformachinelearning.com/';
+  protected readonly demlUrl = 'https://deml.app/';
+  protected readonly privacyUrl = 'https://dataengineeringformachinelearning.com/privacy/';
+  protected readonly termsUrl = 'https://dataengineeringformachinelearning.com/terms/';
+
+  /** Shared continuity signal: FORJD `/ready` (ops + DEML soft-probe source). */
+  protected readonly apiReady = signal<'ok' | 'not_ready' | 'unreachable'>('ok');
+
+  constructor() {
+    afterNextRender(() => {
+      if (!isPlatformBrowser(this.platformId)) {
+        return;
+      }
+      void this.probeApiReady();
+    });
+  }
+
+  private async probeApiReady(): Promise<void> {
+    try {
+      const response = await fetch(this.readyUrl, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        credentials: 'omit',
+      });
+      if (!response.ok) {
+        this.apiReady.set('not_ready');
+        console.warn('[landing] FORJD /ready not_ready status=%s', response.status);
+        return;
+      }
+      const body = (await response.json()) as { status?: string };
+      if ((body.status || '').toLowerCase() === 'ready') {
+        this.apiReady.set('ok');
+      } else {
+        this.apiReady.set('not_ready');
+        console.warn('[landing] FORJD /ready reported status=%s', body.status);
+      }
+    } catch {
+      this.apiReady.set('unreachable');
+      console.warn('[landing] FORJD /ready unreachable');
+    }
+  }
 
   protected readonly onboarding = [
     {

@@ -11,9 +11,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.auth import AuthUser, get_current_user
 from app.core.deps import require_db_pool
+from app.core.http_errors import intentional_detail
 from app.services import replay as replay_svc
 
-router = APIRouter(prefix="/replay", tags=["replay"])
+# Replay/DLQ is ops-facing — keep callable, omit from public OpenAPI surface.
+router = APIRouter(prefix="/replay", tags=["replay"], include_in_schema=False)
 
 
 class ReplayRequest(BaseModel):
@@ -52,7 +54,7 @@ async def replay(
             dry_run=body.dry_run,
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=intentional_detail(exc)) from exc
 
 
 # --- DLQ ---
@@ -90,4 +92,4 @@ async def retry_dlq(
     try:
         return await replay_svc.retry_dlq_item(pool, user=user, tenant_id=tenant_id, dlq_id=dlq_id)
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=intentional_detail(exc)) from exc

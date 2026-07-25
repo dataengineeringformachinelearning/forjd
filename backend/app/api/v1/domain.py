@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.auth import AuthUser, get_current_user, pool_from_request
+from app.core.http_errors import client_safe_detail, intentional_detail
 from app.models.domain import UpdateVulnerabilityRequest
 from app.models.siem import validate_signal_metadata
 from app.services import analytics as analytics_svc
@@ -350,9 +351,12 @@ async def enrich_site(
             url=body.url,
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=intentional_detail(exc)) from exc
     except firecrawl_svc.FirecrawlTechnologyError as exc:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            detail=client_safe_detail(exc),
+        ) from exc
 
 
 # --- Analytics ---
@@ -397,7 +401,7 @@ async def create_honeypot(
             trap_type=body.trap_type,
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=intentional_detail(exc)) from exc
     return {"ok": True, "honeypot": hp}
 
 
@@ -446,7 +450,10 @@ async def report_pdf(
             limit=body.limit,
         )
     except RuntimeError as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=client_safe_detail(exc),
+        ) from exc
 
 
 @router.get("/compliance/soc")
@@ -475,7 +482,10 @@ async def sla_train(
     try:
         return await sla_ml.train_tenant_sla(_pool(request), tenant_id=body.tenant_id)
     except RuntimeError as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=client_safe_detail(exc),
+        ) from exc
 
 
 @router.post("/integrations/security-alert")

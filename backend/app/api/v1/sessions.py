@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.core.auth import AuthUser, get_current_user
 from app.core.deps import require_db_pool
+from app.core.http_errors import intentional_detail
 from app.models.session import CryptoSessionUpsert
 from app.services import sessions as session_svc
 
@@ -37,9 +38,9 @@ async def upsert_session(
     try:
         session = await session_svc.upsert_session(pool, user=user, body=body)
     except PermissionError as exc:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail=intentional_detail(exc)) from exc
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=intentional_detail(exc)) from exc
     return {"ok": True, "session": session}
 
 
@@ -78,5 +79,5 @@ async def revoke_session(
             pool, user=user, tenant_id=tenant_id, session_id=session_id
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=intentional_detail(exc)) from exc
     return {"ok": True, "session": session}

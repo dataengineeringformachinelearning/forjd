@@ -90,10 +90,17 @@ fly deploy -a forjd-backend -c fly.api.toml
 ```bash
 curl -fsS https://backend.forjd.co/health
 curl -fsS https://backend.forjd.co/ready
+# Partner/DEML contract probe (mounted capabilities + limits)
+curl -fsS https://backend.forjd.co/api/v1/capabilities | head -c 400; echo
 # Security headers (XSS hardening; CSRF = Bearer / X-API-Key, not tokens)
 curl -sI https://backend.forjd.co/health | grep -Ei 'content-security-policy|x-content-type-options|x-frame-options'
 fly checks list -a forjd-backend
 ```
+
+Continuity signal (shared with DEML): FORJD `GET /ready` is the data-plane readiness
+probe. DEML `GET /api/v1/ready` soft-probes FORJD `/health` and exposes `forjd_health`
+(`ok` | `degraded` | `unreachable`) without failing the control-plane ready gate on a
+blip. Engine readiness on `/ready` is informational and does not gate API readiness.
 
 The private S3-compatible bucket credentials need only list/get/put/delete on
 the export bucket. Enable provider-side encryption and a lifecycle expiration
@@ -127,7 +134,7 @@ npx vercel link --project forjd --yes   # adjust project name if different
 npx vercel deploy --prod --yes
 ```
 
-Optional Storybook: `ui.forjd.co` (separate Vercel project).
+Storybook: local / Chromatic only — public `ui.forjd.co` (Vercel project `ui`) is retired.
 
 DNS: `backend.forjd.co` → Fly `forjd-backend` (`fly certs add backend.forjd.co`).
 

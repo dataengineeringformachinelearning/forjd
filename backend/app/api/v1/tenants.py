@@ -11,6 +11,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from app.core.auth import AuthUser, get_current_user, pool_from_request, require_user_principal
+from app.core.http_errors import (
+    GENERIC_INVALID_REQUEST,
+    GENERIC_REQUEST_FAILED,
+    client_safe_detail,
+)
 from app.models.tenant import TenantCreate
 from app.services import tenant_erase as erase_svc
 from app.services import tenants as tenant_svc
@@ -51,9 +56,10 @@ async def list_tenants(
         await tenant_svc.ensure_secure_schema(pool)
         items = await tenant_svc.list_tenants_for_user(pool, user_id=user.user_id)
     except Exception as exc:  # noqa: BLE001
+        logger.exception("list tenants failed")
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"tenants unavailable — run sql/003_secure_tenancy.sql ({exc})",
+            detail=client_safe_detail(exc, fallback="tenants unavailable"),
         ) from exc
     return {"ok": True, "tenants": items}
 
@@ -84,12 +90,16 @@ async def create_tenant(
         msg = str(exc)
         if "unique" in msg.lower() or "duplicate" in msg.lower():
             raise HTTPException(status.HTTP_409_CONFLICT, detail="slug already taken") from exc
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=msg) from exc
+        logger.exception("create tenant failed")
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=client_safe_detail(exc, fallback=GENERIC_INVALID_REQUEST),
+        ) from exc
     return {"ok": True, "tenant": tenant}
 
 
-# --- Durable erase (partner account deletion / GDPR) ---
-@router.post("/{tenant_id}/erase")
+# --- Durable erase (partner account deletion / GDPR; omit from public OpenAPI) ---
+@router.post("/{tenant_id}/erase", include_in_schema=False)
 async def erase_tenant(
     request: Request,
     tenant_id: UUID,
@@ -118,5 +128,5 @@ async def erase_tenant(
         logger.exception("tenant erase failed tenant_id=%s", tenant_id)
         raise HTTPException(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="tenant erase failed",
+            detail=client_safe_detail(exc, fallback=GENERIC_REQUEST_FAILED),
         ) from exc

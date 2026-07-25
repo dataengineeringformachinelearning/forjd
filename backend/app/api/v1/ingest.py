@@ -25,6 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.core.auth import AuthUser, get_current_user
 from app.core.deps import parse_iso_cursor, require_db_pool
+from app.core.http_errors import intentional_detail
 from app.core.ingest_limits import MAX_INGEST_BATCH_EVENTS, MAX_INGEST_BODY_BYTES
 from app.models.ingest import EmbeddingIngestRequest, IngestBatchRequest, IngestEventRequest
 from app.services import ingest as ingest_svc
@@ -94,9 +95,15 @@ async def ingest_events_batch(
     try:
         return await ingest_svc.ingest_events(pool=pool, user=user, batch=body)
     except ingest_svc.IngestConflictError as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=intentional_detail(exc, fallback="ingest conflict"),
+        ) from exc
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=intentional_detail(exc),
+        ) from exc
 
 
 @router.get(
@@ -117,7 +124,10 @@ async def get_processing_status(
             batch_id=batch_id,
         )
     except LookupError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=intentional_detail(exc, fallback="not found"),
+        ) from exc
 
 
 @router.get(
@@ -188,7 +198,10 @@ async def ingest_embedding(
     try:
         return await ingest_svc.ingest_embedding(pool=pool, user=user, body=body)
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=intentional_detail(exc),
+        ) from exc
 
 
 # --- Shared single-event path ---
@@ -205,6 +218,12 @@ async def _ingest_one(
             batch=IngestBatchRequest(events=[body]),
         )
     except ingest_svc.IngestConflictError as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail=intentional_detail(exc, fallback="ingest conflict"),
+        ) from exc
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=intentional_detail(exc),
+        ) from exc

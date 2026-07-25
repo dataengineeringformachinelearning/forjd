@@ -14,13 +14,15 @@ from app.main import app
 
 class TestCapabilityContract(unittest.TestCase):
     def test_contract_only_advertises_mounted_surfaces(self) -> None:
-        document = build_capability_document(app.openapi())
+        # Prefer ASGI routes so schema-hidden erase/provision still count.
+        document = build_capability_document(app=app)
         self.assertEqual(document["contract_version"], CONTRACT_VERSION)
         self.assertEqual(document["service"], "forjd")
         self.assertTrue(document["authentication"]["tenant_bound"])
         self.assertIn("report_documents", document["capabilities"])
         self.assertIn("workflows", document["capabilities"])
         self.assertTrue(document["capabilities"]["workflows"]["available"])
+        self.assertTrue(document["capabilities"]["tenant_erasure"]["available"])
         for capability in document["capabilities"].values():
             self.assertTrue(capability["available"], capability.get("missing"))
 
@@ -28,6 +30,13 @@ class TestCapabilityContract(unittest.TestCase):
         document = build_capability_document({"paths": {}})
         self.assertFalse(document["capabilities"]["siem"]["available"])
         self.assertIn("missing", document["capabilities"]["siem"])
+
+    def test_schema_hidden_erase_still_available_via_app_routes(self) -> None:
+        openapi_doc = build_capability_document(app.openapi())
+        # Erase is omit from OpenAPI — openapi-only scan would mark it missing.
+        self.assertFalse(openapi_doc["capabilities"]["tenant_erasure"]["available"])
+        live = build_capability_document(app=app)
+        self.assertTrue(live["capabilities"]["tenant_erasure"]["available"])
 
 
 class TestMlCatalogScope(unittest.TestCase):

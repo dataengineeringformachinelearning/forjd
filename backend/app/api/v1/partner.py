@@ -11,9 +11,15 @@ from pydantic import BaseModel, Field
 
 from app.core.auth import pool_from_request
 from app.core.config import settings
+from app.core.http_errors import (
+    GENERIC_REQUEST_FAILED,
+    client_safe_detail,
+    intentional_detail,
+)
 from app.services import partner_provision as provision_svc
 
-router = APIRouter(prefix="/partner", tags=["partner"])
+# Privileged bootstrap — omit from public OpenAPI discovery.
+router = APIRouter(prefix="/partner", tags=["partner"], include_in_schema=False)
 logger = logging.getLogger("forjd.api.partner")
 
 
@@ -70,8 +76,14 @@ async def provision_partner_tenant(
             remint_if_exists=body.remint_if_exists,
         )
     except ValueError as exc:
-        detail = str(exc)
+        detail = intentional_detail(exc)
         code = status.HTTP_400_BAD_REQUEST
         if "slug already taken" in detail or "conflict" in detail:
             code = status.HTTP_409_CONFLICT
         raise HTTPException(code, detail=detail) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("partner provision failed")
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=client_safe_detail(exc, fallback=GENERIC_REQUEST_FAILED),
+        ) from exc

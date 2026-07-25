@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from app.core.auth import AuthUser, get_current_user, get_optional_user, pool_from_request
+from app.core.http_errors import intentional_detail
 from app.services import status as status_svc
 
 router = APIRouter(prefix="/status", tags=["status"])
@@ -103,7 +104,7 @@ async def create_page(
             is_published=body.is_published,
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=intentional_detail(exc)) from exc
     return {"ok": True, "page": page}
 
 
@@ -158,7 +159,7 @@ async def patch_page(
             is_published=body.is_published,
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=intentional_detail(exc)) from exc
     return {"ok": True, "page": page}
 
 
@@ -174,7 +175,7 @@ async def remove_page(
             _pool(request), user=user, tenant_id=tenant_id, page_id=page_id
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=intentional_detail(exc)) from exc
     return {"ok": True}
 
 
@@ -191,7 +192,7 @@ async def list_page_services(
             _pool(request), user=user, tenant_id=tenant_id, page_id=page_id
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=intentional_detail(exc)) from exc
     return {"ok": True, "services": services}
 
 
@@ -215,7 +216,7 @@ async def add_service(
             sort_order=body.sort_order,
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=intentional_detail(exc)) from exc
     return {"ok": True, "service": svc}
 
 
@@ -239,7 +240,7 @@ async def patch_service(
             sort_order=body.sort_order,
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=intentional_detail(exc)) from exc
     return {"ok": True, "service": svc}
 
 
@@ -255,7 +256,7 @@ async def remove_service(
             _pool(request), user=user, tenant_id=tenant_id, service_id=service_id
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=intentional_detail(exc)) from exc
     return {"ok": True}
 
 
@@ -272,7 +273,7 @@ async def list_page_incidents(
             _pool(request), user=user, tenant_id=tenant_id, page_id=page_id
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=intentional_detail(exc)) from exc
     return {"ok": True, "incidents": incidents}
 
 
@@ -295,7 +296,7 @@ async def add_incident(
             body=body.body,
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=intentional_detail(exc)) from exc
     return {"ok": True, "incident": inc}
 
 
@@ -318,7 +319,7 @@ async def patch_incident(
             body=body.body,
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=intentional_detail(exc)) from exc
     return {"ok": True, "incident": inc}
 
 
@@ -334,5 +335,5 @@ async def remove_incident(
             _pool(request), user=user, tenant_id=tenant_id, incident_id=incident_id
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=intentional_detail(exc)) from exc
     return {"ok": True}

@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.auth import AuthUser, get_current_user
 from app.core.deps import parse_iso_cursor, require_db_pool
+from app.core.http_errors import intentional_detail
 from app.services import projections as proj_svc
 
 router = APIRouter(prefix="/projections", tags=["projections"])
@@ -122,4 +123,7 @@ async def run_projection(
             limit=body.limit,
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=intentional_detail(exc),
+        ) from exc

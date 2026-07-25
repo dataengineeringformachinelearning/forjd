@@ -95,17 +95,23 @@ class RequestContextMiddleware:
             await self.app(scope, receive, send_with_context)
         finally:
             duration_ms = (time.perf_counter() - started) * 1000
-            logger.info(
-                "request_completed",
-                extra={
-                    "http_method": scope.get("method", "-"),
-                    # Route templates avoid leaking identifiers and metric-cardinality
-                    # explosions from raw paths. Unmatched paths are deliberately folded.
-                    "http_path": _route_template(scope),
-                    "http_status": status_code,
-                    "duration_ms": round(duration_ms, 3),
-                },
-            )
+            path = _route_template(scope)
+            method = scope.get("method", "-")
+            extra = {
+                "http_method": method,
+                # Route templates avoid leaking identifiers and metric-cardinality
+                # explosions from raw paths. Unmatched paths are deliberately folded.
+                "http_path": path,
+                "http_status": status_code,
+                "duration_ms": round(duration_ms, 3),
+            }
+            # Elevate auth failures and server errors so ops notices before users do.
+            if status_code >= 500:
+                logger.error("request_completed", extra=extra)
+            elif status_code in {401, 403}:
+                logger.warning("request_completed", extra=extra)
+            else:
+                logger.info("request_completed", extra=extra)
             tenant_id_var.reset(tenant_token)
             principal_id_var.reset(principal_token)
             principal_kind_var.reset(kind_token)

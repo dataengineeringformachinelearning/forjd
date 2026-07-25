@@ -1,7 +1,7 @@
 # Suite docs — Pass 5
 
 **Styles:** [`suite-docs.css`](./suite-docs.css)
-**Hosts:** [ui.deml.app](https://ui.deml.app) · [ui.forjd.co](https://ui.forjd.co)
+**Hosts:** local Storybook / Chromatic only (public `ui.deml.app` · `ui.forjd.co` retired)
 **Gate:** `node packages/viking-ui/scripts/check-suite-docs.mjs` (via `suite:purity`)
 
 ## Goal

@@ -20,6 +20,7 @@ from fastapi import HTTPException, status
 
 from app.core.auth import AuthUser
 from app.core.config import settings
+from app.core.http_errors import intentional_detail
 from app.core.worker_health import WorkerHealthRegistry
 from app.services import audit
 from app.services import tenants as tenant_svc
@@ -68,7 +69,7 @@ def _validate_action_configuration(action_type: str, configuration: dict[str, An
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=str(exc),
+                detail=intentional_detail(exc),
             ) from exc
 
 
