@@ -145,8 +145,19 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   font-size: clamp(2rem, 5.5vw, 2.75rem);
   letter-spacing: var(--suite-tracking-brand);
   color: var(--suite-ink);
-  text-shadow: 0 0 32px
-    color-mix(in srgb, var(--suite-primary) 22%, transparent);
+  /* Match forjd.co — no glow wash on the brand wordmark */
+  text-shadow: none;
+}
+
+/* Quiet secondary mark on community marketing (not a competing display title) */
+.suite-landing-mark-label {
+  margin: 0;
+  font-family: var(--suite-font-mono);
+  font-size: var(--suite-text-xs);
+  font-weight: var(--suite-weight-semibold);
+  letter-spacing: var(--suite-tracking-caps);
+  text-transform: uppercase;
+  color: var(--suite-ink-muted);
 }
 
 /* suite-card already pads — don't double-pad step/pillar tiles */
@@ -238,8 +249,7 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   color: var(--suite-ink);
   text-transform: uppercase;
   text-wrap: balance;
-  text-shadow: 0 0 40px
-    color-mix(in srgb, var(--suite-primary) 18%, transparent);
+  text-shadow: none;
 }
 
 /* Primary headline under brand (or standalone title on marketing) */
