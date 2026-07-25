@@ -23,6 +23,7 @@ _DOCS_HTML = """<!doctype html>
 <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png" />
 <meta name="theme-color" content="#0a0a0a" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css" />
+<link rel="stylesheet" href="/static/suite-fonts.css" />
 <link rel="stylesheet" href="/static/suite-tokens.css" />
 <link rel="stylesheet" href="/static/suite-components.css" />
 <link rel="stylesheet" href="/static/suite-backend.css" />
@@ -54,11 +55,12 @@ _DOCS_HTML = """<!doctype html>
   }}
   .swagger-ui .opblock .opblock-section-header {{ background: var(--suite-surface-2); box-shadow: none; }}
   .swagger-ui .opblock .opblock-section-header h4, .swagger-ui .opblock .opblock-section-header label {{ color: var(--suite-ink); }}
-  .swagger-ui .opblock.opblock-get .opblock-summary-method {{ background: var(--suite-primary); color: var(--suite-ink-on-primary); }}
-  .swagger-ui .opblock.opblock-post .opblock-summary-method {{ background: var(--suite-success); color: var(--suite-ink-on-primary); }}
-  .swagger-ui .opblock.opblock-delete .opblock-summary-method {{ background: var(--suite-danger); color: var(--suite-ink-on-primary); }}
-  .swagger-ui .opblock.opblock-put .opblock-summary-method,
-  .swagger-ui .opblock.opblock-patch .opblock-summary-method {{ background: var(--suite-warning); color: var(--suite-ink-inverse); }}
+  /* Quiet method chips (suite contract — not multicolored rainbow) */
+  .swagger-ui .opblock .opblock-summary-method {{
+    background: var(--suite-surface-2); color: var(--suite-ink);
+    border: 1px solid var(--suite-border-strong); min-width: 4.5rem;
+    font-family: var(--suite-font-mono); font-weight: 600; letter-spacing: 0.04em;
+  }}
   .swagger-ui .opblock.opblock-get,
   .swagger-ui .opblock.opblock-post,
   .swagger-ui .opblock.opblock-delete,

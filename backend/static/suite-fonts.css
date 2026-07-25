@@ -12,8 +12,8 @@
   font-weight: 100 900;
   font-display: swap;
   src:
-    url("/fonts/inter/InterVariable.woff2") format("woff2 supports variations"),
-    url("/fonts/inter/InterVariable.woff2") format("woff2-variations");
+    url("/static/fonts/inter/InterVariable.woff2") format("woff2 supports variations"),
+    url("/static/fonts/inter/InterVariable.woff2") format("woff2-variations");
 }
 
 @font-face {
@@ -22,9 +22,9 @@
   font-weight: 100 900;
   font-display: swap;
   src:
-    url("/fonts/inter/InterVariable-Italic.woff2")
+    url("/static/fonts/inter/InterVariable-Italic.woff2")
       format("woff2 supports variations"),
-    url("/fonts/inter/InterVariable-Italic.woff2") format("woff2-variations");
+    url("/static/fonts/inter/InterVariable-Italic.woff2") format("woff2-variations");
 }
 
 html,

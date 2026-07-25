@@ -18,7 +18,7 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
     },
   ],
   template: `
-    <label class="suite-switch fj-switch">
+    <label class="suite-switch fj-switch viking-switch">
       <input
         type="checkbox"
         role="switch"
@@ -28,7 +28,7 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
         (change)="onToggle($event)"
         (blur)="onTouched()"
       />
-      <span class="suite-switch-track fj-switch-track" aria-hidden="true"></span>
+      <span class="suite-switch-track fj-switch-track viking-switch-track" aria-hidden="true"></span>
       <span><ng-content /></span>
     </label>
   `,

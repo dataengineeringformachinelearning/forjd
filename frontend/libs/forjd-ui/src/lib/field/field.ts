@@ -9,9 +9,9 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
     '[class.viking-field-invalid]': '!!error()',
   },
   template: `
-    <label class="suite-field-label-wrap">
+    <label class="suite-field-label-wrap viking-field-label-wrap">
       @if (label()) {
-        <span class="suite-label fj-label suite-field-label">
+        <span class="suite-label fj-label suite-field-label viking-label viking-field-label">
           {{ label() }}
           @if (required()) {
             <span aria-hidden="true">*</span>
@@ -21,10 +21,10 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       <ng-content />
     </label>
     @if (description() && !error()) {
-      <p class="suite-field-description fj-field-description">{{ description() }}</p>
+      <p class="suite-field-description fj-field-description viking-field-description">{{ description() }}</p>
     }
     @if (error()) {
-      <p class="suite-field-error fj-field-error" role="alert">{{ error() }}</p>
+      <p class="suite-field-error fj-field-error viking-field-error" role="alert">{{ error() }}</p>
     }
   `,
   styles: [`:host { display: block; }`],

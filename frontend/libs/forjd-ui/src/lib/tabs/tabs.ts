@@ -9,13 +9,13 @@ export interface FjTabItem {
 @Component({
   selector: 'forjd-tabs',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'suite-tabs fj-tabs' },
+  host: { class: 'suite-tabs fj-tabs viking-tabs' },
   template: `
-    <div class="suite-tabs-list fj-tabs-list" role="tablist" [attr.aria-label]="ariaLabel()">
+    <div class="suite-tabs-list fj-tabs-list viking-tabs-list" role="tablist" [attr.aria-label]="ariaLabel()">
       @for (tab of tabs(); track tab.id) {
         <button
           type="button"
-          class="suite-tab fj-tab"
+          class="suite-tab fj-tab viking-tab"
           role="tab"
           [attr.id]="'tab-' + tab.id"
           [attr.aria-selected]="value() === tab.id"
@@ -28,7 +28,7 @@ export interface FjTabItem {
       }
     </div>
     <div
-      class="suite-tab-panel fj-tab-panel"
+      class="suite-tab-panel fj-tab-panel viking-tab-panel"
       role="tabpanel"
       [attr.id]="'panel-' + value()"
       [attr.aria-labelledby]="'tab-' + value()"

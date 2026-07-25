@@ -1,7 +1,11 @@
 <main>
   <forjd-page-shell>
-    <div class="suite-landing fj-landing landing">
-      <forjd-section class="suite-landing-hero landing__hero" aria-labelledby="forjd-brand">
+    <div class="suite-landing fj-landing landing viking-unified-hero-stage">
+      <forjd-section class="suite-landing-hero landing__hero viking-unified-hero" aria-labelledby="forjd-brand">
+        <p class="suite-landing-badge hero-badge">
+          <span class="badge-dot pulse-dot"></span>
+          <span class="badge-text">Data plane · Sealed · Production</span>
+        </p>
         <img
           class="suite-landing-mark landing__hero-mark"
           src="/forjd.svg"
@@ -20,7 +24,7 @@
         </p>
         <div class="suite-landing-actions landing__actions">
           <forjd-button variant="primary" [href]="docsUrl" target="_blank">Swagger</forjd-button>
-          <forjd-button variant="ghost" [href]="redocUrl" target="_blank">ReDoc</forjd-button>
+          <forjd-button variant="outline" [href]="redocUrl" target="_blank">ReDoc</forjd-button>
           <forjd-button variant="ghost" [href]="communityUrl" target="_blank">Community</forjd-button>
         </div>
       </forjd-section>

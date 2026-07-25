@@ -1,7 +1,7 @@
 """Minimal suite splash served at ``GET /``.
 
-Centered logo only. Interactive docs live on forjd.co
-(Swagger ``/docs``, ReDoc ``/redoc``).
+Centered logo only — operational twin of product landings (Pass 4).
+Interactive docs: ``/docs`` (Swagger), ``/redoc`` (ReDoc).
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ _LANDING_HTML = """<!doctype html>
 <link rel="icon" type="image/png" sizes="96x96" href="/static/favicon-96x96.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png" />
 <meta name="theme-color" content="#0a0a0a" />
+<link rel="stylesheet" href="/static/suite-fonts.css" />
 <link rel="stylesheet" href="/static/suite-tokens.css" />
 <link rel="stylesheet" href="/static/suite-components.css" />
 <link rel="stylesheet" href="/static/suite-backend.css" />

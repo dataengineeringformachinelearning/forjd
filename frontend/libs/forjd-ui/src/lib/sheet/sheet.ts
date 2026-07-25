@@ -16,15 +16,15 @@ import { FjButton } from '../button/button';
   template: `
     <dialog
       #dialog
-      class="suite-sheet fj-sheet"
+      class="suite-sheet fj-sheet viking-sheet"
       [attr.data-side]="side()"
       [attr.aria-label]="title() || 'Panel'"
       (close)="open.set(false)"
       (click)="onBackdrop($event)"
     >
-      <header class="suite-sheet-header fj-sheet-header">
+      <header class="suite-sheet-header fj-sheet-header viking-sheet-header">
         @if (title()) {
-          <h2 class="suite-sheet-title fj-sheet-title">{{ title() }}</h2>
+          <h2 class="suite-sheet-title fj-sheet-title viking-sheet-title">{{ title() }}</h2>
         }
         @if (dismissible()) {
           <forjd-button variant="ghost" type="button" (click)="open.set(false)"
@@ -32,8 +32,8 @@ import { FjButton } from '../button/button';
           >
         }
       </header>
-      <div class="suite-sheet-body fj-sheet-body"><ng-content /></div>
-      <footer class="suite-sheet-footer fj-sheet-footer">
+      <div class="suite-sheet-body fj-sheet-body viking-sheet-body"><ng-content /></div>
+      <footer class="suite-sheet-footer fj-sheet-footer viking-sheet-footer">
         <ng-content select="[sheetActions]" />
       </footer>
     </dialog>

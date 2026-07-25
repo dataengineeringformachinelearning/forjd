@@ -12,8 +12,9 @@ import '../libs/forjd-ui/src/lib/styles/suite-docs.css';
 import './storybook.css';
 
 /**
- * Pass 5 — same Foundation/Primitives taxonomy + suite story chrome as ui.deml.app.
- * Angular 22 app is zoneless; Storybook must mirror that or canvases spin forever.
+ * Pass 5 — lockstep with ui.deml.app:
+ * Foundation / Primitives / Product taxonomy + suite story chrome.
+ * Angular 22 app is zoneless; Storybook must mirror that.
  */
 const preview: Preview = {
   parameters: {
@@ -59,7 +60,7 @@ const preview: Preview = {
     }),
     componentWrapperDecorator(
       (story) =>
-        `<div class="suite-story-shell fj-story-shell" data-theme="dark"><div class="suite-story-panel fj-story-panel">${story}</div></div>`,
+        `<div class="suite-story-shell fj-story-shell viking-story-shell" data-theme="dark"><div class="suite-story-panel fj-story-panel viking-story-panel" data-size="compact">${story}</div></div>`,
     ),
   ],
 };

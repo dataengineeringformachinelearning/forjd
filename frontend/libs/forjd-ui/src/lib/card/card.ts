@@ -5,7 +5,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   selector: 'forjd-card',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    class: 'suite-card fj-card',
+    class: 'suite-card fj-card viking-card',
     '[attr.data-interactive]': 'interactive() ? "true" : null',
   },
   template: `<ng-content />`,

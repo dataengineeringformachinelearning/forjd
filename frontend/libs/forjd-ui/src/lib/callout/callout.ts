@@ -7,13 +7,13 @@ import type { VikingTone } from '../badge/tones';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     role: 'note',
-    class: 'suite-callout fj-callout',
+    class: 'suite-callout fj-callout viking-callout',
     '[attr.data-tone]': 'tone()',
   },
   template: `
     <div>
       @if (heading()) {
-        <p class="suite-callout-heading fj-callout-heading">{{ heading() }}</p>
+        <p class="suite-callout-heading fj-callout-heading viking-callout-heading">{{ heading() }}</p>
       }
       <div><ng-content /></div>
     </div>

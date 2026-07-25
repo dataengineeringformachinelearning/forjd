@@ -19,7 +19,7 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
   ],
   template: `
     <textarea
-      class="suite-textarea fj-textarea"
+      class="suite-textarea fj-textarea viking-textarea"
       [attr.name]="name() || null"
       [attr.placeholder]="placeholder() || null"
       [attr.rows]="rows()"

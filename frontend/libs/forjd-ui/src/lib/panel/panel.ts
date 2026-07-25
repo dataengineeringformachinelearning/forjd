@@ -15,13 +15,13 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
     @if (variant() === 'card') {
       <div class="suite-card fj-card viking-card">
         @if (title()) {
-          <h2 class="suite-panel-title fj-panel-title">{{ title() }}</h2>
+          <h2 class="suite-panel-title fj-panel-title viking-panel-title">{{ title() }}</h2>
         }
         <ng-container [ngTemplateOutlet]="body" />
       </div>
     } @else {
       @if (title()) {
-        <h2 class="suite-panel-title fj-panel-title">{{ title() }}</h2>
+        <h2 class="suite-panel-title fj-panel-title viking-panel-title">{{ title() }}</h2>
       }
       <ng-container [ngTemplateOutlet]="body" />
     }

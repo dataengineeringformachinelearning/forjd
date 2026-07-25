@@ -16,14 +16,14 @@ import { FjButton } from '../button/button';
   template: `
     <dialog
       #dialog
-      class="suite-dialog fj-dialog"
+      class="suite-dialog fj-dialog viking-dialog"
       [attr.aria-label]="title() || 'Dialog'"
       (close)="open.set(false)"
       (click)="onBackdrop($event)"
     >
-      <header class="suite-dialog-header fj-dialog-header">
+      <header class="suite-dialog-header fj-dialog-header viking-dialog-header">
         @if (title()) {
-          <h2 class="suite-dialog-title fj-dialog-title">{{ title() }}</h2>
+          <h2 class="suite-dialog-title fj-dialog-title viking-dialog-title">{{ title() }}</h2>
         }
         @if (dismissible()) {
           <forjd-button variant="ghost" type="button" (click)="open.set(false)"
@@ -31,8 +31,8 @@ import { FjButton } from '../button/button';
           >
         }
       </header>
-      <div class="suite-dialog-body fj-dialog-body"><ng-content /></div>
-      <footer class="suite-dialog-footer fj-dialog-footer">
+      <div class="suite-dialog-body fj-dialog-body viking-dialog-body"><ng-content /></div>
+      <footer class="suite-dialog-footer fj-dialog-footer viking-dialog-footer">
         <ng-content select="[dialogActions]" />
       </footer>
     </dialog>

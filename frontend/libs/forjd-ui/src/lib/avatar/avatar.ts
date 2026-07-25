@@ -4,7 +4,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
   selector: 'forjd-avatar',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    class: 'suite-avatar fj-avatar',
+    class: 'suite-avatar fj-avatar viking-avatar',
     '[attr.data-size]': 'size()',
   },
   template: `

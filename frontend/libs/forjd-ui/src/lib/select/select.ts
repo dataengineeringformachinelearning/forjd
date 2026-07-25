@@ -25,7 +25,7 @@ export interface FjSelectOption {
   ],
   template: `
     <select
-      class="suite-select fj-select"
+      class="suite-select fj-select viking-select"
       [attr.name]="name() || null"
       [disabled]="disabled()"
       [value]="value()"

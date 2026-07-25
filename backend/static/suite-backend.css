@@ -1,11 +1,14 @@
 /*!
- * SUITE BACKEND — operational twin stage (Pass 4)
+ * SUITE BACKEND — Pass 4 operational twin (backend.forjd.co + backend.deml.app)
  * ----------------------------------------------------------------------------
- * Quiet, centered, authoritative shells for backend.forjd.co + backend.deml.app.
- * Tokens only. Dual selectors keep FORJD / DEML class names in lockstep.
+ * Quiet · centered · authoritative. Same tokens as product; no marketing chrome.
+ * Dual selectors: .suite-backend-* / .backend-* / .fj-*
+ * Docs: SUITE_BACKEND.md
  */
 
-/* --- Document base --- */
+/* =============================================================================
+   Document base — void, Inter, zero chrome noise
+   ============================================================================= */
 :is(
   html:has(.suite-backend-shell),
   html:has(.backend-splash-shell),
@@ -21,48 +24,67 @@
   color: var(--suite-ink);
   font-family: var(--suite-font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
+/* Splash: single soft electric bloom — quieter than product landing */
 :is(body.suite-backend-splash, body.backend-splash) {
   margin: 0;
   min-height: 100%;
+  min-height: 100dvh;
   background:
     radial-gradient(
-      70% 48% at 50% 42%,
-      color-mix(in srgb, var(--suite-primary) 8%, transparent),
-      transparent 62%
+      55% 42% at 50% 48%,
+      color-mix(in srgb, var(--suite-primary) 7%, transparent),
+      transparent 68%
     ),
     var(--suite-bg);
+  color-scheme: dark;
 }
 
 :is(body.suite-backend-docs, body.backend-swagger, body.backend-redoc) {
   margin: 0;
+  min-height: 100%;
   background: var(--suite-bg);
+  color-scheme: dark;
 }
 
-/* --- Splash: perfect center, logo only --- */
+/* =============================================================================
+   Splash — perfectly centered logo only
+   ============================================================================= */
 :is(.suite-backend-shell, .backend-splash-shell) {
   box-sizing: border-box;
   min-height: 100dvh;
   min-height: 100vh;
-  display: grid;
-  place-items: center;
-  justify-items: center;
-  align-content: center;
-  padding: var(--suite-space-6);
+  width: 100%;
   margin: 0;
+  padding: var(--suite-space-6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  /* Explicit dual-axis center for all engines */
+  place-content: center;
+  place-items: center;
+  text-align: center;
 }
 
 :is(.suite-backend-logo, .backend-splash-logo) {
   display: block;
-  width: min(8rem, 38vw);
+  width: min(7.5rem, 36vw);
+  max-width: 100%;
   height: auto;
-  margin: 0 auto;
+  margin-inline: auto;
+  margin-block: 0;
   border: 0;
+  padding: 0;
   text-decoration: none;
   line-height: 0;
+  /* Optical center: logo mark sits dead-center of the viewport */
+  transform: translateZ(0);
   filter: drop-shadow(
-    0 0 18px color-mix(in srgb, var(--suite-primary) 14%, transparent)
+    0 0 20px color-mix(in srgb, var(--suite-primary) 12%, transparent)
   );
   transition:
     transform var(--suite-duration-fast) var(--suite-ease),
@@ -72,7 +94,7 @@
 :is(.suite-backend-logo, .backend-splash-logo):hover {
   transform: translateY(-1px);
   filter: drop-shadow(
-    0 0 22px color-mix(in srgb, var(--suite-primary) 20%, transparent)
+    0 0 26px color-mix(in srgb, var(--suite-primary) 18%, transparent)
   );
 }
 
@@ -87,6 +109,20 @@
   width: 100%;
   height: auto;
   margin: 0 auto;
+  border: 0;
+  vertical-align: middle;
+}
+
+/* Optional quiet product wordmark under mark (when present) */
+:is(.suite-backend-wordmark, .backend-splash-wordmark) {
+  margin: var(--suite-space-4) 0 0;
+  font-family: var(--suite-font-sans);
+  font-size: var(--suite-text-sm);
+  font-weight: var(--suite-weight-semibold);
+  letter-spacing: var(--suite-tracking-brand);
+  text-transform: uppercase;
+  color: var(--suite-ink-muted);
+  text-decoration: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -99,7 +135,9 @@
   }
 }
 
-/* --- Docs topbar (Swagger / ReDoc) --- */
+/* =============================================================================
+   Docs topbar — thin operational chrome (Swagger / ReDoc)
+   ============================================================================= */
 :is(.suite-backend-topbar, .backend-docs-topbar, .fj-topbar) {
   display: flex;
   align-items: center;
@@ -107,40 +145,58 @@
   gap: var(--suite-space-3);
   flex-wrap: wrap;
   box-sizing: border-box;
-  padding: var(--suite-space-2) var(--suite-space-4);
+  min-height: var(--suite-control-height-lg);
+  padding: 0 var(--suite-space-4);
   background: var(--suite-surface);
   border-bottom: 1px solid var(--suite-border);
   font-family: var(--suite-font-sans);
+  box-shadow: var(--suite-highlight);
+  position: sticky;
+  top: 0;
+  z-index: var(--suite-z-sticky);
 }
 
-:is(.suite-backend-topbar, .backend-docs-topbar, .fj-topbar) a {
+:is(.suite-backend-topbar, .backend-docs-topbar, .fj-topbar) > a {
   text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--suite-touch);
 }
 
-:is(.suite-backend-brand, .backend-docs-brand, .fj-topbar .fj-brand) {
+:is(
+  .suite-backend-brand,
+  .backend-docs-brand,
+  .fj-topbar .fj-brand,
+  .suite-backend-topbar .fj-brand
+) {
   font-family: var(--suite-font-mono);
   letter-spacing: var(--suite-tracking-caps);
   text-transform: uppercase;
   font-size: var(--suite-text-sm);
   font-weight: var(--suite-weight-semibold);
   color: var(--suite-primary);
+  line-height: 1;
 }
 
 :is(.suite-backend-topbar, .backend-docs-topbar, .fj-topbar) nav {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--suite-space-3);
+  gap: var(--suite-space-1) var(--suite-space-3);
 }
 
 :is(.suite-backend-topbar, .backend-docs-topbar, .fj-topbar) nav a {
   color: var(--suite-ink-muted);
-  font-size: var(--suite-text-sm);
+  font-size: var(--suite-text-xs);
   font-family: var(--suite-font-mono);
-  letter-spacing: var(--suite-tracking-wide);
+  letter-spacing: var(--suite-tracking-caps);
+  text-transform: uppercase;
+  text-decoration: none;
   min-height: var(--suite-touch);
   display: inline-flex;
   align-items: center;
+  padding: 0 var(--suite-space-1);
+  border-radius: var(--suite-radius);
   transition: color var(--suite-duration-fast) var(--suite-ease);
 }
 
@@ -156,5 +212,21 @@
   a:focus-visible {
   outline: var(--suite-ring-width) solid var(--suite-ring);
   outline-offset: var(--suite-ring-offset);
+}
+
+/* Docs content well — calm vertical rhythm */
+:is(body.suite-backend-docs, body.backend-swagger, body.backend-redoc)
+  #swagger-ui,
+:is(body.suite-backend-docs, body.backend-swagger, body.backend-redoc) redoc {
+  display: block;
+  max-width: var(--suite-content-max);
+  margin-inline: auto;
+  padding: var(--suite-space-4) var(--suite-page-gutter) var(--suite-space-8);
+  box-sizing: border-box;
+}
+
+/* Quiet method chips preference (when suite-apidocs not yet loaded) */
+:is(body.backend-swagger, body.suite-backend-docs) .swagger-ui .opblock {
   border-radius: var(--suite-radius);
+  box-shadow: none;
 }

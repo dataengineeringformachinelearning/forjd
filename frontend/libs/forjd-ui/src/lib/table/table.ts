@@ -9,8 +9,8 @@ export interface FjTableColumn {
   selector: 'forjd-table',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="suite-table-wrap fj-table-wrap">
-      <table class="suite-table fj-table">
+    <div class="suite-table-wrap fj-table-wrap viking-table-wrap">
+      <table class="suite-table fj-table viking-table">
         <thead>
           <tr>
             @for (col of columns(); track col.key) {

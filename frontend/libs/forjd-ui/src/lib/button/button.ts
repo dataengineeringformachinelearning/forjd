@@ -17,7 +17,7 @@ export type FjButtonVariant =
     <ng-template #label><ng-content /></ng-template>
     @if (href(); as url) {
       <a
-        class="suite-btn fj-btn"
+        class="suite-btn fj-btn viking-btn"
         [attr.data-variant]="variant()"
         [attr.href]="disabled() ? null : url"
         [attr.target]="target()"
@@ -29,7 +29,7 @@ export type FjButtonVariant =
       </a>
     } @else {
       <button
-        class="suite-btn fj-btn"
+        class="suite-btn fj-btn viking-btn"
         [attr.data-variant]="variant()"
         [attr.type]="type()"
         [disabled]="disabled()"

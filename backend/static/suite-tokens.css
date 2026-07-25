@@ -1,20 +1,33 @@
 /*!
- * SUITE TOKENS — canonical design system (DEML + FORJD)
+ * SUITE TOKENS — Pass 1 canonical design system (DEML + FORJD)
  * ----------------------------------------------------------------------------
- * Authoritative source: packages/viking-ui/src/tokens/suite-tokens.css
- * Docs: packages/viking-ui/src/tokens/SUITE_TOKENS.md
- * Law: docs/SUITE_UI_UNIFICATION.md
+ * AUTHORITATIVE SOURCE (edit only here):
+ *   packages/viking-ui/src/tokens/suite-tokens.css
  *
- * Consumed by:
- *   - viking-ui (build → dist/suite-tokens.css + design-tokens.css)
- *   - forjd-ui (vendored copy — no npm install for styles)
- *   - deml.app / marketing / backend / forjd.co / backend.forjd.co / ui.*
+ * Docs:     packages/viking-ui/src/tokens/SUITE_TOKENS.md
+ * Lock:     packages/viking-ui/src/tokens/suite-tokens.lock.json
+ * Law:      docs/SUITE_UI_UNIFICATION.md
  *
- * Strategy: high-end dark-first (void austerity). Light is opt-in only.
- * Do not hard-code colors/spacing outside these variables.
+ * Consumers (no external style packages for the look):
+ *   - viking-ui (build prepends into design-tokens / viking-ui / viking-app)
+ *   - forjd-ui  (vendored via `npm run sync:suite` — sibling copy, not npm)
+ *   - deml.app · marketing · backend.deml.app · ui.deml.app
+ *   - forjd.co · backend.forjd.co · ui.forjd.co
+ *
+ * Strategy:
+ *   High-end **dark-first** void austerity (forjd.co + SpaceX restraint).
+ *   Light is **opt-in only** via <html data-theme="light"> (same roles, lightness shift).
+ *
+ * Roles (do not collapse):
+ *   A — Product chrome (surfaces, ink, primary, institutional gold, status)
+ *   B — Chart series palette (--suite-series-*) — may evolve independently of chrome
+ *   C — PDF / print report tokens live outside this file (fjord-report-tokens.json)
  *
  * Provenance (existing hexes only — no new brand hues):
  *   Void surfaces ← forjd.co · Electric command ← DEML · Gold ← FORJD institutional
+ *
+ * RULE: Everything downstream consumes only these variables.
+ *       No hard-coded product colors/spacing outside this file (brand SVG assets ok).
  */
 
 /* =============================================================================
@@ -28,7 +41,7 @@ html[data-theme="dark"] {
   --suite-brand-navy: #070c20;
   --suite-brand-blue: #0078ff;
 
-  /* --- Surface levels --- */
+  /* --- Surface levels (Role A) --- */
   --suite-bg: #0a0a0a;
   --suite-bg-subtle: #050505;
   --suite-surface: #111111;
@@ -67,6 +80,7 @@ html[data-theme="dark"] {
   --suite-primary-strong: #7ab0ff;
   --suite-accent: var(--suite-primary);
   --suite-accent-hover: var(--suite-primary-hover);
+  /* Institutional gold — chrome / prestige moments (not chart series by default) */
   --suite-gold: #d4af37;
   --suite-gold-soft: color-mix(in srgb, var(--suite-gold) 16%, transparent);
 
@@ -93,7 +107,18 @@ html[data-theme="dark"] {
   --suite-ring-width: 2px;
   --suite-ring-offset: 2px;
 
-  /* --- Typography --- */
+  /* --- Chart series (Role B) — tokenized; prefer these over hard-coded hexes --- */
+  --suite-series-1: var(--suite-primary);
+  --suite-series-2: #922b3e;
+  --suite-series-3: var(--suite-success);
+  --suite-series-4: var(--suite-gold);
+  --suite-series-5: var(--suite-danger);
+  --suite-series-6: var(--suite-primary-hover);
+  --suite-series-7: #162544;
+  --suite-series-8: #666666;
+  --suite-series-default: var(--suite-series-1);
+
+  /* --- Typography (industrial Inter + clean modern stack) --- */
   --suite-font-sans:
     "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
@@ -104,8 +129,8 @@ html[data-theme="dark"] {
   --suite-text-2xs: 0.6875rem; /* 11px */
   --suite-text-xs: 0.75rem; /* 12px */
   --suite-text-sm: 0.875rem; /* 14px */
-  --suite-text-md: 0.875rem; /* 14px UI */
-  --suite-text-base: 1rem; /* 16px */
+  --suite-text-md: 0.875rem; /* 14px UI chrome */
+  --suite-text-base: 1rem; /* 16px body */
   --suite-text-lg: 1.125rem; /* 18px */
   --suite-text-xl: 1.5rem; /* 24px */
   --suite-text-2xl: 1.875rem; /* 30px */
@@ -152,7 +177,12 @@ html[data-theme="dark"] {
   --suite-section-gap: clamp(2.5rem, 6vw, 4rem);
   --suite-content-max: 78.75rem; /* 1260px */
   --suite-readable-max: 42rem;
+  /* Mobile touch target (WCAG / SaaS) */
   --suite-touch: 2.75rem; /* 44px */
+  /* Dense desktop control frame (Palantir-adjacent density) */
+  --suite-control-height: 2.5rem; /* 40px */
+  --suite-control-height-sm: 2rem; /* 32px */
+  --suite-control-height-lg: var(--suite-touch);
 
   /* --- Radius --- */
   --suite-radius-xs: 4px;
@@ -161,6 +191,8 @@ html[data-theme="dark"] {
   --suite-radius-lg: 12px;
   --suite-radius-xl: 16px;
   --suite-radius-pill: 999px;
+  --suite-radius-control: var(--suite-radius);
+  --suite-radius-surface: var(--suite-radius-lg);
 
   /* --- Elevation --- */
   --suite-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
@@ -173,6 +205,15 @@ html[data-theme="dark"] {
   --suite-shadow-hover:
     0 2px 4px rgba(0, 0, 0, 0.2), 0 12px 28px rgba(0, 0, 0, 0.2);
   --suite-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.055);
+
+  /* --- Z-index scale --- */
+  --suite-z-base: 0;
+  --suite-z-dropdown: 1000;
+  --suite-z-sticky: 1100;
+  --suite-z-overlay: 1200;
+  --suite-z-modal: 1300;
+  --suite-z-toast: 1400;
+  --suite-z-max: 1500;
 
   /* --- Motion --- */
   --suite-ease: cubic-bezier(0.2, 0, 0, 1);
@@ -187,7 +228,7 @@ html[data-theme="dark"] {
     opacity var(--suite-duration-fast) var(--suite-ease),
     transform var(--suite-duration-fast) var(--suite-ease);
 
-  /* --- Breakpoints (documentation contract) --- */
+  /* --- Breakpoints (documentation contract — use in media queries as needed) --- */
   --suite-bp-sm: 640px;
   --suite-bp-md: 768px;
   --suite-bp-lg: 1024px;
@@ -195,7 +236,7 @@ html[data-theme="dark"] {
 
   /* =========================================================================
      Compatibility aliases — viking-ui + forjd-ui
-     Prefer --suite-* in new code. Aliases stay byte-identical.
+     Prefer --suite-* in new code. Aliases must stay byte-identical via var().
      ========================================================================= */
 
   /* Viking semantic */
@@ -286,7 +327,7 @@ html[data-theme="dark"] {
   --viking-ease-out: var(--suite-ease-out);
   --viking-ease-emphasized: var(--suite-ease);
   --viking-transition-interactive: var(--suite-transition);
-  --viking-control-height: var(--suite-touch);
+  --viking-control-height: var(--suite-control-height);
   --viking-page-gutter: var(--suite-page-gutter);
   --viking-page-section-gap: var(--suite-section-gap);
   --viking-container-max-width: var(--suite-content-max);
@@ -297,8 +338,22 @@ html[data-theme="dark"] {
   --viking-bp-xl: var(--suite-bp-xl);
   --viking-brand-navy: var(--suite-brand-navy);
   --viking-brand-blue: var(--suite-brand-blue);
+  --viking-series-1: var(--suite-series-1);
+  --viking-series-2: var(--suite-series-2);
+  --viking-series-3: var(--suite-series-3);
+  --viking-series-4: var(--suite-series-4);
+  --viking-series-5: var(--suite-series-5);
+  --viking-series-6: var(--suite-series-6);
+  --viking-series-7: var(--suite-series-7);
+  --viking-series-8: var(--suite-series-8);
+  --viking-series-default: var(--suite-series-default);
+  --viking-z-dropdown: var(--suite-z-dropdown);
+  --viking-z-modal: var(--suite-z-modal);
+  --viking-z-toast: var(--suite-z-toast);
 
-  /* FORJD aliases */
+  /* FORJD aliases
+     --fj-space-* map is FROZEN (legacy compact scale). Prefer --suite-space-*.
+     Do not invent new --fj-space-* in product code. */
   --fj-bg: var(--suite-bg);
   --fj-surface: var(--suite-surface);
   --fj-surface-2: var(--suite-surface-2);
@@ -352,6 +407,7 @@ html[data-theme="dark"] {
   --fj-space-10: var(--suite-space-5);
   --fj-space-12: var(--suite-space-6);
   --fj-touch-target: var(--suite-touch);
+  --fj-control-height: var(--suite-control-height);
   --fj-page-gutter: var(--suite-page-gutter);
   --fj-section-gap: var(--suite-section-gap);
   --fj-content-max: var(--suite-content-max);
@@ -364,11 +420,15 @@ html[data-theme="dark"] {
   --fj-duration: var(--suite-duration);
   --fj-duration-slow: var(--suite-duration-slow);
   --fj-transition-interactive: var(--suite-transition);
+  --fj-z-dropdown: var(--suite-z-dropdown);
+  --fj-z-modal: var(--suite-z-modal);
+  --fj-z-toast: var(--suite-z-toast);
 }
 
 /* =============================================================================
    LIGHT (opt-in) — same roles, shifted lightness only (no hue inversion)
    Activate: <html data-theme="light">
+   Product default remains dark; light is for marketing/docs that support it.
    ============================================================================= */
 html[data-theme="light"] {
   color-scheme: light;
@@ -407,6 +467,10 @@ html[data-theme="light"] {
   --suite-primary-strong: #073a99;
   --suite-focus: var(--suite-primary);
   --suite-ring: var(--suite-primary);
+
+  /* Series stay chromatically stable; only series-7 (muted baseline) lightens */
+  --suite-series-7: #8fa2c2;
+  --suite-series-8: #999999;
 
   --suite-shadow-xs: 0 1px 2px rgba(8, 13, 31, 0.06);
   --suite-shadow-sm:

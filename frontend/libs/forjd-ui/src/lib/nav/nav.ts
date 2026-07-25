@@ -10,12 +10,12 @@ export interface FjNavItem {
 @Component({
   selector: 'forjd-nav',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'suite-nav fj-nav' },
+  host: { class: 'suite-nav fj-nav viking-nav' },
   template: `
-    <nav class="suite-nav-inner fj-nav-inner" [attr.aria-label]="ariaLabel()">
+    <nav class="suite-nav-inner fj-nav-inner viking-nav-inner" [attr.aria-label]="ariaLabel()">
       @for (item of items(); track item.href) {
         <a
-          class="suite-nav-link fj-nav-link"
+          class="suite-nav-link fj-nav-link viking-nav-link"
           [attr.href]="item.href"
           [attr.data-active]="item.active ? 'true' : null"
           [attr.target]="item.external ? '_blank' : null"

@@ -1,16 +1,37 @@
-/* Suite Storybook — Inter + void shell (matches ui.deml.app density). */
+/*
+ * Pass 5 — Storybook extras only.
+ * Shell/panel chrome lives in suite-docs.css (imported in preview.ts).
+ * Keep this file free of competing surface backgrounds or padding.
+ */
 
-.suite-story-shell,
-.fj-story-shell {
-  min-height: 100%;
-  box-sizing: border-box;
-  padding: var(--suite-space-6, 1.5rem);
-  background: var(--suite-bg, #0a0a0a);
-  color: var(--suite-ink, #f5f5f5);
-  font-family: var(--suite-font-sans);
+/* Docs page body (Storybook docs addon) */
+.sbdocs.sbdocs-wrapper {
+  background: var(--suite-bg) !important;
+  color: var(--suite-ink) !important;
+  font-family: var(--suite-font-sans) !important;
 }
 
-.suite-story-panel,
-.fj-story-panel {
-  width: min(100%, 48rem);
+.sbdocs.sbdocs-content {
+  max-width: var(--suite-content-max) !important;
+}
+
+.sbdocs h1,
+.sbdocs h2,
+.sbdocs h3 {
+  color: var(--suite-ink) !important;
+  font-family: var(--suite-font-sans) !important;
+  letter-spacing: var(--suite-tracking-tight);
+}
+
+.sbdocs p,
+.sbdocs li {
+  color: var(--suite-ink-muted) !important;
+}
+
+.sbdocs a {
+  color: var(--suite-primary) !important;
+}
+
+.docs-story {
+  background: transparent !important;
 }

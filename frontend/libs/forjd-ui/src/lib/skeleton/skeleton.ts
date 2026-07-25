@@ -4,7 +4,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   selector: 'forjd-skeleton',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    class: 'suite-skeleton fj-skeleton',
+    class: 'suite-skeleton fj-skeleton viking-skeleton',
     '[attr.data-variant]': 'variant()',
     '[style.width]': 'width()',
     '[style.height]': 'height()',

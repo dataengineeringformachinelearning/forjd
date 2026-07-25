@@ -4,7 +4,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   selector: 'forjd-separator',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    class: 'suite-separator fj-separator',
+    class: 'suite-separator fj-separator viking-separator',
     role: 'separator',
     '[attr.aria-orientation]': 'orientation()',
     '[attr.data-orientation]': 'orientation()',

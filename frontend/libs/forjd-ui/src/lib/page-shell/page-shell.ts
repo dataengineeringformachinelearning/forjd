@@ -29,7 +29,7 @@ export class FjPageShell {
 @Component({
   selector: 'forjd-section',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'suite-section fj-section' },
+  host: { class: 'suite-section fj-section viking-section' },
   template: `<ng-content />`,
 })
 export class FjSection {}

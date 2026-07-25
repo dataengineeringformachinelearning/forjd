@@ -46,18 +46,18 @@ export class FjToastService {
   selector: 'forjd-toast-host',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="suite-toast-host fj-toast-host" aria-live="polite" aria-relevant="additions">
+    <div class="suite-toast-host fj-toast-host viking-toast-host" aria-live="polite" aria-relevant="additions">
       @for (msg of messages(); track msg.id) {
-        <div class="suite-toast fj-toast" [attr.data-tone]="msg.tone" role="status">
-          <div class="suite-toast-body fj-toast-body">
-            <p class="suite-toast-title fj-toast-title">{{ msg.title }}</p>
+        <div class="suite-toast fj-toast viking-toast" [attr.data-tone]="msg.tone" role="status">
+          <div class="suite-toast-body fj-toast-body viking-toast-body">
+            <p class="suite-toast-title fj-toast-title viking-toast-title">{{ msg.title }}</p>
             @if (msg.description) {
-              <p class="suite-toast-description fj-toast-description">{{ msg.description }}</p>
+              <p class="suite-toast-description fj-toast-description viking-toast-description">{{ msg.description }}</p>
             }
           </div>
           <button
             type="button"
-            class="suite-btn fj-btn"
+            class="suite-btn fj-btn viking-btn"
             data-variant="ghost"
             aria-label="Dismiss"
             (click)="toast.dismiss(msg.id)"

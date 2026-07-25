@@ -18,7 +18,7 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
     },
   ],
   template: `
-    <label class="suite-checkbox fj-checkbox">
+    <label class="suite-checkbox fj-checkbox viking-checkbox">
       <input
         type="checkbox"
         [checked]="checked()"
@@ -29,7 +29,7 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
       <span>
         <span><ng-content /></span>
         @if (description()) {
-          <span class="suite-field-description">{{ description() }}</span>
+          <span class="suite-field-description viking-field-description">{{ description() }}</span>
         }
       </span>
     </label>

@@ -1,11 +1,37 @@
 /*!
- * SUITE DOCS — Storybook / component-docs chrome (Pass 5)
+ * SUITE DOCS — Pass 5 Storybook / component-docs chrome
  * ----------------------------------------------------------------------------
  * Premium product-surface frame for ui.deml.app + ui.forjd.co.
+ * Same tokens + components as production — denser docs chrome only.
  * Dual selectors: .suite-story-* / .viking-story-* / .fj-story-*
- * Load after suite-tokens (+ suite-components). Not required in product apps.
+ * Load: suite-fonts → suite-tokens → suite-components → suite-docs
+ * Do NOT load into product apps (forjd.co / deml.app / marketing / backend).
  */
 
+/* =============================================================================
+   Canvas / iframe base
+   ============================================================================= */
+html:has(.suite-story-shell),
+html:has(.viking-story-shell),
+html:has(.fj-story-shell) {
+  background: var(--suite-bg);
+  color-scheme: dark;
+}
+
+body:has(.suite-story-shell),
+body:has(.viking-story-shell),
+body:has(.fj-story-shell) {
+  margin: 0;
+  min-height: 100%;
+  background: var(--suite-bg);
+  color: var(--suite-ink);
+  font-family: var(--suite-font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* =============================================================================
+   Story shell — void stage matching product landing DNA
+   ============================================================================= */
 :is(.suite-story-shell, .viking-story-shell, .fj-story-shell) {
   box-sizing: border-box;
   min-height: 100vh;
@@ -19,18 +45,18 @@
   background:
     radial-gradient(
       90% 55% at 12% -8%,
-      color-mix(in srgb, var(--suite-primary) 12%, transparent),
+      color-mix(in srgb, var(--suite-primary) 14%, transparent),
       transparent 55%
     ),
     radial-gradient(
       70% 45% at 92% 0%,
-      color-mix(in srgb, var(--suite-gold) 6%, transparent),
+      color-mix(in srgb, var(--suite-gold) 8%, transparent),
       transparent 50%
     ),
     linear-gradient(
       180deg,
       var(--suite-bg) 0%,
-      color-mix(in srgb, var(--suite-bg) 92%, var(--suite-surface) 8%) 100%
+      color-mix(in srgb, var(--suite-bg) 90%, var(--suite-surface) 10%) 100%
     );
   color: var(--suite-ink);
   position: relative;
@@ -43,7 +69,7 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.14;
+  opacity: 0.16;
   background-image:
     linear-gradient(
       color-mix(in srgb, var(--suite-border) 70%, transparent) 1px,
@@ -70,16 +96,43 @@
   letter-spacing: var(--suite-tracking-tight);
   color: var(--suite-ink);
   margin: 0;
+  line-height: var(--suite-leading-tight);
 }
 
+:is(.suite-story-shell, .viking-story-shell, .fj-story-shell) h1 {
+  font-size: var(--suite-text-2xl);
+  font-weight: var(--suite-weight-semibold);
+}
+
+:is(.suite-story-shell, .viking-story-shell, .fj-story-shell) h2 {
+  font-size: var(--suite-text-xl);
+  font-weight: var(--suite-weight-semibold);
+}
+
+:is(.suite-story-shell, .viking-story-shell, .fj-story-shell) h3 {
+  font-size: var(--suite-text-lg);
+  font-weight: var(--suite-weight-semibold);
+}
+
+:is(.suite-story-shell, .viking-story-shell, .fj-story-shell) p {
+  margin: 0;
+  color: var(--suite-ink-muted);
+  font-size: var(--suite-text-md);
+  line-height: var(--suite-leading-normal);
+}
+
+/* =============================================================================
+   Story panel — machined product surface
+   ============================================================================= */
 :is(.suite-story-panel, .viking-story-panel, .fj-story-panel) {
-  width: min(100%, var(--suite-container-max, 78rem));
+  width: min(100%, var(--suite-content-max, 78.75rem));
+  max-width: 100%;
   box-sizing: border-box;
   border: 1px solid var(--suite-border);
-  border-radius: var(--suite-radius-lg);
+  border-radius: var(--suite-radius-surface);
   background: var(--suite-surface);
-  box-shadow: var(--suite-shadow-md);
-  padding: var(--suite-space-3);
+  box-shadow: var(--suite-shadow-md), var(--suite-highlight);
+  padding: var(--suite-space-4);
   position: relative;
   overflow: hidden;
   isolation: isolate;
@@ -93,12 +146,37 @@
   background: linear-gradient(
     90deg,
     transparent,
-    color-mix(in srgb, var(--suite-primary) 35%, transparent),
+    color-mix(in srgb, var(--suite-primary) 40%, transparent),
     transparent
   );
   pointer-events: none;
 }
 
+/* Compact panel for dense primitive demos */
+:is(
+  .suite-story-panel,
+  .viking-story-panel,
+  .fj-story-panel
+)[data-size="compact"] {
+  padding: var(--suite-space-3);
+  width: min(100%, 48rem);
+}
+
+/* Bleed panel (full-bleed charts / mockups) */
+:is(
+  .suite-story-panel,
+  .viking-story-panel,
+  .fj-story-panel
+)[data-bleed="true"],
+:is(.suite-story-bleed, .viking-story-bleed, .fj-story-bleed) {
+  padding: 0;
+  overflow: hidden;
+  width: min(100%, 72rem);
+}
+
+/* =============================================================================
+   Layout helpers
+   ============================================================================= */
 :is(.suite-story-grid, .viking-story-grid, .fj-story-grid) {
   display: grid;
   gap: var(--suite-space-4);
@@ -131,6 +209,7 @@
   flex-direction: column;
   gap: var(--suite-space-2);
   max-width: var(--suite-readable-max);
+  margin-bottom: var(--suite-space-2);
 }
 
 :is(.suite-story-narrow, .viking-story-narrow, .fj-story-narrow) {
@@ -159,6 +238,86 @@
   text-transform: uppercase;
   margin: 0 0 var(--suite-space-1);
   font-family: var(--suite-font-mono);
+  font-weight: var(--suite-weight-medium);
+}
+
+/* Metric tiles (playground / foundation demos) */
+:is(.suite-story-metric-row, .viking-story-metric-row, .fj-story-metric-row) {
+  display: grid;
+  gap: var(--suite-space-3);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+:is(.suite-story-metric, .viking-story-metric, .fj-story-metric) {
+  display: flex;
+  min-height: var(--suite-touch);
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--suite-space-1);
+  padding: var(--suite-space-3);
+  border: 1px solid var(--suite-border);
+  border-radius: var(--suite-radius-control);
+  background: var(--suite-surface-2);
+  box-shadow: var(--suite-highlight);
+}
+
+:is(.suite-story-checklist, .viking-story-checklist, .fj-story-checklist) {
+  display: grid;
+  gap: var(--suite-space-2);
+  margin: 0;
+  padding-left: var(--suite-space-4);
+  color: var(--suite-ink-muted);
+  font-size: var(--suite-text-sm);
+  line-height: var(--suite-leading-normal);
+}
+
+:is(
+  .suite-story-footer-space,
+  .viking-story-footer-space,
+  .fj-story-footer-space
+) {
+  margin-top: var(--suite-space-4);
+}
+
+:is(.suite-story-chart-slot, .viking-story-chart-slot, .fj-story-chart-slot) {
+  min-height: 16rem;
+  display: grid;
+  align-content: start;
+  gap: var(--suite-space-3);
+}
+
+:is(
+  .suite-story-skeleton-block,
+  .viking-story-skeleton-block,
+  .fj-story-skeleton-block
+) {
+  height: 10rem;
+  width: 100%;
+  border-radius: var(--suite-radius);
+  background: var(--suite-surface-2);
+}
+
+/* Section divider inside a story */
+:is(.suite-story-divider, .viking-story-divider, .fj-story-divider) {
+  border: 0;
+  border-top: 1px solid var(--suite-border);
+  margin: var(--suite-space-4) 0;
+}
+
+/* Docs intro callout strip */
+:is(.suite-story-banner, .viking-story-banner, .fj-story-banner) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--suite-space-2);
+  padding: var(--suite-space-2) var(--suite-space-3);
+  border: 1px solid color-mix(in srgb, var(--suite-primary) 28%, transparent);
+  border-radius: var(--suite-radius-surface);
+  background: var(--suite-primary-soft);
+  color: var(--suite-primary-strong);
+  font-size: var(--suite-text-sm);
+  font-family: var(--suite-font-mono);
+  letter-spacing: var(--suite-tracking-wide);
 }
 
 @media (prefers-reduced-motion: reduce) {

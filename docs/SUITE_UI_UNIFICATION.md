@@ -30,50 +30,56 @@
 4. **Void surfaces stay:** `#0a0a0a` / `#111111` / `#1a1a1a`.
 5. **Expand components in forjd-ui first**, then consume from the app.
 
-## Pass 1 — tokens (done)
+## Pass 1 — tokens (locked 2026-07-25)
 
-Vendored `suite-tokens.css` → forjd-ui + `backend/static/`.  
+Vendored `suite-tokens.css` (+ usage `SUITE_TOKENS.md`) → forjd-ui + `backend/static/`.  
+Canonical + Role A lock live in DEML `packages/viking-ui/src/tokens/` (`suite-tokens.lock.json`).  
 Refresh: `cd frontend && npm run sync:suite`.
 
-## Pass 2 — component libraries (done)
+## Pass 2 — component libraries (locked 2026-07-25)
 
-Vendored `suite-components.css` + Angular primitives with mirrored APIs.
+Vendored `suite-components.css` + Angular primitives with mirrored APIs and **triple classes** (`suite-*` + `fj-*` + `viking-*`).
 
-Load order: **suite-tokens → suite-components → suite-landing → app**.
+Load order: **suite-tokens → suite-components → suite-landing → app**.  
+Canonical chrome + contracts: DEML `packages/viking-ui/src/tokens/suite-components.css` + `SUITE_COMPONENTS.md`.
 
-## Pass 3 — product frontend lockstep (done)
+## Pass 3 — product frontend lockstep (locked 2026-07-25)
 
-- Vendored `suite-landing.css` (void stage + hero / bands / meta)
+- Vendored `suite-landing.css` (void stage + vivid hero / bands / meta)
 - `src/app/landing/` is composition-only (no `landing.scss`)
+- Live badge + brand → headline → lede → suite CTAs match deml.app / marketing DNA
 - Logo mark uses suite electric `#2176FF` (cyan retired)
 
-## Pass 4 — backend surfaces (done)
+## Pass 4 — backend surfaces (locked 2026-07-25)
 
-- Vendored `suite-backend.css` — centered logo splash + docs topbar
-- `backend/app/core/landing_page.py` — no inline splash CSS
-- `/docs` + `/redoc` use `suite-backend-topbar` + `--suite-*` Swagger overrides
+- Vendored `suite-backend.css` — **perfectly centered** logo splash + sticky docs topbar
+- `landing_page.py` / `docs_page.py` / `redoc_page.py` load suite-fonts → tokens → components → backend
+- Inter faces at `backend/static/fonts/inter/` (sync rewrites suite-fonts paths)
+- Quiet Swagger method chips (no multicolored rainbow)
+- No inline splash hex (cyan retired)
 
-## Pass 5 — Storybook lockstep (done)
+## Pass 5 — Storybook lockstep (locked 2026-07-25)
 
-- Vendored `suite-docs.css` — premium story shells
-- Manager branding: `FORJD UI · Suite` (matches Viking-UI suite theme)
-- Taxonomy: `Foundation/*` + `Primitives/*` (+ `Product/*` for FORJD-only)
+- Vendored `suite-docs.css` — premium story shells (no local shell redefinition)
+- Manager branding: **`Suite UI · FORJD`** (same palette as `Suite UI · Viking`)
+- Taxonomy: `Foundation/*` + `Primitives/*` (+ `Product/*` for FORJD-only demos)
 - Preview: fullscreen + suite void backgrounds + Chromatic viewports
-- CSS loaded from `.storybook/preview.ts` (suite-tokens / components / docs); decorators from `@storybook/angular-vite`
+- Decorator: `.suite-story-shell` + `.suite-story-panel` (triple-classed with viking/fj)
+- CSS: suite-fonts → tokens → components → docs via `preview.ts`
 - Gate: `cd frontend && npm run build-storybook`
 
-## Pass 6 — purity (done)
+## Pass 6 — purity (locked 2026-07-25)
 
-- Deleted leftover `_typography.scss` + `status-list.scss` (chrome lives in suite CSS)
-- `npm run sync:suite` also vendors self-hosted Inter → `public/fonts/inter`
-- forjd-ui has zero style npm packages (Angular peers only)
-- Local `ng build` critical CSS uses `#2176ff` (deploy clears live cyan lag)
-- DEML gate: `npm run suite:purity` (fails on cyan / suite drift / leftover theme files)
+- No leftover `_typography.scss` / `status-list.scss` / `landing.scss` (gate fails if reintroduced)
+- `npm run sync:suite` vendors suite CSS + Inter (frontend `/fonts` + backend `/static/fonts`)
+- forjd-ui: Angular peers + tslib only (no style npm packages)
+- Landing loads suite-fonts → tokens → components → backend (no inline cyan)
+- DEML `npm run suite:purity` enforces sibling lockstep + Pass 1–5 contracts
 
 ### Remaining differences (intentional)
 
 - Product logos/names; DEML-only Storybook Product depth; FORJD Panel/StatusList demos
-- Live hosts may lag until deploy
+- **Deploy:** live `backend.forjd.co` must be redeployed to clear residual cyan splash
 
 ## Phases
 
