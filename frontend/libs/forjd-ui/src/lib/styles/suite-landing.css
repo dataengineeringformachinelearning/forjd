@@ -29,14 +29,17 @@
   color: var(--suite-ink);
 }
 
-/* Single atmosphere owner when suite-landing is present (avoid double glow) */
+/*
+ * Atmosphere uses absolute (not fixed) so it works inside Angular app shells
+ * that apply transform/containment on main content. Covers full landing height.
+ */
 :is(.suite-landing, .fj-landing)::before,
 .landing-container.suite-landing::before,
 .community-home.suite-landing::before {
   content: "";
-  position: fixed;
+  position: absolute;
   inset: 0;
-  z-index: -1;
+  z-index: 0;
   pointer-events: none;
   background:
     radial-gradient(
@@ -60,11 +63,11 @@
 :is(.suite-landing, .fj-landing)::after,
 .landing-container.suite-landing::after {
   content: "";
-  position: fixed;
+  position: absolute;
   inset: 0;
-  z-index: -1;
+  z-index: 0;
   pointer-events: none;
-  opacity: 0.22;
+  opacity: 0.18;
   background-image:
     linear-gradient(
       color-mix(in srgb, var(--suite-border) 75%, transparent) 1px,
@@ -88,7 +91,7 @@
 @media (prefers-reduced-motion: reduce) {
   :is(.suite-landing, .fj-landing)::after,
   .landing-container.suite-landing::after {
-    opacity: 0.1;
+    opacity: 0.08;
   }
 }
 
@@ -98,7 +101,7 @@
   flex-direction: column;
   gap: var(--suite-section-gap);
   padding-block: var(--suite-space-8) var(--suite-space-12);
-  min-height: 100dvh;
+  min-height: min(100dvh, 100%);
   max-width: var(--suite-content-max);
   margin-inline: auto;
   padding-inline: var(--suite-page-gutter);
@@ -109,6 +112,47 @@
 forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   max-width: none;
   padding-inline: 0;
+}
+
+/*
+ * deml.app product-home uses .page-inner-wrapper (layout-shell) AND suite-landing.
+ * Collapse double gutters / grid so the stage owns the column rhythm.
+ */
+.page-inner-wrapper.suite-landing,
+.page-inner-wrapper.showcase-layout.suite-landing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--suite-section-gap);
+  max-width: var(--suite-content-max);
+  margin-inline: auto;
+  padding-inline: var(--suite-page-gutter);
+  padding-block: var(--suite-space-6) var(--suite-space-10);
+  min-height: 0;
+  grid-template-columns: unset;
+}
+
+.page-inner-wrapper.suite-landing .suite-landing-hero,
+.page-inner-wrapper.suite-landing .viking-unified-hero,
+.page-inner-wrapper.suite-landing .landing__hero {
+  /* Leave room for navbar + footer — avoid 78dvh hero crushing the fold */
+  min-height: min(52dvh, 26rem);
+  padding-block: var(--suite-space-5) var(--suite-space-3);
+  max-width: 40rem;
+}
+
+.page-inner-wrapper.suite-landing .suite-landing-brand,
+.page-inner-wrapper.suite-landing .hero-brand {
+  font-size: clamp(2rem, 5.5vw, 2.75rem);
+  letter-spacing: var(--suite-tracking-brand);
+  color: var(--suite-ink);
+  text-shadow: 0 0 32px
+    color-mix(in srgb, var(--suite-primary) 22%, transparent);
+}
+
+/* suite-card already pads — don't double-pad step/pillar tiles */
+.page-inner-wrapper.suite-landing
+  :is(.quick-start-step, .security-pillar).suite-card {
+  padding: var(--suite-space-3);
 }
 
 /* =============================================================================
