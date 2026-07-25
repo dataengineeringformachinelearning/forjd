@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import math
 import re
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
@@ -910,6 +911,32 @@ def _overall_status(statuses: list[str]) -> str:
 
 
 # --- Public KPI / intelligence shaping ---
+def _predicted_sla_or_outlook(
+    telemetry: dict[str, Any],
+    intelligence: dict[str, Any],
+) -> float | None:
+    """Prefer SLA training_run; else probe-history outlook so the gauge is never blank."""
+    predicted = intelligence.get("predicted_sla")
+    if predicted is not None:
+        try:
+            value = float(predicted)
+        except (TypeError, ValueError):
+            value = None
+        else:
+            if math.isfinite(value):
+                return round(max(0.0, min(100.0, value)), 2)
+    # Torch SLA fit may lag; use recent probe SLA as the 30-day outlook.
+    outlook = _uptime_from_history(list(telemetry.get("page_history") or []))
+    if outlook is None and telemetry.get("overall_uptime") is not None:
+        try:
+            outlook = float(telemetry["overall_uptime"])
+        except (TypeError, ValueError):
+            return None
+    if outlook is None:
+        return None
+    return round(max(0.0, min(100.0, float(outlook))), 2)
+
+
 def _kpi_fields(
     telemetry: dict[str, Any],
     intelligence: dict[str, Any],
@@ -926,7 +953,7 @@ def _kpi_fields(
         "temporal_backend": intelligence["temporal_backend"],
         "temporal_sample_count": intelligence["temporal_sample_count"],
         "temporal_scored_at": intelligence["temporal_scored_at"],
-        "predicted_sla": intelligence["predicted_sla"],
+        "predicted_sla": _predicted_sla_or_outlook(telemetry, intelligence),
         "threat_anomaly_score": intelligence["threat_anomaly_score"],
         "threat_suspicious_ratio": intelligence["threat_suspicious_ratio"],
         "uses_norse": intelligence["uses_norse"],

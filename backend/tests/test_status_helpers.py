@@ -280,6 +280,37 @@ class TestStatusTelemetryTruthfulness(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("tenant_id", joe)
         self.assertEqual(joe_bff["tenant_id"], "22222222-2222-2222-2222-222222222222")
 
+    def test_predicted_sla_falls_back_to_probe_outlook(self) -> None:
+        telemetry = {
+            "overall_uptime": 99.5,
+            "page_history": [
+                {"date": "2026-07-01", "status": "up", "uptime": 100.0},
+                {"date": "2026-07-02", "status": "partial", "uptime": 90.0},
+                {"date": "2026-07-03", "status": "no_data", "uptime": None},
+            ],
+            "p99_latency": 10.0,
+            "total_requests": 1,
+        }
+        intelligence = {"predicted_sla": None}
+        self.assertEqual(
+            status_svc._predicted_sla_or_outlook(telemetry, intelligence),
+            95.0,
+        )
+        self.assertEqual(
+            status_svc._predicted_sla_or_outlook(
+                telemetry,
+                {"predicted_sla": 97.25},
+            ),
+            97.25,
+        )
+        self.assertEqual(
+            status_svc._predicted_sla_or_outlook(
+                {"overall_uptime": 98.1, "page_history": []},
+                {"predicted_sla": None},
+            ),
+            98.1,
+        )
+
     async def test_public_intelligence_uses_norse_and_classical_families_only(self) -> None:
         pool = MagicMock()
         pool.fetch = AsyncMock(return_value=[{"threats_detected": 2, "error_rate_percent": 0.0}])

@@ -107,6 +107,38 @@ async def create_page(
     return {"ok": True, "page": page}
 
 
+# --- Public reads before /pages/{page_id} so "published" is not captured as an id ---
+@router.get("/pages/published")
+async def list_published(request: Request) -> dict[str, Any]:
+    """Explore directory: every published page with **its own** tenant stats.
+
+    Does not require auth. Never mixes DEML platform telemetry with a customer
+    tenant such as joealongi.
+    """
+    pages = await status_svc.list_published_pages(_pool(request))
+    return {"ok": True, "pages": pages}
+
+
+@router.get("/pages/slug/{slug}")
+async def public_page(
+    request: Request,
+    slug: str,
+    user: AuthUser | None = Depends(get_optional_user),
+) -> dict[str, Any]:
+    # Service principals (DEML BFF) get tenant_id for widget/ingest routing only.
+    # Anonymous browsers never receive tenant_id (enumeration hardening).
+    include_tenant_id = bool(user is not None and user.is_service)
+    page = await status_svc.get_published_page(
+        _pool(request),
+        slug=slug,
+        include_tenant_id=include_tenant_id,
+    )
+    if page is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="status page not found")
+    return {"ok": True, "page": page}
+
+
+# --- Member update / delete (UUID page_id — must stay below static /pages/* paths) ---
 @router.patch("/pages/{page_id}")
 async def patch_page(
     request: Request,
@@ -144,38 +176,6 @@ async def remove_page(
     except ValueError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return {"ok": True}
-
-
-# --- Public published directory (cross-tenant; ciphertext-free KPIs only) ---
-@router.get("/pages/published")
-async def list_published(request: Request) -> dict[str, Any]:
-    """Explore directory: every published page with **its own** tenant stats.
-
-    Does not require auth. Never mixes DEML platform telemetry with a customer
-    tenant such as joealongi.
-    """
-    pages = await status_svc.list_published_pages(_pool(request))
-    return {"ok": True, "pages": pages}
-
-
-# --- Public published page (no auth; service principals may receive tenant_id) ---
-@router.get("/pages/slug/{slug}")
-async def public_page(
-    request: Request,
-    slug: str,
-    user: AuthUser | None = Depends(get_optional_user),
-) -> dict[str, Any]:
-    # Service principals (DEML BFF) get tenant_id for widget/ingest routing only.
-    # Anonymous browsers never receive tenant_id (enumeration hardening).
-    include_tenant_id = bool(user is not None and user.is_service)
-    page = await status_svc.get_published_page(
-        _pool(request),
-        slug=slug,
-        include_tenant_id=include_tenant_id,
-    )
-    if page is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="status page not found")
-    return {"ok": True, "page": page}
 
 
 # --- Services ---
