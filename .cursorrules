@@ -58,7 +58,7 @@ Follow these unless the user explicitly overrides them.
 - Backend: `backend/.env` (from `backend/.env.example`) — `ROLLBAR_ACCESS_TOKEN`, `POSTGRES_DSN` (Supabase), `REDIS_URL` (Dragonfly local or Fly `.internal`), `PREFECT_API_URL`, optional `API_KEY`, CORS, etc.
 - Dragonfly on Fly: `DFLY_requirepass` via `fly secrets` (`infra/dragonfly/`).
 - Engine on Fly: deploy from `engine/` (`fly.toml` + `Dockerfile`); `ENGINE_URL=http://forjd-engine.internal:8080` + `ENGINE_API_TOKEN`; data plane via `FORJD_ROLE=all`, `DATABASE_URL`/`POSTGRES_DSN`, `REDIS_URL`, optional `FORJD_INTERNODE_*`; apply schema through `sql/026` (production path `003`–`026`; see `backend/sql/README.md`).
-- Chromatic / frontend CI: `CHROMATIC_PROJECT_TOKEN` (root `.env` or CI secrets).
+- Chromatic: `CHROMATIC_PROJECT_TOKEN` in local root `.env` only (not wired in CI).
 - Never commit real tokens. Empty optional tokens disable those integrations.
 
 ## Comments
@@ -73,7 +73,7 @@ See `AGENTS.md` → **Quality gates** for the canonical per-component commands. 
 - Backend: `cd backend && uv run ruff check . && uv run ruff format --check . && uv run python -m unittest discover -s tests`
 - Engine: `cd engine && cargo fmt --check && cargo clippy --all-targets --features server,data-plane -- -D warnings && cargo test --features server,data-plane`
 - Frontend: `cd frontend && npx ng test --no-watch` and `npm run build`
-- CI: `.github/workflows/backend-ci.yml` and `.github/workflows/frontend-ci.yml`
+- CI: `.github/workflows/ci.yml`
 
 ## Security invariants
 

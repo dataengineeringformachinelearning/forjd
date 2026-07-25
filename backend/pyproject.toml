@@ -14,7 +14,6 @@ dependencies = [
     "prefect[redis]>=3.7.8",
     "pydantic-settings>=2.14.2",
     "pyjwt[crypto]>=2.10.0",
-    "python-dotenv>=1.2.2",
     "pyyaml>=6.0.3",
     "redis>=8.0.1",
     "rollbar>=1.4.0",

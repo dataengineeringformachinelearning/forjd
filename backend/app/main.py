@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -288,13 +288,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 # --- App + middleware stack ---
-# Default Swagger UI disabled — FJORD-themed Swagger is served at /docs.
+# Default FastAPI Swagger/ReDoc off; FJORD shells gated by ENABLE_API_DOCS.
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.PROJECT_VERSION,
     lifespan=lifespan,
     docs_url=None,
     redoc_url=None,
+    openapi_url="/openapi.json" if settings.ENABLE_API_DOCS else None,
 )
 
 # --- Exception handlers (generic 500 in production) ---
@@ -348,12 +349,16 @@ async def landing() -> HTMLResponse:
 @app.get("/docs", response_class=HTMLResponse, include_in_schema=False)
 async def docs() -> HTMLResponse:
     """Interactive Swagger docs, restyled with the FJORD palette."""
+    if not settings.ENABLE_API_DOCS:
+        raise HTTPException(status_code=404, detail="Not Found")
     return HTMLResponse(content=render_docs())
 
 
 @app.get("/redoc", response_class=HTMLResponse, include_in_schema=False)
 async def redoc() -> HTMLResponse:
     """ReDoc reference, restyled with the FJORD palette."""
+    if not settings.ENABLE_API_DOCS:
+        raise HTTPException(status_code=404, detail="Not Found")
     return HTMLResponse(content=render_redoc())
 
 

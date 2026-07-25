@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     HOST: str = "0.0.0.0"
     PORT: int = 8000
+    # Interactive OpenAPI shells (/docs, /redoc, /openapi.json). Off in production
+    # unless explicitly re-enabled (local/dev defaults to on).
+    ENABLE_API_DOCS: bool = True
 
     # --- CORS ---
     CORS_ORIGINS: list[str] = Field(
@@ -187,6 +190,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _secure_production_defaults(self) -> Settings:
+        import os
+
         # Align with daemon: prod|staging OR Fly (FLY_APP_NAME) fail closed.
         if self.is_production and self.DEBUG:
             # Prefer explicit DEBUG=false in prod/staging; coerce example defaults.
@@ -198,6 +203,9 @@ class Settings(BaseSettings):
             object.__setattr__(self, "REQUIRE_CRYPTO_SESSION", True)
             if not self.SUPABASE_AUTH_REQUIRED and (self.SUPABASE_URL or self.SUPABASE_JWT_SECRET):
                 object.__setattr__(self, "SUPABASE_AUTH_REQUIRED", True)
+            # Hide OpenAPI discovery in prod unless ENABLE_API_DOCS is explicitly set.
+            if "ENABLE_API_DOCS" not in os.environ:
+                object.__setattr__(self, "ENABLE_API_DOCS", False)
         return self
 
 

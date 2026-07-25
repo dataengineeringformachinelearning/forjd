@@ -13,10 +13,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 const ALLOWED_ORIGINS = new Set([
   "https://forjd.co",
   "https://www.forjd.co",
-  "https://ui.forjd.co",
   "https://backend.forjd.co",
   "https://deml.app",
-  "https://www.deml.app",
   "https://backend.deml.app",
   "http://localhost:4200",
   "http://127.0.0.1:4200",

@@ -19,6 +19,8 @@ primary_region = 'iad'
 [env]
   ENVIRONMENT = 'production'
   DEBUG = 'false'
+  # Public OpenAPI discovery off in production (set true only for temporary debug).
+  ENABLE_API_DOCS = 'false'
   HOST = '0.0.0.0'
   PORT = '8000'
   # Engine over Fly 6PN (token via secrets)

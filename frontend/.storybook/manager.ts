@@ -9,7 +9,7 @@ addons.setConfig({
   theme: create({
     base: 'dark',
     brandTitle: 'Suite UI · FORJD',
-    brandUrl: 'https://ui.forjd.co',
+    brandUrl: 'https://forjd.co',
     brandTarget: '_self',
     colorPrimary: '#2176ff',
     colorSecondary: '#2176ff',

@@ -53,14 +53,14 @@ Backend Python is pinned to **3.12** for stable, reproducible production builds.
 - Prefer configuration (YAML/JSON) over hardcoding.
 - Keep dependencies minimal — add a package only when a concrete use case needs it.
 - After meaningful progress, optionally append a `LOG.MD` entry (engineering journal — see `.cursorrules`); primary architecture docs are `ARCHITECTURE.md` and `AGENTS.md`.
-- **Suite UI law:** chrome on forjd.co / backend.forjd.co / ui.forjd.co must match deml.app / ui.deml.app / marketing. Own every class; no Material/Bootstrap look packages. **Pass 1 tokens:** vendored `suite-tokens.css` (`--suite-*`; `--fj-*` aliases). No npm install for styles — `npm run sync:suite` from DEML sibling. Expand primitives in `frontend/libs/forjd-ui/` first.
+- **Suite UI law:** chrome on forjd.co / backend.forjd.co must match deml.app / marketing (public Storybook hosts retired). Own every class; no Material/Bootstrap look packages. **Pass 1 tokens:** vendored `suite-tokens.css` (`--suite-*`; `--fj-*` aliases). No npm install for styles — `npm run sync:suite` from DEML sibling. Expand primitives in `frontend/libs/forjd-ui/` first.
 
 ## Quality gates
 
 - Backend: `cd backend && uv run ruff check . && uv run ruff format --check . && uv run python -m unittest discover -s tests`
 - Engine: `cd engine && cargo fmt --check && cargo clippy --all-targets --features server,data-plane -- -D warnings && cargo test --features server,data-plane`
 - Frontend: `cd frontend && npx ng test --no-watch` (Vitest + jsdom) and `npm run build`
-- CI: `.github/workflows/backend-ci.yml` (backend + engine) and `.github/workflows/frontend-ci.yml` (frontend)
+- CI: `.github/workflows/ci.yml` (backend + engine + frontend)
 - Security: Semgrep (Cursor rule), no secrets in git, `rate_limit.py` is the sole rate limiter
 
 Last updated: 2026-07-21

@@ -185,8 +185,7 @@ Direct dependencies only. Star these on GitHub.
 - [fastapi](https://github.com/fastapi/fastapi) — API framework
 - [huggingface_hub](https://github.com/huggingface/huggingface_hub) — scheduled model artifact publishing (ml group)
 - [uvicorn](https://github.com/Kludex/uvicorn) — ASGI server
-- [pydantic-settings](https://github.com/pydantic/pydantic-settings) — settings from env
-- [python-dotenv](https://github.com/theskumar/python-dotenv) — `.env` loading
+- [pydantic-settings](https://github.com/pydantic/pydantic-settings) — settings from env (pulls python-dotenv for `.env`)
 - [redis-py](https://github.com/redis/redis-py) — Redis / Dragonfly client
 - [asyncpg](https://github.com/MagicStack/asyncpg) — async Postgres (Supabase)
 - [psycopg](https://github.com/psycopg/psycopg) — sync Postgres for Neon→Supabase ETL (`uv sync --group etl`)
@@ -393,3 +392,7 @@ Direct dependencies only. Star these on GitHub.
 - 2026-07-21: Modernization scrub — aligned docs to SQL `026` (partner provision / service-principal cutover), demoted LOG.MD to engineering journal (primary architecture is ARCHITECTURE.md + AGENTS.md), unified quality gates across backend/engine/frontend with DEML-style clarity, added frontend CI job, and softened PoC/DEML-local framing in production-facing comments.
 - 2026-07-22: Health pass aligned Angular 22 patch releases and Storybook 10.5 peers so strict `npm ci` no longer needs `legacy-peer-deps`; enabled strict templates, explicit zoneless/OnPush rendering, 44px controls, and removed CSP-blocked remote fonts. Backend, engine, app, library, and Storybook quality gates pass.
 - 2026-07-24: Expanded forjd.co product landing to showcase section rhythm (hero, onboarding, capability bands, security pillars) with community link to dataengineeringformachinelearning.com.
+- 2026-07-25: Dependency minimize pass — dropped direct `python-dotenv` (already required by pydantic-settings) and unused `@angular-devkit/build-angular` from the frontend Storybook toolchain.
+- 2026-07-25: CI minimize pass — merged `backend-ci.yml` + `frontend-ci.yml` into a single linear `ci.yml`.
+- 2026-07-25: CI optimize pass — cached uv/cargo/npm, fail-fast ruff before tests, rust-toolchain + rust-cache for engine/backend PyO3 builds.
+- 2026-07-25: DevOps harden — production `ENABLE_API_DOCS=false` (hides `/docs`/`/redoc`/`openapi.json`), dropped forjd.co→backend docs redirects, removed retired `ui.forjd.co` CORS/Storybook brand URL.
