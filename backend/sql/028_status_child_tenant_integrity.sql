@@ -9,6 +9,9 @@ CREATE INDEX IF NOT EXISTS health_probe_observations_service_observed_idx
   ON public.health_probe_observations (service_id, observed_at DESC)
   INCLUDE (is_active);
 
+-- pg_get_indexdef(oid, col, false) returns bare column names (no ASC/DESC text).
+-- DESC on observed_at: indoption is int2vector (0-based); bit 0 = INDOPTION_DESC.
+-- Use unnest ORDINALITY (1-based) so the second key column is ord = 2.
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -32,7 +35,13 @@ BEGIN
         SELECT pg_get_indexdef(index_meta.indexrelid, ordinal, FALSE)
         FROM generate_series(1, index_meta.indnatts) AS ordinal
         ORDER BY ordinal
-      ) = ARRAY['service_id', 'observed_at DESC', 'is_active']::TEXT[]
+      ) = ARRAY['service_id', 'observed_at', 'is_active']::TEXT[]
+      AND EXISTS (
+        SELECT 1
+        FROM unnest(index_meta.indoption) WITH ORDINALITY AS opt(val, ord)
+        WHERE opt.ord = 2
+          AND (opt.val & 1) = 1
+      )
   ) THEN
     RAISE EXCEPTION
       'health_probe_observations_service_observed_idx has an unexpected definition; repair schema drift before migration 028';

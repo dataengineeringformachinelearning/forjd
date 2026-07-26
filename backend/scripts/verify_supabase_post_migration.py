@@ -231,16 +231,22 @@ async def _check(conn: Any) -> list[tuple[str, bool, str]]:
             2,
             True,
         ),
+        # pg_get_indexdef(oid, col, false) returns bare names; DESC is via indoption.
         "health_probe_observations_service_observed_idx": (
             "health_probe_observations",
-            ("service_id", "observed_at DESC", "is_active"),
+            ("service_id", "observed_at", "is_active"),
             2,
             False,
+            2,  # observed_at key position must be DESC (INDOPTION_DESC)
         ),
     }
     for index in required_indexes:
         if contract := index_contracts.get(index):
-            table, columns, key_columns, unique = contract
+            if len(contract) == 5:
+                table, columns, key_columns, unique, desc_key_pos = contract
+            else:
+                table, columns, key_columns, unique = contract
+                desc_key_pos = None
             exists = await conn.fetchval(
                 """
                 SELECT EXISTS (
@@ -263,6 +269,15 @@ async def _check(conn: Any) -> list[tuple[str, bool, str]]:
                       FROM generate_series(1, i.indnatts) AS ordinal
                       ORDER BY ordinal
                     ) = $5::text[]
+                    AND (
+                      $6::int IS NULL
+                      OR EXISTS (
+                        SELECT 1
+                        FROM unnest(i.indoption) WITH ORDINALITY AS opt(val, ord)
+                        WHERE opt.ord = $6
+                          AND (opt.val & 1) = 1
+                      )
+                    )
                 )
                 """,
                 index,
@@ -270,6 +285,7 @@ async def _check(conn: Any) -> list[tuple[str, bool, str]]:
                 unique,
                 key_columns,
                 list(columns),
+                desc_key_pos,
             )
         else:
             exists = await conn.fetchval(
