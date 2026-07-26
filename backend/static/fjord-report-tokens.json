@@ -1,9 +1,11 @@
 {
   "meta": {
     "name": "fjord",
-    "version": "2.1.0",
-    "description": "PDF report token set only (not product UI). Live Void/Operator UI tokens live in frontend/libs/forjd-ui/src/lib/styles/_tokens.scss.",
-    "consumer": "app/services/pdf_report.py"
+    "version": "2.2.0",
+    "description": "Role C PDF/print report tokens — suite-aligned chrome (primary #2176ff, institutional gold #d4af37, void navy). Brand artwork blue #0078ff remains logos-only. Not product UI CSS; product chrome is suite-tokens.css.",
+    "consumer": "app/services/pdf_report.py",
+    "role": "C",
+    "promoted": "suite-chrome-2026-07-26"
   },
   "color": {
     "brand": {
@@ -82,7 +84,7 @@
       "500": "#2a9d8f"
     },
     "gold": {
-      "500": "#c4a035"
+      "500": "#d4af37"
     },
     "blue": {
       "500": "{color.electric.400}"
@@ -332,7 +334,7 @@
   },
   "chart": {
     "ratio": "2 / 1",
-    "plotHeight": "clamp(var(--fj-space-20), 46cqi, var(--fj-space-24))",
+    "plotHeight": "clamp(256px, 46cqi, 320px)",
     "panelPaddingCompact": "16px",
     "panelPaddingDefault": "16px 24px 24px",
     "responsive": true

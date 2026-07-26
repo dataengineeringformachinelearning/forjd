@@ -687,14 +687,21 @@ async def _process_claimed_job(
                 return
             durable_object_key = None
         filters = _json_object(row["filters"])
+        source_kind = str(row["source_kind"])
         source_rows = await _load_source_rows_bounded(
             pool,
             tenant_id=tenant_id,
-            source_kind=str(row["source_kind"]),
+            source_kind=source_kind,
             filters=filters,
             limit=int(filters.get("limit") or 10_000),
         )
-        artifact = await asyncio.to_thread(_render_export, source_rows, str(row["format"]))
+        artifact = await asyncio.to_thread(
+            _render_export,
+            source_rows,
+            str(row["format"]),
+            source_kind=source_kind,
+            filters=filters,
+        )
         if len(artifact) > settings.EXPORT_MAX_ARTIFACT_BYTES:
             raise ValueError("export artifact exceeds the configured byte limit")
         digest = hashlib.sha256(artifact).hexdigest()
@@ -988,7 +995,42 @@ async def _load_source_rows_bounded(
     return collected
 
 
-def _render_export(rows: list[dict[str, Any]], format: str) -> bytes:
+# --- Suite-styled PDF report helpers (not raw CSV-in-PDF) ---
+_PDF_REPORT_TITLES: dict[str, str] = {
+    "stream_results": "Stream Results Report",
+    "analytics": "Analytics Report",
+    "threat": "Threat Intelligence Report",
+    "lighthouse": "Lighthouse Scan Report",
+    "vulnerabilities": "Vulnerability Report",
+}
+
+
+def _pdf_report_title(source_kind: str) -> str:
+    return _PDF_REPORT_TITLES.get(source_kind, "FORJD Operational Report")
+
+
+def _pdf_report_metadata(source_kind: str, filters: dict[str, Any] | None) -> dict[str, str]:
+    payload = filters or {}
+    days_raw = payload.get("days")
+    try:
+        days = int(days_raw) if days_raw is not None else 0
+    except (TypeError, ValueError):
+        days = 0
+    site_url = str(payload.get("site_url") or "").strip()
+    return {
+        "Reporting window": f"Last {days} days" if days > 0 else "Selected range",
+        "Scope": site_url or "All monitored sites",
+        "Source": source_kind.replace("_", " ").strip().title() or "Export",
+    }
+
+
+def _render_export(
+    rows: list[dict[str, Any]],
+    format: str,
+    *,
+    source_kind: str = "stream_results",
+    filters: dict[str, Any] | None = None,
+) -> bytes:
     frame = pl.DataFrame(rows) if rows else pl.DataFrame({"id": []})
     if format == "csv":
         return frame.write_csv().encode()
@@ -1003,7 +1045,11 @@ def _render_export(rows: list[dict[str, Any]], format: str) -> bytes:
 
         if len(rows) > 1_000:
             raise ValueError("PDF exports support at most 1000 rows")
-        return render_pdf_report(rows, title="FORJD Tenant Export")
+        return render_pdf_report(
+            rows,
+            title=_pdf_report_title(source_kind),
+            metadata=_pdf_report_metadata(source_kind, filters),
+        )
     raise ValueError(f"unsupported format: {format}")
 
 

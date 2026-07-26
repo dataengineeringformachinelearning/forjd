@@ -364,20 +364,20 @@ Do not invent a full Experiences DOM inventory in this design — Phase A is ove
 flowchart TD
   A["Role A — Suite institutional chrome<br/>suite-tokens.css SoT<br/>gold #d4af37 primary #2176ff void…"]
   B["Role B — Series / chart stops<br/>series-presets / series SCSS<br/>may use distinct hex or var alias"]
-  C["Role C — Fjord PDF report tokens<br/>fjord-report-tokens.json<br/>out of product UI identity unless promoted"]
+  C["Role C — Fjord PDF report tokens<br/>fjord-report-tokens.json<br/>suite-aligned print chrome (promoted)"]
   A -->|"parity CI: SCSS --viking-gold-500 matches suite-gold"| A2["_variables.scss chrome keys"]
   A -->|"parity CI: JSON chrome gold.500 for tooling"| A3["viking-tokens.json chrome fields"]
   B -.->|"optional deliberate alias"| A
-  C -.->|"optional future promote"| A
+  C -->|"promoted: primary #2176ff + gold #d4af37"| A
 ```
 
 #### Concrete chrome fixes (Pass 7)
 
 1. **Role A:** Ensure `viking-tokens.json` **chrome** gold field(s) used for product tooling equal `#d4af37`. If JSON `gold.500` is dual-used as series stop, **split keys** (e.g. `chrome.gold` vs `series.goldStop`) rather than overwriting series intent blindly.
 2. **Role B:** Leave series stop `#c4a035` only if charts intentionally need a distinct stop; otherwise alias series gold to `var(--viking-gold-500)` / suite gold and document. Update THEME.md examples (G13).
-3. **Role C:** Document `fjord-report-tokens.json` as **PDF report only**. Do not auto-promote report blue `#0078ff` to suite primary without product decision. Optional hygiene: align report gold to institutional when reports should match chrome; fix undefined `--fj-space-20/24` in `plotHeight`.
+3. **Role C (promoted 2026-07-26):** PDF report chrome aligns to suite primary `#2176ff` + institutional gold `#d4af37`. Brand artwork blue `#0078ff` stays logos/mark-only. `plotHeight` uses concrete px (no undefined `--fj-space-20/24`). Export PDFs are suite-styled reports with source titles/metadata — not CSV dumps in a PDF wrapper.
 4. **enforce-theme.js:** Stop rewriting `#c4a035` → `var(--viking-gold-500)` without role context, or teach it role-aware allowlists so purity and enforce-theme agree.
-5. **Space (KD5):** Freeze current `--fj-space-*` map in `SUITE_TOKENS.md`; ban new product usage of `--fj-space-*` (prefer `--suite-space-*`). Report workstream defines `--fj-space-20/24` or rewrites `plotHeight` to suite spaces / raw clamp.
+5. **Space (KD5):** Freeze current `--fj-space-*` map in `SUITE_TOKENS.md`; ban new product usage of `--fj-space-*` (prefer `--suite-space-*`). Report `plotHeight` rewritten to `clamp(256px, 46cqi, 320px)`.
 
 ### Component API parity matrix
 
@@ -721,14 +721,14 @@ Revert PR + redeploy static assets. Soft CI can be re-enabled if hard gates flak
 ## Open Questions
 
 1. **Phase B OpenAPI explorer** within a quarter, or Phase A enough?
-2. **Role C PDF reports:** promote to suite primary/gold or keep report-specific palette permanently?
+2. **Role C PDF reports:** ~~promote to suite primary/gold or keep report-specific palette permanently?~~ **Decided:** promote report chrome to suite primary `#2176ff` + institutional gold `#d4af37`; brand artwork blue remains logos-only.
 3. **Role B series gold:** keep `#c4a035` stop or alias to institutional gold?
 4. **Light mode on FORJD:** permanent dark-lock?
 5. **viking-ui-docs:** sunset parallel primitive docs or keep thin WC demo?
 6. **Chromatic hard-fail (PR-17b):** enable this quarter? Requires tokens in FORJD secrets.
 7. **CSS package publish:** invest now or stay on sync+lockfile?
 
-**Defaults if no input:** (1) Phase A only; (2) keep Role C separate; (3) alias series to suite gold when charts allow, else split keys; (4) dark-lock FORJD; (5) thin consumer only; (6) publish-only Chromatic; (7) lockfile+sync.
+**Defaults if no input:** (1) Phase A only; (2) Role C suite-aligned (promoted); (3) alias series to suite gold when charts allow, else split keys; (4) dark-lock FORJD; (5) thin consumer only; (6) publish-only Chromatic; (7) lockfile+sync.
 
 ---
 
