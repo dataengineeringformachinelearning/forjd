@@ -1,0 +1,22 @@
+{
+  "name": "forjd-workspace",
+  "private": true,
+  "description": "Root DX scripts — delegates to backend/ frontend/ engine/",
+  "scripts": {
+    "bootstrap": "bash scripts/bootstrap_local.sh",
+    "verify": "bash scripts/verify_local.sh",
+    "doctor": "python3 scripts/forjd_tooling.py doctor",
+    "validate:workflows": "python3 scripts/forjd_tooling.py validate-workflows",
+    "quality": "python3 scripts/forjd_tooling.py quality --fast",
+    "quality:full": "python3 scripts/forjd_tooling.py quality --full",
+    "install-hooks": "bash scripts/install_hooks.sh",
+    "check:commit-msg": "python3 scripts/check_commit_msg.py --self-test",
+    "format": "npm run format --prefix frontend && cd backend && uv run --no-sync ruff format . && cd ../engine && cargo fmt --all",
+    "dev:api": "python3 scripts/forjd_tooling.py api",
+    "dev:web": "python3 scripts/forjd_tooling.py web",
+    "sync:suite": "npm run sync:suite --prefix frontend",
+    "suite:purity": "npm run suite:purity --prefix frontend",
+    "test:frontend": "npm run test:all --prefix frontend",
+    "test:e2e": "npm run test:e2e --prefix frontend"
+  }
+}

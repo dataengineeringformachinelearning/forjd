@@ -1,10 +1,13 @@
-"""Suite-themed ReDoc shell served at ``GET /redoc``."""
+"""Suite-themed ReDoc shell served at ``GET /redoc``.
+
+Self-hosts redoc under ``/static/vendor/`` — no jsDelivr CDN.
+"""
 
 from __future__ import annotations
 
 from app.core.config import settings
 
-# --- ReDoc shell (suite-backend topbar; no inline chrome) ---
+# --- ReDoc shell (suite-backend topbar + suite-apidocs) ---
 _REDOC_HTML = """<!doctype html>
 <html lang="en" data-theme="dark">
 <head>
@@ -20,9 +23,7 @@ _REDOC_HTML = """<!doctype html>
 <link rel="stylesheet" href="/static/suite-tokens.css" />
 <link rel="stylesheet" href="/static/suite-components.css" />
 <link rel="stylesheet" href="/static/suite-backend.css" />
-<style>
-  redoc {{ display: block; }}
-</style>
+<link rel="stylesheet" href="/static/suite-apidocs.css" />
 </head>
 <body class="suite-backend-docs backend-redoc">
   <header class="suite-backend-topbar backend-docs-topbar fj-topbar">
@@ -35,9 +36,8 @@ _REDOC_HTML = """<!doctype html>
       <a href="/ready">ready</a>
     </nav>
   </header>
-  <!-- nosemgrep: html.security.audit.missing-integrity.missing-integrity — ReDoc CDN; major version pinned -->
   <redoc spec-url="/openapi.json"></redoc>
-  <script src="https://cdn.jsdelivr.net/npm/redoc@2/bundles/redoc.standalone.js"></script>
+  <script src="/static/vendor/redoc/redoc.standalone.js"></script>
 </body>
 </html>"""
 

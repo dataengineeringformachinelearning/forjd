@@ -30,6 +30,15 @@ partner repo. Deploy commands: [`PRODUCTION_DEPLOY.md`](./PRODUCTION_DEPLOY.md).
 FORJD_INCLUDE_ERASE=1 ./scripts/remint_service_account.sh partner-deletion
 ```
 
+## A′. Workflow definitions (before/with deploy)
+
+| Step | Action |
+|------|--------|
+| A′1 | Confirm enabled YAML under `backend/workflows/` (not only `examples/`) |
+| A′2 | Run `npm run validate:workflows` (and `--include-examples` when touching templates) |
+| A′3 | Optional production fail-closed: `WORKFLOWS_STRICT=true` on API machines |
+| A′4 | Extension map: [`EXTENDING.md`](EXTENDING.md) · ADR-0028 |
+
 ## B. Fly deploy
 
 | Step | Action |
@@ -90,9 +99,10 @@ FORJD_INCLUDE_ERASE=1 ./scripts/remint_service_account.sh partner-deletion
 
 | Step | Action |
 |------|--------|
-| D2.1 | `curl -sI https://backend.forjd.co/health` includes `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` |
-| D2.2 | Landing (`https://forjd.co`) responses include CSP and HSTS from `frontend/vercel.json` |
+| D2.1 | `curl -sI https://backend.forjd.co/health` includes `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cross-Origin-Resource-Policy` |
+| D2.2 | Landing (`https://forjd.co`) responses include CSP, HSTS, COOP, and `Cross-Origin-Resource-Policy` from `frontend/vercel.json` |
 | D2.3 | Unauthenticated mutating `POST /api/v1/*` returns `401` (no cookie-only success path) |
+| D2.4 | Production `CORS_ORIGINS` is an exact HTTPS allowlist (no `*`); engine `/health` includes CSP + HSTS |
 
 ## E. Rollback
 

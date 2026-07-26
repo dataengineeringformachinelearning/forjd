@@ -19,9 +19,12 @@ Fly/Compose build: `--features server,data-plane`.
 | GET | `/v1/version` | always | Crate + schema version |
 | POST | `/v1/process` | always | Validate/enrich event |
 | POST | `/v1/summarize` | always | Arrow/Parquet summary |
-| POST | `/v1/sealed/pipeline` | always | Ciphertext-safe detectors → `stream_results` rows |
+| POST | `/v1/sealed/pipeline` | always | Ciphertext-safe detectors → `stream_results` rows (built-in size/rate; custom Python detectors need Rust parity — [`docs/EXTENDING.md`](../docs/EXTENDING.md)) |
 | POST | `/api/v1/ingest` | `FORJD_ROLE` includes ingest/`all` | Retired compatibility route; authenticated valid calls receive `410 Gone` with the canonical FastAPI route |
 | POST | `/unique` | `FORJD_ROLE=cpe` only | Optional CPE lookup |
+
+Observability: JSON `tracing` + request-id layers; API forwards `X-Request-ID` on
+engine HTTP. Full contract: [`docs/OBSERVABILITY.md`](../docs/OBSERVABILITY.md).
 
 ## `FORJD_ROLE`
 

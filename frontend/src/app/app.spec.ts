@@ -18,11 +18,16 @@ describe('App', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
-  it('should host routed pages via a router outlet', async () => {
+  it('should host routed pages via a router outlet inside an error boundary', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('forjd-error-boundary')).toBeTruthy();
     expect(compiled.querySelector('router-outlet')).toBeTruthy();
+    expect(compiled.querySelector('forjd-toast-host')).toBeTruthy();
+    // Landing-only: no console soft-chrome overlays mounted at the root.
+    expect(compiled.querySelector('forjd-preferences')).toBeNull();
+    expect(compiled.querySelector('forjd-shortcut-help')).toBeNull();
   });
 
   it('should render only the static landing at the root', () => {

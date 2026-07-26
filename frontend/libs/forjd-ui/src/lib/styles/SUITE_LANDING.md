@@ -8,33 +8,38 @@
 
 **forjd.co**, **deml.app `/`**, and **dataengineeringformachinelearning.com** share one product-family DNA:
 
-| Layer      | Shared contract                                                    |
-| ---------- | ------------------------------------------------------------------ |
-| Atmosphere | Void `#0a0a0a` + electric radial + gold secondary + 64px grid mask |
-| Hero       | Live badge → brand → headline → lede → suite-btn CTAs              |
-| Sections   | Mono tags, section title/lede, steps / bands / grids               |
-| Chrome     | Pass 2 suite components only (cards, buttons, links)               |
+| Layer      | Shared contract                                                                                                                                      |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Atmosphere | Void `#0a0a0a` + one electric wash + quiet grid mask                                                                                                 |
+| Hero       | Status badge → brand → headline → lede → ≤2 suite-btn CTAs                                                                                           |
+| Sections   | Title/lede + steps / bands (tags optional; avoid stacked ALL-CAPS)                                                                                   |
+| Chrome     | Pass 2 suite components only (cards, buttons, links)                                                                                                 |
+| Motion     | Instant hero (no stagger); pulse only when `.pulse-dot` + Live; no card lift                                                                         |
+| Ready UX   | One story: `data-phase=loading\|ready\|degraded` — Confirming → Production (+ pulse) → Offline/Unavailable/Not ready + Try again                     |
+| Devices    | High-end: electric wash + grid. Constrained (`max-width: 600px` / `prefers-reduced-data`): solid void, no hairlines; 44px touch; short-viewport hero |
 
-SpaceX full-bleed power + Porsche precision + Palantir operational density — **fast** (CSS-only atmosphere, no JS animation libs).
+Calm confidence over clever theater — **fast** (CSS-only atmosphere, no JS animation libs).
 
 ## Class contracts
 
-| Role           | Canonical                       | Aliases (lockstep)                                              |
-| -------------- | ------------------------------- | --------------------------------------------------------------- |
-| Stage          | `.suite-landing`                | `.fj-landing` · `.landing-container` · `.community-home`        |
-| Hero           | `.suite-landing-hero`           | `.landing__hero` · `.viking-unified-hero`                       |
-| Live badge     | `.suite-landing-badge`          | `.hero-badge` · `.viking-unified-hero-badge`                    |
-| Brand          | `.suite-landing-brand`          | `.hero-brand` · `.fj-brand`                                     |
-| Headline       | `.suite-landing-headline`       | `.landing__hero-line` · `.title` · `.viking-unified-hero-title` |
-| Lede           | `.suite-landing-lede`           | `.subtitle` · `.viking-unified-hero-lead` · `.fj-lede`          |
-| Actions        | `.suite-landing-actions`        | `.cta-group` · `.viking-unified-hero-actions`                   |
-| Section header | `.suite-landing-section-header` | `.viking-unified-section-header` · `.quick-start-header`        |
-| Tag            | `.suite-landing-tag`            | `.section-tag` · `.landing__tag`                                |
-| Steps          | `.suite-landing-steps`          | `.landing__steps` · `.quick-start-steps`                        |
-| Grid           | `.suite-landing-grid`           | `.landing__grid` · `.community-showcase-grid`                   |
-| Band           | `.suite-landing-band`           | `.landing__band` · `.showcase-band`                             |
-| Metrics        | `.suite-landing-metric-list`    | `.landing__metric-list` · `.visual-metrics`                     |
-| Meta           | `.suite-landing-meta`           | `.landing__meta`                                                |
+| Role              | Canonical                          | Aliases (lockstep)                                              |
+| ----------------- | ---------------------------------- | --------------------------------------------------------------- |
+| Stage             | `.suite-landing`                   | `.fj-landing` · `.landing-container` · `.community-home`        |
+| Hero              | `.suite-landing-hero`              | `.landing__hero` · `.viking-unified-hero`                       |
+| Live badge        | `.suite-landing-badge`             | `.hero-badge` · `.viking-unified-hero-badge`                    |
+| Brand             | `.suite-landing-brand`             | `.hero-brand` · `.fj-brand`                                     |
+| Headline          | `.suite-landing-headline`          | `.landing__hero-line` · `.title` · `.viking-unified-hero-title` |
+| Lede              | `.suite-landing-lede`              | `.subtitle` · `.viking-unified-hero-lead` · `.fj-lede`          |
+| Actions           | `.suite-landing-actions`           | `.cta-group` · `.viking-unified-hero-actions`                   |
+| Actions primary   | `.suite-landing-actions-primary`   | `.landing__actions-primary` — command CTAs (≤3)                 |
+| Actions secondary | `.suite-landing-actions-secondary` | Quiet ghosts / theme; no hover lift                             |
+| Section header    | `.suite-landing-section-header`    | `.viking-unified-section-header` · `.quick-start-header`        |
+| Tag               | `.suite-landing-tag`               | `.section-tag` · `.landing__tag`                                |
+| Steps             | `.suite-landing-steps`             | `.landing__steps` · `.quick-start-steps`                        |
+| Grid              | `.suite-landing-grid`              | `.landing__grid` · `.community-showcase-grid`                   |
+| Band              | `.suite-landing-band`              | `.landing__band` · `.showcase-band`                             |
+| Metrics           | `.suite-landing-metric-list`       | `.landing__metric-list` · `.visual-metrics`                     |
+| Meta              | `.suite-landing-meta`              | `.landing__meta`                                                |
 
 ## Markup pattern (all three hosts)
 

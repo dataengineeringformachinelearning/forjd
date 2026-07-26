@@ -8,7 +8,7 @@ beside the API.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 import asyncpg
 
@@ -33,12 +33,10 @@ async def try_worker_lease(pool: asyncpg.Pool, lease_name: str) -> AsyncIterator
         yield leased
     finally:
         if leased:
-            try:
+            # Connection drop releases session locks; avoid masking tick errors.
+            with suppress(Exception):
                 await conn.fetchval(
                     "SELECT pg_advisory_unlock(hashtextextended($1, 0))",
                     lease_name,
                 )
-            except Exception:
-                # Connection drop releases session locks; avoid masking tick errors.
-                pass
         await pool.release(conn)

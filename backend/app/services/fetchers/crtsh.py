@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-import httpx
-
+from app.core.outbound_http import expect_list_of_dicts, request_json
+from app.core.sanitize import sanitize_label
 from app.services.fetchers.base import Fetcher
 
 
@@ -36,13 +36,8 @@ class CrtShFetcher(Fetcher[CrtShQuery, list[dict[str, Any]], CrtShData]):
 
     async def aextract(self, query: CrtShQuery) -> list[dict[str, Any]]:
         url = f"https://crt.sh/?q={query.domain}&output=json"
-        async with httpx.AsyncClient(timeout=query.timeout) as client:
-            response = await client.get(url)
-            response.raise_for_status()
-            payload = response.json()
-        if not isinstance(payload, list):
-            return []
-        return [row for row in payload if isinstance(row, dict)]
+        _status, payload = await request_json("GET", url, timeout=query.timeout)
+        return expect_list_of_dicts(payload, max_items=2_000)
 
     def transform_data(self, query: CrtShQuery, raw: list[dict[str, Any]]) -> CrtShData:
         subdomains: set[str] = set()
@@ -50,7 +45,10 @@ class CrtShFetcher(Fetcher[CrtShQuery, list[dict[str, Any]], CrtShData]):
         for entry in raw:
             name_value = str(entry.get("name_value") or "")
             for name in name_value.split("\n"):
-                name = name.strip().lower()
+                name = sanitize_label(name.lower(), max_length=253)
                 if name.endswith(needle) and "*" not in name:
                     subdomains.add(name)
-        return CrtShData(domain=query.domain, subdomains=sorted(subdomains))
+        return CrtShData(
+            domain=sanitize_label(query.domain, max_length=253),
+            subdomains=sorted(subdomains)[:500],
+        )

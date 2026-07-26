@@ -184,6 +184,23 @@ pipeline:
         self.assertGreaterEqual(len(summaries), 1)
         self.assertTrue(all("id" in s and "processor" in s for s in summaries))
 
+    def test_summaries_include_pipeline_step_cards(self) -> None:
+        from app.workflows.step_cards import pipeline_step_cards
+
+        cards = pipeline_step_cards(["rollup", "size_anomaly", "custom_step"])
+        self.assertEqual(cards[0]["title"], "Seal & roll up")
+        self.assertEqual(cards[1]["kind"], "detect")
+        self.assertEqual(cards[2]["id"], "custom_step")
+        self.assertEqual(cards[2]["kind"], "unknown")
+
+        threat = next(s for s in list_workflow_summaries() if s["id"] == "threat_telemetry")
+        step_ids = [c["id"] for c in threat["pipeline_steps"]]  # type: ignore[index]
+        self.assertEqual(step_ids, ["rollup", "size_anomaly", "rate_anomaly"])
+        self.assertTrue(all("title" in c and "detail" in c for c in threat["pipeline_steps"]))  # type: ignore[index]
+        self.assertIn("zscore", threat["size_anomaly"])  # type: ignore[index]
+        self.assertIn("max_events", threat["rate_anomaly"])  # type: ignore[index]
+        self.assertEqual(threat["outputs"]["table"], "stream_results")  # type: ignore[index]
+
     def test_builtin_model_defaults(self) -> None:
         wf = WorkflowDefinition(id="x", name="X", default=True)
         self.assertEqual(wf.pipeline.processor, "sealed_metadata")
@@ -220,6 +237,27 @@ pipeline:
             pipeline={"steps": ["rollup", "size_anomaly", "my_custom_detector"]},
         )
         self.assertIn("my_custom_detector", wf.pipeline.steps)
+
+    def test_validate_known_workflows_dir(self) -> None:
+        from app.workflows.validate import (
+            issues_block_exit,
+            validate_workflow_definition,
+            validate_workflows_dir,
+        )
+
+        root = Path(__file__).resolve().parents[1] / "workflows"
+        issues = validate_workflows_dir(root, strict=True)
+        self.assertFalse(issues_block_exit(issues), msg=issues)
+
+        bad = WorkflowDefinition(
+            id="bad_steps",
+            name="Bad",
+            match={"content_types": ["application/forjd-event+v1"]},
+            pipeline={"steps": ["rollup", "not_a_real_detector"]},
+        )
+        bad_issues = validate_workflow_definition(bad, path="bad", strict=True)
+        self.assertTrue(any("not_a_real_detector" in i.message for i in bad_issues))
+        self.assertTrue(issues_block_exit(bad_issues))
 
 
 if __name__ == "__main__":

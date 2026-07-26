@@ -1,5 +1,7 @@
 # FORJD Authentication & Subprocessor Model
 
+**ADR:** [`docs/adr/0002-ciphertext-only-partner-boundary.md`](../../docs/adr/0002-ciphertext-only-partner-boundary.md).
+
 FORJD is a **universal secure streaming backend**. It serves:
 
 1. **Enterprise / direct users** — humans on Supabase Auth (FORJD API / admin paths).
@@ -12,12 +14,17 @@ FORJD never accepts a partner's end-user tokens.
 ## CSRF vs XSS (browser threat model)
 
 FORJD is a **header-authenticated API**, not a cookie-session app.
+**forjd.co / backend.forjd.co do not set session cookies.** Analytics vendors may
+set their own cookies; that is not FORJD write authority. See
+[`docs/adr/0016-secure-defaults-cookies-headers-api.md`](../../docs/adr/0016-secure-defaults-cookies-headers-api.md).
 
 | Threat | Control |
 |--------|---------|
 | **CSRF** | Mutating routes require `Authorization: Bearer …` (Supabase JWT or `fjsvc_…`) and/or `X-API-Key`. Browsers do not auto-attach those headers on cross-site form posts, so classic CSRF tokens are **not** used. Do not introduce cookie-only write authority. |
-| **XSS / clickjacking** | API responses set a strict `Content-Security-Policy` (`default-src 'none'; frame-ancestors 'none'`), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cross-Origin-Opener-Policy`, and HSTS in production (`app.core.security.SecurityHeadersMiddleware`). The static landing SPA on Vercel ships its own CSP + the same browser hardening headers in `frontend/vercel.json`. |
-| **CORS** | Exact `CORS_ORIGINS` allowlist; never `*` with credentials. Cross-origin readable XHR is constrained by CORS; CSRF protection remains header auth. |
+| **XSS / clickjacking** | API responses set a strict `Content-Security-Policy` (`default-src 'none'; frame-ancestors 'none'`), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cross-Origin-Opener-Policy`, CORP, and HSTS in production (`app.core.security.SecurityHeadersMiddleware`). The static landing SPA on Vercel ships CSP + `X-Frame-Options: DENY` + CORP in `frontend/vercel.json`. |
+| **Open redirects** | Landing/suite links go through `safeHref` / `safeHttpBase` (forjd-ui) with a host allowlist — see [`docs/adr/0013-client-side-attack-hardening.md`](../../docs/adr/0013-client-side-attack-hardening.md). |
+| **CORS / TLS** | Exact `CORS_ORIGINS` allowlist; production rejects `*` and requires an `https://` origin; `allow_credentials=False`. Production cleartext via `X-Forwarded-Proto: http` gets a 308 to HTTPS. |
+| **Cookies (if ever)** | Use `app.core.cookies.build_set_cookie` (Secure in production, HttpOnly, SameSite=Lax). Never as `/api/v1` write authority. |
 
 Partner BFFs (e.g. DEML) never call FORJD with end-user browser cookies; they exchange partner identity for a tenant-bound `fjsvc_` service token server-side.
 
@@ -86,7 +93,8 @@ Authorization: Bearer fjsvc_…
 Workflow routing is config-only: send `content_type` /
 `application/forjd-telemetry+v1` (example `threat_telemetry` YAML) or an
 explicit `workflow_id`. Partner wire ids can be declared as
-`aliases` on a workflow YAML (see `backend/workflows/README.md`) — do not
+`aliases` on a workflow YAML (see `backend/workflows/README.md` and
+`docs/EXTENDING.md`; validate with `npm run validate:workflows`) — do not
 fork FORJD ingest per product.
 
 For DEML and other partner backends, the canonical sealed batch contract is

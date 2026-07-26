@@ -8,9 +8,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.core.sanitize import sanitize_label
 from app.services import engine as engine_svc
 from app.workflows.detectors import run_detectors
 from app.workflows.models import WorkflowDefinition
+
+
+def _meta_tag(value: Any) -> str:
+    return sanitize_label(str(value or ""), max_length=128)
 
 
 # --- Prefer Rust engine; deterministic Python fallback ---
@@ -134,10 +139,10 @@ def _sanitize(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "workflow_id": str(e.get("workflow_id") or ""),
                 "metadata": routing,
                 # Flatten common tags so detectors/analytics can read them cheaply.
-                "region": str(routing.get("region") or "")[:128],
-                "component": str(routing.get("component") or "")[:128],
-                "label": str(routing.get("label") or "")[:128],
-                "source": str(routing.get("source") or "")[:128],
+                "region": _meta_tag(routing.get("region")),
+                "component": _meta_tag(routing.get("component")),
+                "label": _meta_tag(routing.get("label")),
+                "source": _meta_tag(routing.get("source")),
             }
         )
     return rows

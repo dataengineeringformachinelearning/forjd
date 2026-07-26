@@ -1,23 +1,35 @@
+import { isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   PLATFORM_ID,
   afterNextRender,
+  computed,
   inject,
-  signal,
 } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
-import {
-  FjButton,
-  FjPageShell,
-  FjPanel,
-  FjSection,
-  FjSeparator,
-} from 'forjd-ui';
+import { FjButton, FjPageShell, FjPanel, FjSection, FjSeparator } from 'forjd-ui';
 
 import { environment } from '../../environments/environment';
+import { createFetchHandle } from '../core/fetch/fetch-handle';
+import { settleReadyStatus } from '../core/fetch/ready-fetch';
+import { subscribeOnlineStatus } from '../core/offline/network';
+import {
+  probeLandingReady,
+  retryLandingReady,
+  shouldRefreshLandingReadyOnVisible,
+  staleLandingReady,
+  subscribeLandingReady,
+} from '../core/ready/landing-ready';
+import {
+  LANDING_STEPS,
+  LANDING_TITLE,
+  landingReadyStory,
+  landingSuiteLinks,
+  type LandingReadyError,
+} from './landing.content';
 
-// --- Public product landing (composition only — suite-landing.css owns look) ---
+// --- Public product landing (fetch + SWR; ADR-0010 / ADR-0011 / ADR-0012) ---
 @Component({
   selector: 'app-landing',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -26,150 +38,92 @@ import { environment } from '../../environments/environment';
 })
 export class Landing {
   private readonly platformId = inject(PLATFORM_ID);
-
-  protected readonly title = 'FORJD';
-  // --- Suite cross-links (env + stable product/legal hosts) ---
-  protected readonly apiBaseUrl = environment.apiBaseUrl;
-  protected readonly docsUrl = `${environment.apiBaseUrl}/docs`;
-  protected readonly redocUrl = `${environment.apiBaseUrl}/redoc`;
-  protected readonly readyUrl = `${environment.apiBaseUrl}/ready`;
-  protected readonly communityUrl = 'https://dataengineeringformachinelearning.com/';
-  protected readonly demlUrl = 'https://deml.app/';
-  protected readonly privacyUrl = 'https://dataengineeringformachinelearning.com/privacy/';
-  protected readonly termsUrl = 'https://dataengineeringformachinelearning.com/terms/';
+  private readonly destroyRef = inject(DestroyRef);
+  protected readonly title = LANDING_TITLE;
+  protected readonly links = landingSuiteLinks(environment.apiBaseUrl);
+  protected readonly steps = LANDING_STEPS;
 
   /**
-   * Shared continuity signal: FORJD `/ready`.
-   * Starts unknown — never optimistic ok before the probe settles.
+   * `/ready` via shared fetch handle — loading | success | error.
+   * Soft failures live in `error` (`not_ready` | `unreachable` | `offline`).
+   * SWR updates apply via `applySettled` (no loading flash).
    */
-  protected readonly apiReady = signal<'ok' | 'not_ready' | 'unreachable' | 'checking'>(
-    'checking',
+  private readonly ready = createFetchHandle<'ok', LandingReadyError>({
+    initialPhase: 'loading',
+  });
+
+  /** Single story object for badge / edge / retry (loading → ready → degraded). */
+  protected readonly readyStory = computed(() =>
+    landingReadyStory({
+      loading: this.ready.isLoading() || this.ready.isIdle(),
+      error: this.ready.isError() ? this.ready.error() : null,
+    }),
   );
+
+  protected readonly readyIsLive = computed(() => this.readyStory().phase === 'ready');
+  protected readonly readyShowDegraded = computed(() => this.readyStory().phase === 'degraded');
 
   constructor() {
     afterNextRender(() => {
       if (!isPlatformBrowser(this.platformId)) {
         return;
       }
-      void this.probeApiReady();
+
+      const unsubCache = subscribeLandingReady((status) => {
+        this.ready.applySettled(settleReadyStatus(status));
+      });
+
+      void this.loadReady();
+
+      const unsubOnline = subscribeOnlineStatus((online) => {
+        if (!online) {
+          this.ready.fail('offline');
+          return;
+        }
+        retryLandingReady();
+        void this.loadReady();
+      });
+
+      const onVisibility = () => {
+        if (document.visibilityState !== 'visible') {
+          return;
+        }
+        // Constrained radios: skip while SWR cache is still fresh.
+        if (!shouldRefreshLandingReadyOnVisible()) {
+          return;
+        }
+        staleLandingReady();
+        void this.loadReady({ silent: true });
+      };
+      document.addEventListener('visibilitychange', onVisibility);
+
+      this.destroyRef.onDestroy(() => {
+        unsubCache();
+        unsubOnline();
+        document.removeEventListener('visibilitychange', onVisibility);
+        this.ready.abort();
+      });
     });
   }
 
-  private async probeApiReady(): Promise<void> {
-    const controller = new AbortController();
-    const timer = globalThis.setTimeout(() => controller.abort(), 2500);
-    try {
-      const response = await fetch(this.readyUrl, {
-        method: 'GET',
-        headers: { Accept: 'application/json' },
-        credentials: 'omit',
-        signal: controller.signal,
-      });
-      if (!response.ok) {
-        this.apiReady.set('not_ready');
-        console.warn('[landing] FORJD /ready not_ready status=%s', response.status);
-        return;
-      }
-      const body = (await response.json()) as { status?: string };
-      if ((body.status || '').toLowerCase() === 'ready') {
-        this.apiReady.set('ok');
-      } else {
-        this.apiReady.set('not_ready');
-        console.warn('[landing] FORJD /ready reported status=%s', body.status);
-      }
-    } catch {
-      this.apiReady.set('unreachable');
-      console.warn('[landing] FORJD /ready unreachable');
-    } finally {
-      globalThis.clearTimeout(timer);
+  /** Re-probe after soft failure — primary narrative stays painted. */
+  protected retryProbe(): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
     }
+    retryLandingReady();
+    void this.loadReady();
   }
 
-  protected readonly onboarding = [
-    {
-      step: '01',
-      title: 'Bind',
-      detail: 'Map a partner account to a FORJD tenant and mint a tenant-bound fjsvc_ token.',
-    },
-    {
-      step: '02',
-      title: 'Seal',
-      detail: 'Clients seal events with X25519/HKDF + AES-256-GCM. The pipeline never sees plaintext.',
-    },
-    {
-      step: '03',
-      title: 'Project',
-      detail: 'Checkpoint durable stream_results with replay and DLQ when delivery needs recovery.',
-    },
-    {
-      step: '04',
-      title: 'Operate',
-      detail: 'YAML workflows, rollups, and ML refresh run under tenant RLS — no parallel data plane.',
-    },
-  ] as const;
-
-  protected readonly capabilityBands = [
-    {
-      tag: 'INGEST',
-      title: 'Sealed intake at the edge',
-      detail:
-        'Partner apps keep their own end-user auth. FORJD accepts only tenant-bound service tokens and sealed envelopes — never Firebase or partner end-user JWTs.',
-      panelTitle: 'Envelope path',
-      metrics: [
-        { label: 'Content', value: 'Ciphertext only' },
-        { label: 'Keys', value: 'X25519 / HKDF' },
-        { label: 'Storage', value: 'AES-256-GCM' },
-      ],
-    },
-    {
-      tag: 'WORKFLOWS',
-      title: 'Configurable sealed pipelines',
-      detail:
-        'YAML under backend/workflows drives Prefect orchestration with a Rust sealed hot path and a dependency-free Python soft fallback.',
-      panelTitle: 'Execution',
-      metrics: [
-        { label: 'Hot path', value: 'Rust / Arrow' },
-        { label: 'Orchestration', value: 'Prefect 3' },
-        { label: 'Batch tables', value: 'Polars' },
-      ],
-    },
-    {
-      tag: 'PROJECTIONS',
-      title: 'Durable results with replay',
-      detail:
-        'Checkpointed stream_results, replay, and DLQ keep operational history intact across tenants without leaking cross-tenant state.',
-      panelTitle: 'Durability',
-      metrics: [
-        { label: 'Results', value: 'Checkpointed' },
-        { label: 'Recovery', value: 'Replay / DLQ' },
-        { label: 'Isolation', value: 'Postgres RLS' },
-      ],
-    },
-  ] as const;
-
-  protected readonly pillars = [
-    {
-      name: 'Ciphertext lane',
-      detail: 'E2EE sealed ingest — the pipeline routes ciphertext only.',
-    },
-    {
-      name: 'Tenant binding',
-      detail: 'fjsvc_ tokens and body/query tenant IDs must match or fail closed.',
-    },
-    {
-      name: 'RLS isolation',
-      detail: 'Postgres row-level security on every tenant-scoped read and write.',
-    },
-    {
-      name: 'Partner boundary',
-      detail: 'Subprocessors keep end-user auth; FORJD never accepts partner user tokens.',
-    },
-  ] as const;
-
-  protected readonly features = [
-    { name: 'Sealed ingest', detail: 'X25519/HKDF + AES-256-GCM envelopes — ciphertext only.' },
-    { name: 'Workflows', detail: 'YAML-configured pipelines orchestrated by Prefect.' },
-    { name: 'Projections', detail: 'Checkpointed durable results with replay and DLQ.' },
-    { name: 'Rust hot path', detail: 'Arrow/Parquet engine with a FastAPI control plane.' },
-  ] as const;
+  private async loadReady(options?: { silent?: boolean }): Promise<void> {
+    if (options?.silent) {
+      const status = await probeLandingReady(this.links.apiBaseUrl);
+      this.ready.applySettled(settleReadyStatus(status));
+      return;
+    }
+    await this.ready.runSettled(async () => {
+      const status = await probeLandingReady(this.links.apiBaseUrl);
+      return settleReadyStatus(status);
+    });
+  }
 }

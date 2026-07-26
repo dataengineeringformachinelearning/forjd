@@ -58,13 +58,17 @@ wire ids (`examples/` is not loaded by the registry).
 
 ## Add a use case
 
-1. Copy `analytics_events.yaml` → `my_saas.yaml`.
+1. Copy `examples/my_saas.example.yaml` → `my_saas.yaml` (or compose via DEML
+   **Pipeline** `/pipeline` and download YAML).
 2. Set `id`, `match.content_types` / `event_types`, thresholds, tags,
    `pipeline.projection.name`.
-3. Clients send sealed envelopes with `content_type` (and optional `event_type`
+3. Validate: `npm run validate:workflows` (from repo root).
+4. Clients send sealed envelopes with `content_type` (and optional `event_type`
    / `workflow_id`). Server stores ciphertext only.
-4. Optional: add a detector in `app/workflows/detectors/` and list it in
-   `pipeline.steps`, or a processor in `app/workflows/processors/`.
+5. Optional: add a detector — start from `examples/detector_stub.py.example`,
+   register in `app/workflows/detectors/`, list in `pipeline.steps`.
+
+Full map: [`docs/EXTENDING.md`](../../docs/EXTENDING.md).
 
 ## Domain security APIs (optional)
 
@@ -100,6 +104,8 @@ Apply SQL `006`–`010` for routing, projections/DLQ, status, daemon plane, audi
 | `default_sealed.yaml` | Generic fallback (`application/forjd-event+v1`) |
 | `analytics_events.yaml` | Product analytics |
 | `threat_telemetry.yaml` | Example threat/telemetry vertical (not platform core; used via service token + this content_type) |
+| `examples/my_saas.example.yaml` | Minimal partner starter (not loaded) |
+| `examples/detector_stub.py.example` | Metadata-only detector stub + register notes |
 | `examples/partner_aliases.example.yaml` | Template for partner-local wire-id aliases onto a canonical family (not loaded) |
 
 Platform surfaces (ingest, projections, replay/DLQ, status) stay use-case agnostic.

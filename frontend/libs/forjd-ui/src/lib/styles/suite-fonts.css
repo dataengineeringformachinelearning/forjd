@@ -4,6 +4,11 @@
  * Source faces: packages/viking-ui/src/assets/fonts/inter/
  * Served at: /fonts/inter/ (FORJD public/, DEML synced assets, Storybook staticDirs)
  * Do not add Google Fonts CDN or competing @font-face families on product surfaces.
+ *
+ * Critical path: preload roman only —
+ *   <link rel="preload" href="/fonts/inter/InterVariable.woff2" as="font"
+ *         type="font/woff2" crossorigin />
+ * Italic is a separate face; browsers fetch it only when italic text renders.
  */
 
 @font-face {
@@ -20,7 +25,8 @@
   font-family: "Inter";
   font-style: italic;
   font-weight: 100 900;
-  font-display: swap;
+  /* optional: italic is sparse in product chrome — skip blocking if late */
+  font-display: optional;
   src:
     url("/fonts/inter/InterVariable-Italic.woff2")
       format("woff2 supports variations"),

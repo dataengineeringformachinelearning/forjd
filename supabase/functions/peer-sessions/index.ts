@@ -30,16 +30,24 @@ const SECURITY_HEADERS: Record<string, string> = {
   // Edge is HTTPS-only in production; HSTS is safe for forjd.co / deml.app callers.
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
   "Cache-Control": "no-store",
+  "Content-Security-Policy":
+    "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Cross-Origin-Resource-Policy": "same-site",
 };
 
 function corsHeaders(req: Request): Record<string, string> {
   const origin = (req.headers.get("Origin") || "").trim();
-  const allowOrigin = ALLOWED_ORIGINS.has(origin) ? origin : "https://forjd.co";
-  return {
-    "Access-Control-Allow-Origin": allowOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Vary": "Origin",
+  // Header auth only — never Allow-Credentials. Disallowed origins get no ACAO.
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
+    Vary: "Origin",
   };
+  if (ALLOWED_ORIGINS.has(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+  return headers;
 }
 
 function responseHeaders(req: Request, extra: Record<string, string> = {}): Record<string, string> {

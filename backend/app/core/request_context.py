@@ -1,4 +1,8 @@
-"""Per-request correlation context for logs and response headers."""
+"""Per-request correlation context for logs and response headers.
+
+``X-Request-ID`` is the join key across API → engine → JSON logs (not APM).
+ADR: ``docs/adr/0005-observability-correlation-first.md``.
+"""
 
 from __future__ import annotations
 

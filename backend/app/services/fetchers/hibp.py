@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-import httpx
-
 from app.core.config import settings
+from app.core.outbound_http import OutboundHttpError, expect_list, request_json
+from app.core.sanitize import sanitize_external
 from app.services.fetchers.base import Fetcher
 
 
@@ -51,16 +51,30 @@ class HibpFetcher(Fetcher[HibpQuery, HibpData, HibpData]):
         if query.api_key:
             headers["hibp-api-key"] = query.api_key
         url = f"https://haveibeenpwned.com/api/v3/breachedaccount/{query.email}"
-        async with httpx.AsyncClient(timeout=query.timeout, headers=headers) as client:
-            response = await client.get(url)
-        if response.status_code == 404:
+        try:
+            status, payload = await request_json(
+                "GET",
+                url,
+                timeout=query.timeout,
+                headers=headers,
+                accept_statuses=frozenset({404}),
+            )
+        except OutboundHttpError as exc:
+            if exc.status_code is not None:
+                raise HibpExtractError(exc.status_code) from exc
+            raise
+        if status == 404:
             return HibpData(breaches=[], not_found=True, http_status=404)
-        if response.status_code != 200:
-            raise HibpExtractError(response.status_code)
-        payload = response.json()
-        breaches = payload if isinstance(payload, list) else []
+        breaches = expect_list(payload)
         return HibpData(breaches=breaches, http_status=200)
 
     def transform_data(self, query: HibpQuery, raw: HibpData) -> HibpData:
         _ = query
-        return raw
+        breaches = sanitize_external(raw.breaches, max_list=200, max_str=2048)
+        if not isinstance(breaches, list):
+            breaches = []
+        return HibpData(
+            breaches=breaches,
+            not_found=raw.not_found,
+            http_status=raw.http_status,
+        )

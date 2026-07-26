@@ -36,7 +36,7 @@ Follow these unless the user explicitly overrides them.
 - Build UI in `libs/forjd-ui/` (generate with `ng generate library`); consume from `frontend`.
 - No heavy component libraries for core primitives (avoid Angular Material there).
 - Product frontend is a static FJORD landing; forjd-ui is a **suite adapter** — `--fj-*` must match DEML Viking-UI (void + electric `#2176ff` + gold). Law: `docs/SUITE_UI_UNIFICATION.md`. Own every class; patterns from Spartan/shadcn only — never their CSS.
-- Accessibility: aim for WCAG AA on new UI.
+- Accessibility: aim for WCAG 2.2 AA on new UI (focus not obscured, ≥24px targets / 44px suite touch, keyboard alternatives to drag).
 - Storybook: add `*.stories.ts` next to each forjd-ui component; publish visuals with Chromatic.
 - Precision and density over flashy design. Chrome must be visually identical to deml.app / ui.deml.app.
 
@@ -54,8 +54,13 @@ Follow these unless the user explicitly overrides them.
 - Rate limiting: implemented via `app/core/rate_limit.py` (config-gated: `RATE_LIMIT_ENABLED`, per-bucket RPM settings). Do not invent a second limiter.
 - Upgrade deps cautiously (`uv lock --upgrade`); one major component at a time; test after updates.
 
-## Secrets map
-- Backend: `backend/.env` (from `backend/.env.example`) — `ROLLBAR_ACCESS_TOKEN`, `POSTGRES_DSN` (Supabase), `REDIS_URL` (Dragonfly local or Fly `.internal`), `PREFECT_API_URL`, optional `API_KEY`, CORS, etc.
+## Architecture decisions
+- Non-obvious patterns: `docs/adr/` (index in `docs/adr/README.md`). Cite the ADR in module docstrings; do not re-litigate accepted ADRs without a superseding record.
+
+## Configuration & secrets map
+- **Inventory SoT:** `config/forjd.catalog.yaml` + `docs/CONFIGURATION.md` (env vars, feature flags, layers). Drift gate: `uv run --project backend python scripts/check_config_catalog.py`.
+- **Runtime SoT:** backend `Settings` (`app/core/config.py` + `feature_flags.py`); engine `FORJD_ROLE` / data-plane env; frontend `environment*.ts`.
+- Backend local: `backend/.env` from `backend/.env.example`.
 - Dragonfly on Fly: `DFLY_requirepass` via `fly secrets` (`infra/dragonfly/`).
 - Engine on Fly: deploy from `engine/` (`fly.toml` + `Dockerfile`); `ENGINE_URL=http://forjd-engine.internal:8080` + `ENGINE_API_TOKEN`; data plane via `FORJD_ROLE=all`, `DATABASE_URL`/`POSTGRES_DSN`, `REDIS_URL`, optional `FORJD_INTERNODE_*`; apply schema through `sql/026` (production path `003`–`026`; see `backend/sql/README.md`).
 - Chromatic: `CHROMATIC_PROJECT_TOKEN` in local root `.env` only (not wired in CI).
@@ -69,11 +74,15 @@ Follow these unless the user explicitly overrides them.
 
 ## Quality gates
 
-See `AGENTS.md` → **Quality gates** for the canonical per-component commands. Summary:
-- Backend: `cd backend && uv run ruff check . && uv run ruff format --check . && uv run python -m unittest discover -s tests`
-- Engine: `cd engine && cargo fmt --check && cargo clippy --all-targets --features server,data-plane -- -D warnings && cargo test --features server,data-plane`
-- Frontend: `cd frontend && npx ng test --no-watch` and `npm run build`
-- CI: `.github/workflows/ci.yml`
+See `AGENTS.md` → **Quality gates**. Summary:
+- First run: `docs/START_HERE.md` · `npm run bootstrap` · `npm run verify`
+- Extend: `docs/EXTENDING.md` · `npm run validate:workflows` (CI: `--include-examples`)
+- Hooks: `npm run install-hooks` (pre-commit + commit-msg) · meta: `npm run quality` / `quality:full`
+- Commits: Conventional Commits + squash-merge — `docs/GIT.md`
+- Backend: `uv run ruff check . && uv run ruff format --check .` (+ unittest)
+- Engine: `cargo fmt --all -- --check` + clippy/test with `--no-default-features --features server,data-plane`
+- Frontend: `npm run format:check && npm run typecheck` (+ tests/build); Prettier only (no ESLint)
+- CI: `.github/workflows/ci.yml` (catalog + workflow validate + backend/engine/frontend)
 
 ## Security invariants
 
@@ -81,6 +90,7 @@ See `AGENTS.md` → **Quality gates** for the canonical per-component commands. 
 - Tenant isolation: all data access enforced via Postgres RLS + `require_tenant_access`; no cross-tenant reads.
 - Never accept partner end-user tokens at the FORJD edge; only tenant-bound `fjsvc_` service tokens or Supabase user JWTs.
 - Rate limiting is implemented solely via `app/core/rate_limit.py` (`RATE_LIMIT_ENABLED`). Do not add a second limiter.
+- Workflow YAML is SoT — no partner workflow write API (ADR-0028); validate before deploy.
 
 ## LOG.MD
 - `LOG.MD` is an **engineering journal (historical)**; it is not the architecture contract. Current architecture lives in `ARCHITECTURE.md` and `AGENTS.md`.

@@ -85,6 +85,8 @@ ignore = ["B008"]
 # PDF renderer keeps its original 2-space layout.
 [tool.ruff.lint.per-file-ignores]
 "app/services/pdf_report.py" = ["E501"]
+# HTML template literals — long tags/comments are intentional.
+"app/core/redoc_page.py" = ["E501"]
 # ETL tests prepend sys.path before package imports.
 "tests/test_neon_supabase_etl.py" = ["E402"]
 

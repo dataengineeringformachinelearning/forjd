@@ -4,6 +4,10 @@ FORJD add-ons are catalog entries with config-gated clients or engine hooks.
 They are disabled by default and never become core runtime dependencies merely
 because they are registered.
 
+Workflow YAML and detectors are a separate extension path — see
+[`docs/EXTENDING.md`](../../docs/EXTENDING.md) and `npm run validate:workflows`.
+Add-ons do not replace workflow files.
+
 ## Enable add-ons
 
 Use an environment override:

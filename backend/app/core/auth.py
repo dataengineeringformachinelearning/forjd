@@ -417,6 +417,12 @@ async def get_current_user(
     """Require a valid user JWT or tenant-scoped service credential."""
     if creds is None or creds.scheme.lower() != "bearer":
         _log_auth_failure(kind="bearer", reason="missing")
+        # Missing Bearer hammers the same IP bucket as bad tokens (sole limiter).
+        await enforce_ip_rate_limit(
+            request,
+            bucket="auth-failure",
+            limit=int(getattr(settings, "AUTH_FAILURE_RATE_LIMIT_RPM", 60)),
+        )
         if settings.SUPABASE_AUTH_REQUIRED or auth_configured():
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

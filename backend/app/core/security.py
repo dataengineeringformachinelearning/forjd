@@ -1,4 +1,8 @@
-"""Security middleware — headers and optional API key gate for mutating routes."""
+"""Security middleware — headers, HTTPS redirect, optional API key gate.
+
+ADR: docs/adr/0013-client-side-attack-hardening.md,
+docs/adr/0016-secure-defaults-cookies-headers-api.md
+"""
 
 from __future__ import annotations
 
@@ -6,7 +10,7 @@ import hmac
 from collections.abc import Awaitable, Callable
 
 from fastapi import Request, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.auth import _log_auth_failure
@@ -30,26 +34,25 @@ def _is_mutating(method: str) -> bool:
     return method.upper() in {"POST", "PUT", "PATCH", "DELETE"}
 
 
-# API JSON stays locked down. HTML shells (/ , /docs, /redoc) need a narrow CSP so
-# FJORD landing CSS/JS and Swagger/ReDoc CDN assets can render — otherwise browsers
-# show a bare unstyled page under default-src 'none'.
+# API JSON stays locked down. HTML shells (/ , /docs, /redoc) use self-hosted
+# suite CSS + vendored Swagger/ReDoc under /static/vendor/ (no jsDelivr).
+# Landing retains 'unsafe-inline' scripts for gtag/Clarity boot snippets only.
 # CSRF is not token-based here: mutating routes require Authorization / X-API-Key
 # (header credentials are not auto-attached by browsers the way cookies are).
 _API_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
-# jsDelivr pinned to https://cdn.jsdelivr.net only (Swagger/ReDoc assets).
 _HTML_SHELL_CSP = (
     "default-src 'none'; "
     "base-uri 'none'; "
     "frame-ancestors 'none'; "
     "form-action 'self'; "
-    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net "
+    "script-src 'self' 'unsafe-inline' "
     "https://www.googletagmanager.com https://*.googletagmanager.com "
     "https://www.clarity.ms https://*.clarity.ms; "
-    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-    "img-src 'self' data: https://cdn.jsdelivr.net "
+    "style-src 'self'; "
+    "img-src 'self' data: "
     "https://c.clarity.ms https://*.clarity.ms "
     "https://*.google-analytics.com https://*.googletagmanager.com; "
-    "font-src 'self' data: https://cdn.jsdelivr.net; "
+    "font-src 'self' data:; "
     "connect-src 'self' "
     "https://*.google-analytics.com https://*.analytics.google.com "
     "https://*.googletagmanager.com https://*.clarity.ms https://*.bing.com"
@@ -61,6 +64,21 @@ def _csp_for_path(path: str) -> str:
     if path in _HTML_SHELL_PATHS:
         return _HTML_SHELL_CSP
     return _API_CSP
+
+
+# --- Production HTTP → HTTPS (edge X-Forwarded-Proto) ---
+class HttpsRedirectMiddleware(BaseHTTPMiddleware):
+    """308 to HTTPS when production sees cleartext via the edge proxy."""
+
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        if settings.is_production:
+            proto = (request.headers.get("x-forwarded-proto") or request.url.scheme or "").lower()
+            if proto == "http":
+                https_url = request.url.replace(scheme="https")
+                return RedirectResponse(url=str(https_url), status_code=308)
+        return await call_next(request)
 
 
 # --- Response security headers ---

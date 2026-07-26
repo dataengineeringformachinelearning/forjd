@@ -1,0 +1,39 @@
+# Template — copy to ../my_saas.yaml (examples/ is not loaded by the registry).
+# Validate: npm run validate:workflows -- backend/workflows/examples/my_saas.example.yaml
+# Docs: docs/EXTENDING.md · backend/workflows/README.md
+id: my_saas
+name: My SaaS stream
+description: >
+  Partner sealed-stream starter. Match on your content_type, keep E2EE locked,
+  and tune detectors without forking ingest routes.
+version: 1
+enabled: true
+default: false
+
+match:
+  content_types:
+    - application/vnd.my-saas.event+v1
+  event_types: []
+
+encryption:
+  modes: [e2ee]
+  algos: [aes-256-gcm]
+
+pipeline:
+  processor: sealed_metadata
+  projection:
+    name: partner.my_saas
+    version: 1
+    description: Sealed metadata rollup for my_saas
+  steps:
+    - rollup
+    - size_anomaly
+  size_anomaly:
+    zscore: 2.5
+    max_cipher_len: 262144
+
+outputs:
+  table: stream_results
+  tags:
+    use_case: my_saas
+    vertical: partner

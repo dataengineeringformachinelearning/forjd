@@ -1,0 +1,33 @@
+"""Example metadata-only detector stub (copy into app/workflows/detectors/).
+
+Never open ciphertext. Register in detectors/__init__.py REGISTRY, list the
+step name in workflow YAML ``pipeline.steps``, then:
+
+  npm run validate:workflows
+
+Rust hot path: mirror the detector in engine/src/pipeline.rs or accept
+Python-only soft-fallback. See docs/EXTENDING.md.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+
+def detect(events: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return anomaly feature rows (metadata only)."""
+    threshold = float(params.get("threshold", 1.0))
+    out: list[dict[str, Any]] = []
+    for event in events:
+        # Example signal: ciphertext byte length from sealed envelope metadata.
+        cipher_len = int(event.get("cipher_len") or event.get("ciphertext_len") or 0)
+        if cipher_len >= threshold:
+            out.append(
+                {
+                    "detector": "my_detector",
+                    "score": cipher_len,
+                    "threshold": threshold,
+                    "event_id": event.get("event_id"),
+                }
+            )
+    return out

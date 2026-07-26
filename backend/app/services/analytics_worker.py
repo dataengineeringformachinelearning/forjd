@@ -14,7 +14,6 @@ import asyncio
 import contextlib
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import Any
 from uuid import UUID
 
 import asyncpg
@@ -22,6 +21,7 @@ import asyncpg
 from app.core.config import settings
 from app.core.worker_health import WorkerHealthRegistry
 from app.core.worker_lease import try_worker_lease
+from app.core.worker_logging import worker_tick
 from app.services import analytics as analytics_svc
 from app.services.ml import store as ml_store
 from app.services.ml import supabase_bridge as ml_sb
@@ -137,14 +137,13 @@ async def run_analytics_worker(
     logger.info("analytics rollup worker started interval=%ss", interval)
     while not stop_event.is_set():
         try:
-            processed: dict[str, Any] = {"tenants": await tick_analytics_rollups(pool)}
+            with worker_tick(logger, WORKER_NAME, level=logging.DEBUG) as tick:
+                tick["tenants"] = await tick_analytics_rollups(pool)
             if health is not None:
                 health.succeeded(WORKER_NAME)
-            logger.debug("analytics rollup tick %s", processed)
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 - supervised retry loop
-            logger.exception("analytics rollup tick failed")
             if health is not None:
                 health.failed(WORKER_NAME, exc)
         with contextlib.suppress(TimeoutError):

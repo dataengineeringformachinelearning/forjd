@@ -46,7 +46,14 @@ class CreateReportDocumentRequest(BaseModel):
     @field_validator("title", "body")
     @classmethod
     def _safe_text(cls, value: str, info: Any) -> str:
-        return _reject_sensitive_text(value, field_name=info.field_name)
+        if info.field_name == "body":
+            return _reject_sensitive_text(
+                value,
+                field_name=info.field_name,
+                max_length=8000,
+                allow_newlines=True,
+            )
+        return _reject_sensitive_text(value, field_name=info.field_name, max_length=255)
 
     @field_validator("submitted_by_pseudonym")
     @classmethod

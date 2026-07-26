@@ -26,7 +26,11 @@ from app.core.rate_limit import PublicRateLimitMiddleware
 from app.core.redoc_page import render_redoc
 from app.core.request_context import RequestContextMiddleware
 from app.core.rollbar import configure_rollbar
-from app.core.security import ApiKeyMiddleware, SecurityHeadersMiddleware
+from app.core.security import (
+    ApiKeyMiddleware,
+    HttpsRedirectMiddleware,
+    SecurityHeadersMiddleware,
+)
 from app.core.sentry import configure_sentry
 from app.core.worker_health import WorkerHealthRegistry
 
@@ -334,6 +338,8 @@ app.add_middleware(
     ],
 )
 app.add_middleware(RequestContextMiddleware)
+# Outermost: upgrade cleartext before auth/rate-limit work (Fly X-Forwarded-Proto).
+app.add_middleware(HttpsRedirectMiddleware)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 app.mount("/static", StaticFiles(directory="static"), name="static")

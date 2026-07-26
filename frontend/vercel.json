@@ -20,10 +20,10 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com https://www.googletagmanager.com https://*.googletagmanager.com https://www.clarity.ms https://*.clarity.ms https://cdn.rollbar.com https://browser.sentry-cdn.com https://js.sentry-cdn.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://c.clarity.ms https://*.clarity.ms https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://backend.forjd.co https://*.forjd.co https://va.vercel-scripts.com https://vitals.vercel-insights.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://*.clarity.ms https://*.bing.com https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://api.rollbar.com https://*.rollbar.com; worker-src 'self'; upgrade-insecure-requests"
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com https://www.googletagmanager.com https://*.googletagmanager.com https://www.clarity.ms https://*.clarity.ms https://cdn.rollbar.com https://browser.sentry-cdn.com https://js.sentry-cdn.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https://c.clarity.ms https://*.clarity.ms https://*.google-analytics.com https://*.googletagmanager.com; connect-src 'self' https://backend.forjd.co https://*.forjd.co https://va.vercel-scripts.com https://vitals.vercel-insights.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://*.clarity.ms https://*.bing.com https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://api.rollbar.com https://*.rollbar.com; worker-src 'self'; upgrade-insecure-requests"
         },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "Referrer-Policy", "value": "no-referrer" },
         {
           "key": "Permissions-Policy",
@@ -33,7 +33,8 @@
           "key": "Strict-Transport-Security",
           "value": "max-age=31536000; includeSubDomains; preload"
         },
-        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" }
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
+        { "key": "Cross-Origin-Resource-Policy", "value": "same-origin" }
       ]
     }
   ]

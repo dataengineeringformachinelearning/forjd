@@ -61,6 +61,7 @@ class TestProductionDefaults(unittest.TestCase):
             SOFT_MIGRATE_SCHEMA=True,
             REQUIRE_RLS=False,
             REQUIRE_CRYPTO_SESSION=False,
+            CORS_ORIGINS=["https://forjd.co"],
         )
         self.assertFalse(s.DEBUG)
         self.assertFalse(s.SOFT_MIGRATE_SCHEMA)
@@ -80,11 +81,21 @@ class TestProductionDefaults(unittest.TestCase):
             SOFT_MIGRATE_SCHEMA=True,
             REQUIRE_RLS=False,
             REQUIRE_CRYPTO_SESSION=False,
+            CORS_ORIGINS=["https://forjd.co"],
         )
         self.assertFalse(s.DEBUG)
         self.assertFalse(s.SOFT_MIGRATE_SCHEMA)
         self.assertTrue(s.REQUIRE_RLS)
         self.assertTrue(s.REQUIRE_CRYPTO_SESSION)
+
+    def test_prod_rejects_wildcard_cors(self) -> None:
+        from pydantic import ValidationError
+
+        with self.assertRaises(ValidationError):
+            Settings(
+                ENVIRONMENT="production",
+                CORS_ORIGINS=["*"],
+            )
 
 
 if __name__ == "__main__":

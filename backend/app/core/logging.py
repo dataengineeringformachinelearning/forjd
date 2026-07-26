@@ -1,4 +1,7 @@
-"""Structured JSON logging with request correlation, using the stdlib only."""
+"""Structured JSON logging with request correlation, using the stdlib only.
+
+Log lines are deep-scrubbed for secrets/ciphertext (ADR-0017).
+"""
 
 from __future__ import annotations
 
@@ -8,6 +11,7 @@ import sys
 from datetime import UTC, datetime
 
 from app.core.request_context import log_context
+from app.core.sanitize import scrub_for_logs
 
 _STANDARD_LOG_FIELDS = frozenset(logging.makeLogRecord({}).__dict__)
 
@@ -35,7 +39,11 @@ class JsonFormatter(logging.Formatter):
                 continue
             if _json_scalar(value):
                 payload[key] = value
-        return json.dumps(payload, ensure_ascii=False, separators=(",", ":"), default=str)
+        # Never emit tokens/ciphertext/DB URLs on stdout (sole log scrub path).
+        scrubbed = scrub_for_logs(payload)
+        if not isinstance(scrubbed, dict):
+            scrubbed = {"message": "[Filtered]", "level": record.levelname}
+        return json.dumps(scrubbed, ensure_ascii=False, separators=(",", ":"), default=str)
 
 
 def _json_scalar(value: object) -> bool:

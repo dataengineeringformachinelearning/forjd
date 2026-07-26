@@ -11,10 +11,9 @@ import logging
 from pathlib import Path
 
 from app.core.config import settings
-from app.workflows.detectors import REGISTRY as DETECTOR_REGISTRY
 from app.workflows.loader import load_workflows_dir
 from app.workflows.models import WorkflowDefinition
-from app.workflows.processors import REGISTRY as PROCESSOR_REGISTRY
+from app.workflows.step_cards import pipeline_step_cards
 
 logger = logging.getLogger("forjd.workflows")
 
@@ -172,24 +171,18 @@ def _builtin_default() -> WorkflowDefinition:
 
 
 def _warn_unknown_extensions(wf: WorkflowDefinition) -> None:
-    """Fail soft on unknown processors/detectors so YAML stays extensible."""
-    proc = wf.pipeline.processor
-    if proc not in PROCESSOR_REGISTRY:
-        logger.warning(
-            "workflow %s references unknown processor %r; known: %s",
-            wf.id,
-            proc,
-            ", ".join(sorted(PROCESSOR_REGISTRY)) or "(none)",
-        )
-    for step in wf.pipeline.steps:
-        if step in _BUILTIN_STEPS or step in DETECTOR_REGISTRY:
-            continue
-        logger.warning(
-            "workflow %s step %r is not a built-in or registered detector "
-            "(will be skipped at runtime)",
-            wf.id,
-            step,
-        )
+    """Soft-warn unknown processors/detectors; fail closed when WORKFLOWS_STRICT."""
+    from app.workflows.validate import validate_workflow_definition
+
+    issues = validate_workflow_definition(
+        wf,
+        path=wf.id,
+        strict=settings.WORKFLOWS_STRICT,
+    )
+    for issue in issues:
+        if issue.level == "error":
+            raise RuntimeError(f"workflow validation: {issue.path}: {issue.message}")
+        logger.warning("workflow %s: %s", wf.id, issue.message)
 
 
 # --- Resolution ---
@@ -269,12 +262,16 @@ def list_workflow_summaries() -> list[dict[str, object]]:
             "aliases": w.aliases.model_dump(),
             "processor": w.pipeline.processor,
             "steps": w.pipeline.steps,
+            "pipeline_steps": pipeline_step_cards(w.pipeline.steps),
+            "size_anomaly": w.pipeline.size_anomaly.model_dump(),
+            "rate_anomaly": w.pipeline.rate_anomaly.model_dump(),
             "projection": (
                 w.pipeline.projection.model_dump()
                 if w.pipeline.projection
                 else {"name": w.pipeline.projection_name, "version": 1}
             ),
             "encryption": w.encryption.model_dump(),
+            "outputs": w.outputs.model_dump(),
         }
         for w in all_workflows()
     ]

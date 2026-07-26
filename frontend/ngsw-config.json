@@ -1,9 +1,10 @@
 {
   "$schema": "./node_modules/@angular/service-worker/config/schema.json",
   "index": "/index.html",
+  "navigationUrls": ["/**", "!/**/*.*", "!/**/*__*", "!/**/*__*/**"],
   "assetGroups": [
     {
-      "name": "app",
+      "name": "app-shell",
       "installMode": "prefetch",
       "resources": {
         "files": [
@@ -16,15 +17,23 @@
           "/manifest.webmanifest",
           "/web-app-manifest-192x192.png",
           "/web-app-manifest-512x512.png",
-          "/*.css",
-          "/*.js"
+          "/fonts/inter/InterVariable.woff2",
+          "/forjd.svg"
         ]
+      }
+    },
+    {
+      "name": "app-runtime",
+      "installMode": "lazy",
+      "updateMode": "prefetch",
+      "resources": {
+        "files": ["/*.css", "/*.js"]
       }
     },
     {
       "name": "assets",
       "installMode": "lazy",
-      "updateMode": "prefetch",
+      "updateMode": "lazy",
       "resources": {
         "files": ["/**/*.(svg|cur|jpg|jpeg|png|apng|webp|avif|gif|otf|ttf|woff|woff2)"]
       }

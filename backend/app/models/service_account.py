@@ -4,14 +4,23 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.core.sanitize import sanitize_label
+from app.core.text_fields import Name128
 
 
 class ServiceAccountCreate(BaseModel):
     tenant_id: UUID
-    name: str = Field(min_length=1, max_length=128)
+    name: Name128
     # e.g. "partner-app" — audit / policy label; not a trust boundary by itself.
     subprocessor: str = Field(default="", max_length=64)
+
+    @field_validator("subprocessor", mode="before")
+    @classmethod
+    def _clean_subprocessor(cls, value: object) -> str:
+        return sanitize_label(str(value or ""), max_length=64)
+
     scopes: list[str] | None = None
     # Extends canonical DEFAULT_SCOPES without making scripts duplicate them.
     include_tenant_erase: bool = False

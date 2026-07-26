@@ -10,9 +10,17 @@ from uuid import uuid4
 from app.api.v1.domain import HoneypotHitRequest, honeypot_hit
 
 
+def _request() -> SimpleNamespace:
+    return SimpleNamespace(
+        app=SimpleNamespace(state=SimpleNamespace(db_pool=object())),
+        headers={},
+        client=SimpleNamespace(host="203.0.113.50"),
+    )
+
+
 class TestHoneypotHit(unittest.IsolatedAsyncioTestCase):
     async def test_missing_honeypot_still_returns_ok(self) -> None:
-        request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(db_pool=object())))
+        request = _request()
         body = HoneypotHitRequest(tenant_id=uuid4(), path="/trap")
         with patch(
             "app.api.v1.domain.honeypot_svc.log_interaction",
@@ -25,7 +33,7 @@ class TestHoneypotHit(unittest.IsolatedAsyncioTestCase):
         log_hit.assert_awaited_once()
 
     async def test_found_honeypot_does_not_leak_interaction(self) -> None:
-        request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(db_pool=object())))
+        request = _request()
         body = HoneypotHitRequest(tenant_id=uuid4(), path="/trap")
         with patch(
             "app.api.v1.domain.honeypot_svc.log_interaction",

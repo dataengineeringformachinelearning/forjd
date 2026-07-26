@@ -1,0 +1,22 @@
+# --- Build / deps ---
+dist
+.angular
+node_modules
+coverage
+out-tsc
+storybook-static
+documentation.json
+
+# --- Generated / vendored (sync:suite from DEML) ---
+libs/forjd-ui/src/lib/styles/suite-*.css
+libs/forjd-ui/src/lib/styles/suite-role-a.json
+libs/forjd-ui/src/lib/styles/SUITE_*.md
+public/fonts
+
+# --- Test / e2e artifacts ---
+test-results
+playwright-report
+blob-report
+
+# --- Lockfiles (npm owns formatting) ---
+package-lock.json

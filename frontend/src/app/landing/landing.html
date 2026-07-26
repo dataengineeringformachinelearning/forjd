@@ -1,59 +1,91 @@
-<main>
-  <forjd-page-shell>
-    <div class="suite-landing fj-landing landing viking-unified-hero-stage">
-      <forjd-section class="suite-landing-hero landing__hero viking-unified-hero" aria-labelledby="forjd-brand">
-        <p class="suite-landing-badge hero-badge">
-          <span class="badge-dot pulse-dot"></span>
+<forjd-page-shell>
+  <div class="suite-landing fj-landing landing viking-unified-hero-stage">
+    <main id="main-content" class="suite-main" tabindex="-1">
+      <forjd-section
+        class="suite-landing-hero landing__hero viking-unified-hero"
+        aria-labelledby="forjd-brand"
+      >
+        <!-- One readiness story: Confirming → Production → Offline/Unavailable/Not ready -->
+        <p
+          class="suite-landing-badge hero-badge"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          [attr.data-phase]="readyStory().phase"
+          [attr.data-tone]="readyStory().tone"
+          [attr.aria-describedby]="readyStory().detail ? 'ready-edge-detail' : null"
+        >
+          <span class="badge-dot" [class.pulse-dot]="readyIsLive()" aria-hidden="true"></span>
           <span class="badge-text">
-            Data plane · Sealed · Production
-            @if (apiReady() === 'not_ready') {
-            · API not ready
-            } @else if (apiReady() === 'unreachable') {
-            · API unreachable
-            } @else if (apiReady() === 'checking') {
-            · Checking API
+            Production
+            @if (readyStory().suffix; as suffix) {
+              · {{ suffix }}
             }
           </span>
+          @if (readyStory().retryLabel; as retryLabel) {
+            <button type="button" class="suite-landing-badge-retry" (click)="retryProbe()">
+              {{ retryLabel }}
+            </button>
+          }
         </p>
+        @if (readyStory().detail; as detail) {
+          <p class="suite-landing-edge landing__ready-edge" id="ready-edge-detail">
+            {{ detail }}
+          </p>
+        }
         <img
-          class="suite-landing-mark landing__hero-mark"
+          class="suite-media suite-landing-mark landing__hero-mark"
           src="/forjd.svg"
           width="64"
           height="64"
           alt=""
           aria-hidden="true"
+          decoding="async"
+          fetchpriority="high"
+          loading="eager"
+          data-priority="high"
         />
         <h1 class="fj-brand suite-landing-brand landing__brand" id="forjd-brand">{{ title }}</h1>
         <p class="fj-headline suite-landing-headline landing__hero-line">
-          Operate at the edge of the data plane
+          Sealed streaming for partners
         </p>
         <p class="fj-lede suite-landing-lede landing__lede">
-          Sealed end-to-end encrypted ingest, YAML workflows, durable projections, and replay/DLQ —
-          Rust hot-path with a FastAPI control plane.
+          Ciphertext-only ingest, YAML workflows, and durable projections — with a Rust hot path and
+          FastAPI control plane.
         </p>
-        <div class="suite-landing-actions landing__actions">
-          <forjd-button variant="primary" [href]="docsUrl" target="_blank">Swagger</forjd-button>
-          <forjd-button variant="outline" [href]="redocUrl" target="_blank">ReDoc</forjd-button>
-          <forjd-button variant="ghost" [href]="demlUrl" target="_blank">Open DEML</forjd-button>
-          <forjd-button variant="ghost" [href]="communityUrl" target="_blank">Community</forjd-button>
-        </div>
+        <nav class="suite-landing-actions landing__actions" aria-label="Primary">
+          <div class="suite-landing-actions-primary landing__actions-primary">
+            <forjd-button variant="primary" [href]="links.docsUrl" target="_blank"
+              >Swagger</forjd-button
+            >
+            <forjd-button variant="outline" [href]="links.redocUrl" target="_blank"
+              >ReDoc</forjd-button
+            >
+          </div>
+        </nav>
       </forjd-section>
 
       <forjd-section class="landing__sequence" aria-labelledby="sequence-title">
         <header class="suite-landing-section-header landing__section-header">
-          <p class="suite-landing-tag landing__tag">DEPLOYMENT SEQUENCE</p>
-          <h2 id="sequence-title" class="fj-headline suite-landing-section-title landing__section-title">
-            Four steps to sealed streaming
+          <h2
+            id="sequence-title"
+            class="fj-headline suite-landing-section-title landing__section-title"
+          >
+            How partners integrate
           </h2>
           <p class="fj-lede suite-landing-section-lede landing__section-lede">
-            Mint a tenant token, seal events, project durable results, and operate with replay when
+            Bind a tenant, seal events, project durable results, then operate with replay when
             needed.
           </p>
         </header>
         <ol class="suite-landing-steps landing__steps">
-          @for (step of onboarding; track step.step) {
+          @for (step of steps; track step.step) {
             <li>
-              <forjd-panel variant="card" [title]="step.title" class="suite-landing-feature landing__feature">
+              <forjd-panel
+                variant="card"
+                [title]="step.title"
+                class="suite-landing-feature landing__feature"
+              >
                 <p class="suite-landing-step-num landing__step-num">{{ step.step }}</p>
                 <p>{{ step.detail }}</p>
               </forjd-panel>
@@ -62,110 +94,67 @@
         </ol>
       </forjd-section>
 
-      <forjd-section class="landing__capabilities" aria-labelledby="capabilities-title">
-        <header class="suite-landing-section-header landing__section-header">
-          <p class="suite-landing-tag landing__tag">CAPABILITIES</p>
-          <h2
-            id="capabilities-title"
-            class="fj-headline suite-landing-section-title landing__section-title"
-          >
-            Built for contested data planes
-          </h2>
-          <p class="fj-lede suite-landing-section-lede landing__section-lede">
-            Ciphertext-only pipelines with tenant isolation, checkpointed projections, and a Rust hot
-            path.
-          </p>
-        </header>
-        <div class="suite-landing-bands landing__bands">
-          @for (band of capabilityBands; track band.title; let i = $index) {
-            <article
-              class="suite-landing-band landing__band"
-              [attr.data-reversed]="i % 2 === 1 ? 'true' : null"
-              [class.landing__band--reversed]="i % 2 === 1"
-            >
-              <div class="suite-landing-band-copy landing__band-copy">
-                <p class="suite-landing-tag landing__tag">{{ band.tag }}</p>
-                <h3 class="fj-headline suite-landing-band-title landing__band-title">
-                  {{ band.title }}
-                </h3>
-                <p class="fj-lede">{{ band.detail }}</p>
-              </div>
-              <forjd-panel variant="card" [title]="band.panelTitle" class="landing__band-panel">
-                <ul class="suite-landing-metric-list landing__metric-list">
-                  @for (m of band.metrics; track m.label) {
-                    <li>
-                      <span>{{ m.label }}</span>
-                      <strong>{{ m.value }}</strong>
-                    </li>
-                  }
-                </ul>
-              </forjd-panel>
-            </article>
-          }
-        </div>
-      </forjd-section>
-
-      <forjd-section class="landing__pillars" aria-labelledby="pillars-title">
-        <header class="suite-landing-section-header landing__section-header">
-          <p class="suite-landing-tag landing__tag">DEFENSE IN DEPTH</p>
-          <h2 id="pillars-title" class="fj-headline suite-landing-section-title landing__section-title">
-            Security without plaintext exposure
-          </h2>
-          <p class="fj-lede suite-landing-section-lede landing__section-lede">
-            FORJD stores and routes ciphertext only. Partners keep end-user auth; service tokens stay
-            tenant-bound.
-          </p>
-        </header>
-        <div class="suite-landing-grid landing__grid" aria-label="Security pillars">
-          @for (p of pillars; track p.name) {
-            <forjd-panel variant="card" [title]="p.name" class="suite-landing-feature landing__feature">
-              <p>{{ p.detail }}</p>
-            </forjd-panel>
-          }
-        </div>
-      </forjd-section>
-
-      <forjd-section class="suite-landing-grid landing__grid" aria-label="Core features">
-        @for (f of features; track f.name) {
-          <forjd-panel variant="card" [title]="f.name" class="suite-landing-feature landing__feature">
-            <p>{{ f.detail }}</p>
-          </forjd-panel>
-        }
-      </forjd-section>
-
       <forjd-separator />
+    </main>
 
-      <footer class="suite-landing-meta landing__meta">
-        <div>
-          <span>api</span
-          ><a [href]="apiBaseUrl" target="_blank" rel="noopener noreferrer"
-            ><code>{{ apiBaseUrl }}</code></a
-          >
-        </div>
-        <div>
-          <span>ready</span
-          ><a [href]="readyUrl" target="_blank" rel="noopener noreferrer"><code>/ready</code></a>
-        </div>
-        <div>
-          <span>swagger</span
-          ><a [href]="docsUrl" target="_blank" rel="noopener noreferrer"><code>/docs</code></a>
-        </div>
-        <div>
-          <span>redoc</span
-          ><a [href]="redocUrl" target="_blank" rel="noopener noreferrer"><code>/redoc</code></a>
-        </div>
-        <div><span>engine</span><code>rust · arrow · parquet</code></div>
-        <div>
-          <span>privacy</span
-          ><a [href]="privacyUrl" target="_blank" rel="noopener noreferrer"
-            ><code>/privacy</code></a
-          >
-        </div>
-        <div>
-          <span>terms</span
-          ><a [href]="termsUrl" target="_blank" rel="noopener noreferrer"><code>/terms</code></a>
-        </div>
-      </footer>
-    </div>
-  </forjd-page-shell>
-</main>
+    <!-- contentinfo landmark must sit outside <main> -->
+    <footer class="suite-landing-meta landing__meta">
+      <div>
+        <span>api</span
+        ><a
+          class="suite-link fj-link viking-link"
+          [href]="links.apiBaseUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          ><code>{{ links.apiBaseUrl }}</code></a
+        >
+      </div>
+      <div>
+        <span>ready</span
+        ><a
+          class="suite-link fj-link viking-link"
+          [href]="links.readyUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          ><code>/ready</code></a
+        >
+      </div>
+      <div>
+        <span>docs</span
+        ><a
+          class="suite-link fj-link viking-link"
+          [href]="links.docsUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          ><code>/docs</code></a
+        >
+        ·
+        <a
+          class="suite-link fj-link viking-link"
+          [href]="links.redocUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          ><code>/redoc</code></a
+        >
+      </div>
+      <div>
+        <span>legal</span
+        ><a
+          class="suite-link fj-link viking-link"
+          [href]="links.privacyUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          ><code>/privacy</code></a
+        >
+        ·
+        <a
+          class="suite-link fj-link viking-link"
+          [href]="links.termsUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          ><code>/terms</code></a
+        >
+      </div>
+    </footer>
+  </div>
+</forjd-page-shell>

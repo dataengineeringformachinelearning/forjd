@@ -7,11 +7,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.core.text_fields import Name128, Slug64
+
 
 # --- Create ---
 class TenantCreate(BaseModel):
-    slug: str = Field(..., min_length=2, max_length=64, pattern=r"^[a-z0-9][a-z0-9-]{1,62}$")
-    name: str = Field(..., min_length=1, max_length=128)
+    slug: Slug64
+    name: Name128
     key_directory_id: str | None = Field(default=None, max_length=256)
 
 

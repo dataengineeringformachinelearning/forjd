@@ -6,6 +6,7 @@ export const routes: Routes = [
   {
     path: '',
     pathMatch: 'full',
+    // Eager: landing is the only product surface — keep LCP (hero mark/brand) in the initial graph.
     component: Landing,
     title: 'FORJD — Universal Secure Streaming Engine',
   },

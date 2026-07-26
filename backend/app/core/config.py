@@ -1,4 +1,11 @@
-"""Application settings loaded from environment / `.env`."""
+"""Application settings loaded from environment / `.env`.
+
+Inventory SoT for env names / flags: ``config/forjd.catalog.yaml``
+(see ``docs/CONFIGURATION.md``). Typed defaults live here; feature-flag
+projections live in ``app.core.feature_flags``.
+
+ADR: ``docs/adr/0004-config-catalog-inventory-sot.md``.
+"""
 
 from __future__ import annotations
 
@@ -98,6 +105,8 @@ class Settings(BaseSettings):
 
     # --- Configurable workflows (YAML/JSON under WORKFLOWS_DIR) ---
     WORKFLOWS_DIR: str = "workflows"
+    # When true, unknown processors/steps raise at registry load (CLI validate is always strict).
+    WORKFLOWS_STRICT: bool = False
 
     # --- Schema / zero-trust (production fail-closed) ---
     # Soft-create table shapes when SQL migrations were not applied (local only).
@@ -206,6 +215,14 @@ class Settings(BaseSettings):
             # Hide OpenAPI discovery in prod unless ENABLE_API_DOCS is explicitly set.
             if "ENABLE_API_DOCS" not in os.environ:
                 object.__setattr__(self, "ENABLE_API_DOCS", False)
+            # CORS: exact HTTPS allowlist — never wildcard (header auth; no cookies).
+            origins = [o.strip() for o in self.CORS_ORIGINS if str(o).strip()]
+            if any(o == "*" for o in origins):
+                raise ValueError("CORS_ORIGINS must not include '*' in production")
+            if not any(o.lower().startswith("https://") for o in origins):
+                raise ValueError(
+                    "CORS_ORIGINS must include at least one https:// origin in production"
+                )
         return self
 
 

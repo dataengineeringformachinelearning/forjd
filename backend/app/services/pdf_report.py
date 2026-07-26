@@ -29,20 +29,6 @@ TITLE_COLUMN_SPAN: Final[int] = 5
 TOKEN_FILE: Final[Path] = (
     Path(__file__).resolve().parents[2] / "static" / "fjord-report-tokens.json"
 )
-PDF_TEXT_REPLACEMENTS: Final[dict[str, str]] = {
-    "\u00a0": " ",
-    "\u2010": "-",
-    "\u2011": "-",
-    "\u2012": "-",
-    "\u2013": "-",
-    "\u2014": "-",
-    "\u2018": "'",
-    "\u2019": "'",
-    "\u201c": '"',
-    "\u201d": '"',
-    "\u2022": "-",
-    "\u2026": "...",
-}
 
 
 @dataclass(frozen=True)
@@ -194,18 +180,16 @@ def _color_command(color: Color, *, stroke: bool = False) -> str:
 
 
 def _safe_text(value: Any) -> str:
-    if value is None:
-        return "-"
-    if isinstance(value, bool):
-        return "Yes" if value else "No"
-    text = str(value).replace("\r", " ").replace("\n", " ").replace("\t", " ")
-    for source, replacement in PDF_TEXT_REPLACEMENTS.items():
-        text = text.replace(source, replacement)
-    return " ".join(text.split())
+    # Sanitize + normalize before layout; PDF literal escape is separate.
+    from app.core.encoding import encode_pdf_plain
+
+    return encode_pdf_plain(value)
 
 
 def _escape_pdf_text(value: Any) -> str:
-    return _safe_text(value).replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+    from app.core.encoding import encode_pdf_literal
+
+    return encode_pdf_literal(value)
 
 
 def _estimated_text_width(text: str, font_size: float, *, bold: bool = False) -> float:

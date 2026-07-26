@@ -46,6 +46,7 @@ next needs a large edit (thin re-exports during migration).
 ## Observability at higher load
 
 Already have: structured JSON logs, `X-Request-ID`, `/health` + `/ready`, optional Sentry/Rollbar.
+Canonical contract: [`OBSERVABILITY.md`](OBSERVABILITY.md).
 
 Add next (only when load warrants):
 
@@ -60,4 +61,8 @@ Add next (only when load warrants):
 - FORJD-hosted browser console or SSE (partners poll / bridge)
 - Premature microservices for scanners
 
-See also: [`CONNECTION_MAP.md`](CONNECTION_MAP.md) (when present), [`ARCHITECTURE.md`](../ARCHITECTURE.md).
+Ideas in this doc are **not** live settings until they appear in
+[`config/forjd.catalog.yaml`](../config/forjd.catalog.yaml) and the matching
+runtime owner (`Settings` / engine env). See [`CONFIGURATION.md`](CONFIGURATION.md).
+
+See also: [`CONFIGURATION.md`](CONFIGURATION.md), [`OBSERVABILITY.md`](OBSERVABILITY.md), [`CONNECTION_MAP.md`](CONNECTION_MAP.md) (when present), [`ARCHITECTURE.md`](../ARCHITECTURE.md).

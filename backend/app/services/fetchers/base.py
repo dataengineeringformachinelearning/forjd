@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, is_dataclass
 from typing import Any
+
+from app.core.sanitize import sanitize_external, sanitize_text
 
 logger = logging.getLogger("forjd.fetchers")
 
@@ -29,17 +31,20 @@ class FetchResult[DataT]:
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize for APIs that want the envelope (not legacy shapes)."""
+        data: Any = self.data
+        if is_dataclass(data) and not isinstance(data, type):
+            data = asdict(data)
         out: dict[str, Any] = {
             "ok": self.ok,
             "provider": self.provider,
-            "data": self.data,
+            "data": sanitize_external(data) if data is not None else None,
         }
         if self.error is not None:
-            out["error"] = self.error
+            out["error"] = sanitize_text(self.error, max_length=512)
         if self.warnings:
-            out["warnings"] = list(self.warnings)
+            out["warnings"] = [sanitize_text(item, max_length=256) for item in self.warnings[:50]]
         if self.extras:
-            out["extras"] = dict(self.extras)
+            out["extras"] = sanitize_external(dict(self.extras))
         return out
 
 
@@ -66,12 +71,29 @@ class Fetcher[QueryT, RawT, DataT](ABC):
         try:
             query = self.transform_query(params)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("fetcher %s query failed: %s", self.name, exc)
-            return FetchResult(ok=False, provider=self.name, error=str(exc))
+            logger.warning("fetcher %s query failed: %s", self.name, type(exc).__name__)
+            return FetchResult(
+                ok=False,
+                provider=self.name,
+                error=sanitize_text(str(exc), max_length=512),
+            )
         try:
             raw = await self.aextract(query)
             data = self.transform_data(query, raw)
-            return FetchResult(ok=True, provider=self.name, data=data)
+            return FetchResult(ok=True, provider=self.name, data=self.sanitize_data(data))
         except Exception as exc:  # noqa: BLE001
             logger.warning("fetcher %s extract failed: %s", self.name, exc)
-            return FetchResult(ok=False, provider=self.name, error=str(exc))
+            return FetchResult(
+                ok=False,
+                provider=self.name,
+                error=sanitize_text(str(exc), max_length=512),
+            )
+
+    def sanitize_data(self, data: DataT) -> DataT:
+        """Sanitize third-party payloads after transform (override when needed)."""
+        if isinstance(data, dict | list):
+            return sanitize_external(data)  # type: ignore[return-value]
+        if is_dataclass(data) and not isinstance(data, type):
+            cleaned = sanitize_external(asdict(data))
+            return type(data)(**cleaned)  # type: ignore[call-arg, return-value]
+        return data

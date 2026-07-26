@@ -92,6 +92,8 @@ curl -fsS https://backend.forjd.co/health
 curl -fsS https://backend.forjd.co/ready
 # Partner/DEML contract probe (mounted capabilities + limits)
 curl -fsS https://backend.forjd.co/api/v1/capabilities | head -c 400; echo
+# Correlation echo (see docs/OBSERVABILITY.md)
+curl -sI -H 'X-Request-ID: deml_01J7ABCD12345678' https://backend.forjd.co/health | grep -i x-request-id
 # Security headers (XSS hardening; CSRF = Bearer / X-API-Key, not tokens)
 curl -sI https://backend.forjd.co/health | grep -Ei 'content-security-policy|x-content-type-options|x-frame-options'
 fly checks list -a forjd-backend
@@ -146,7 +148,7 @@ DNS: `backend.forjd.co` → Fly `forjd-backend` (`fly certs add backend.forjd.co
 |-------|--------|
 | Bad API deploy | `fly releases -a forjd-backend` → prior image (SQL forward-only) |
 | Bad engine deploy | Prior engine release; or `FORJD_ROLE=engine` (process-only) |
-| Ingest errors | Check `/ready`, Dragonfly, crypto sessions, workflow YAML |
+| Ingest errors | Check `/ready`, Dragonfly, crypto sessions, workflow YAML (`npm run validate:workflows`) |
 | Scope 403s | Run the post-migration verifier first; `027` updates active DEML scopes in place, while generic credentials may require intentional remint |
 | Partner freeze | Partner sets write/read `off`; ciphertext remains in Supabase |
 

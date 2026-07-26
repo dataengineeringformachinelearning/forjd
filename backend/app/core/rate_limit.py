@@ -1,4 +1,9 @@
-"""Distributed API rate limiting backed by Dragonfly/Redis."""
+"""Distributed API rate limiting backed by Dragonfly/Redis.
+
+Sole in-app limiter — do not add a second middleware/library.
+ADR: ``docs/adr/0007-sole-rate-limiter-and-addons.md``,
+``docs/adr/0015-rate-limit-validation-output-encoding.md``.
+"""
 
 from __future__ import annotations
 
@@ -44,11 +49,14 @@ return {1, count + 1, reset}
 """
 
 # --- Anonymous public routes (IP sliding window) ---
+# Trailing "/" = prefix match (path params). Exact otherwise.
+# Ops probes (/health, /ready) intentionally excluded.
 _PUBLIC_RATE_LIMIT_ROUTES: tuple[tuple[str, str], ...] = (
     ("GET", "/status/pages/slug/"),
     ("GET", "/status/pages/published"),
     ("GET", "/capabilities"),
     ("GET", "/addons"),
+    ("GET", "/addons/"),
     ("POST", "/honeypots/hit"),
     ("POST", "/partner/provision"),
 )

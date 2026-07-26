@@ -124,7 +124,7 @@
       "role": "Success / stable metrics"
     },
     "4": {
-      "hex": "#c4a035",
+      "hex": "#d4af37",
       "token": "--fj-series-4",
       "role": "Warning / threshold proximity"
     },

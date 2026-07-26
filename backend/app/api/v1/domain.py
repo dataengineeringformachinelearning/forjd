@@ -12,8 +12,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.auth import AuthUser, get_current_user, pool_from_request
 from app.core.http_errors import client_safe_detail, intentional_detail
+from app.core.sanitize import sanitize_external, sanitize_label, sanitize_text
+from app.core.text_fields import Title255
 from app.models.domain import UpdateVulnerabilityRequest
-from app.models.siem import validate_signal_metadata
+from app.models.siem import _reject_sensitive_text, validate_signal_metadata
 from app.services import analytics as analytics_svc
 from app.services import assets as assets_svc
 from app.services import compliance as compliance_svc
@@ -24,6 +26,7 @@ from app.services import osint as osint_svc
 from app.services import reports as reports_svc
 from app.services import security_ingest as security_ingest_svc
 from app.services import tenants as tenant_svc
+from app.services.honeypot import TRAP_TYPES
 from app.services.ml import sla_model as sla_ml
 
 router = APIRouter(tags=["domain"])
@@ -100,9 +103,27 @@ class AnalyticsAggregateRequest(BaseModel):
 
 
 class HoneypotCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
     tenant_id: UUID
     path: str = Field(..., min_length=1, max_length=512)
-    trap_type: str = "generic"
+    trap_type: str = Field(default="generic", max_length=64)
+
+    @field_validator("path")
+    @classmethod
+    def _path(cls, value: str) -> str:
+        clean = sanitize_text(value, max_length=512, allow_newlines=False)
+        if not clean.startswith("/"):
+            clean = f"/{clean}"
+        return clean
+
+    @field_validator("trap_type")
+    @classmethod
+    def _trap_type(cls, value: str) -> str:
+        normalized = sanitize_label(value, max_length=64).lower().replace(" ", "_")
+        if normalized not in TRAP_TYPES:
+            raise ValueError(f"invalid trap_type; allowed={TRAP_TYPES}")
+        return normalized
 
 
 class HoneypotHitRequest(BaseModel):
@@ -117,17 +138,40 @@ class HoneypotHitRequest(BaseModel):
     # Cap trap body — unauthenticated decoy must not accept unbounded JSON.
     payload: dict[str, Any] = Field(default_factory=dict, max_length=32)
 
+    @field_validator("path")
+    @classmethod
+    def _path(cls, value: str) -> str:
+        clean = sanitize_text(value, max_length=512, allow_newlines=False)
+        if not clean.startswith("/"):
+            clean = f"/{clean}"
+        return clean
+
+    @field_validator("method")
+    @classmethod
+    def _method(cls, value: str) -> str:
+        return sanitize_label(value, max_length=16).upper() or "GET"
+
+    @field_validator("user_agent")
+    @classmethod
+    def _user_agent(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return sanitize_label(value, max_length=512) or None
+
     @field_validator("payload")
     @classmethod
     def _cap_payload(cls, value: dict[str, Any]) -> dict[str, Any]:
         if len(str(value)) > 4096:
             raise ValueError("payload too large")
-        return value
+        cleaned = sanitize_external(value)
+        if not isinstance(cleaned, dict):
+            raise ValueError("payload must be an object")
+        return cleaned
 
 
 class ReportRequest(BaseModel):
     tenant_id: UUID
-    title: str = "FORJD Stream Report"
+    title: Title255 = "FORJD Stream Report"
     limit: int = Field(default=500, ge=1, le=1000)
 
 
@@ -149,7 +193,7 @@ class SecurityAlertRequest(BaseModel):
         pattern=r"^[a-z0-9][a-z0-9_.-]*$",
     )
     severity: Literal["low", "medium", "high", "critical"] = "high"
-    title: str = Field(..., min_length=1, max_length=255)
+    title: Title255
     ip_address: str | None = Field(default=None, max_length=64)
     raw: dict[str, Any] = Field(default_factory=dict, max_length=32)
 
@@ -159,6 +203,11 @@ class SecurityAlertRequest(BaseModel):
         # Legacy field name retained for compatibility; contents are normalized
         # metadata only and are never persisted as a raw payload.
         return validate_signal_metadata(value)
+
+    @field_validator("title")
+    @classmethod
+    def _title_safe(cls, value: str) -> str:
+        return _reject_sensitive_text(value, field_name="title", max_length=255)
 
     @field_validator("ip_address")
     @classmethod

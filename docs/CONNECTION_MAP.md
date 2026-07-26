@@ -12,13 +12,17 @@ Partner / DEML BFF                 Operators (forjd.co docs only)
   ▼                                  ▼
 FastAPI control plane (Fly: forjd-backend)
   │  Postgres (Supabase) + Dragonfly
-  │  Prefect YAML workflows
+  │  Prefect YAML workflows (SoT under backend/workflows/; validate:workflows)
   ▼
 forjd-engine (Rust HTTP on Fly 6PN, or in-process PyO3)
   │  sealed pipeline / detectors / outbox helpers
   ▼
 stream_results · telemetry_events (ciphertext) · security_signals
 ```
+
+Partner compose (optional): DEML Pipeline Studio (`/pipeline`) exports YAML →
+place under FORJD `backend/workflows/` → `npm run validate:workflows` → reload.
+See [`EXTENDING.md`](EXTENDING.md) · ADR-0028.
 
 ## Public probes
 

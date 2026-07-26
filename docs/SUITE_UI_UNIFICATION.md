@@ -1,8 +1,9 @@
 # Suite UI Unification Mandate (FORJD)
 
-**Status:** Law — FORJD chrome must match DEML / Viking-UI across the suite.  
-**Canonical visual SoT:** DEML `packages/viking-ui` (`@dataengineeringformachinelearning/viking-ui`)  
+**Status:** Law — FORJD chrome must match DEML / Viking-UI across the suite.
+**Canonical visual SoT:** DEML `packages/viking-ui` (`@dataengineeringformachinelearning/viking-ui`)
 **Full contract:** keep in lockstep with DEML [`docs/SUITE_UI_UNIFICATION.md`](https://github.com/dataengineeringformachinelearning/dataengineeringformachinelearning/blob/main/docs/SUITE_UI_UNIFICATION.md)
+**ADR (landing layers + adapter):** [`adr/0006-landing-layers-suite-adapter.md`](adr/0006-landing-layers-suite-adapter.md)
 
 ## FORJD hosts in scope
 
@@ -32,15 +33,15 @@
 
 ## Pass 1 — tokens (locked 2026-07-25)
 
-Vendored `suite-tokens.css` (+ usage `SUITE_TOKENS.md`) → forjd-ui + `backend/static/`.  
-Canonical + Role A lock live in DEML `packages/viking-ui/src/tokens/` (`suite-tokens.lock.json`).  
+Vendored `suite-tokens.css` (+ usage `SUITE_TOKENS.md`) → forjd-ui + `backend/static/`.
+Canonical + Role A lock live in DEML `packages/viking-ui/src/tokens/` (`suite-tokens.lock.json`).
 Refresh: `cd frontend && npm run sync:suite`.
 
 ## Pass 2 — component libraries (locked 2026-07-25)
 
 Vendored `suite-components.css` + Angular primitives with mirrored APIs and **triple classes** (`suite-*` + `fj-*` + `viking-*`).
 
-Load order: **suite-tokens → suite-components → suite-landing → app**.  
+Load order: **suite-tokens → suite-components → suite-landing → app**.
 Canonical chrome + contracts: DEML `packages/viking-ui/src/tokens/suite-components.css` + `SUITE_COMPONENTS.md`.
 
 ## Pass 3 — product frontend lockstep (locked 2026-07-25)
@@ -75,18 +76,32 @@ Canonical chrome + contracts: DEML `packages/viking-ui/src/tokens/suite-componen
 - forjd-ui: Angular peers + tslib only (no style npm packages)
 - Landing loads suite-fonts → tokens → components → backend (no inline cyan)
 - DEML `npm run suite:purity` enforces sibling lockstep + Pass 1–5 contracts
+- FORJD CI runs `suite:purity` (foundation). Residual host holes → Pass 7.
+
+## Pass 7 — interaction identity (in progress · 2026-07-26)
+
+One visual / spacing / motion / interaction language across adapters:
+
+- **Panel titles** live in `suite-components.css` (triple selectors) — Storybook no longer depends on landing CSS
+- **Tabs / disclosure / bulk toolbar** share button-class hover/press/focus/disabled + `--suite-transition*`
+- **`--fj-*` aliases** expanded for ring, radius scale, transition, ease-emphasized, primary-active
+- Landing meta links use `.suite-link` triple classes; backend splash hover uses `--suite-hover-lift`
+- Contract: `SUITE_COMPONENTS.md` → “Interaction / motion / spacing language”
+- **G1 closed (FORJD):** self-hosted swagger-ui-dist + redoc under `backend/static/vendor/`; owned `suite-apidocs.css`; CSP drops jsDelivr for HTML shells; durable `forjd-tab-panel` projection
+- Remaining (completion design): Chromatic hard-gate, DEML CI purity, soft-migrate retirement — see [`SUITE_UI_UNIFICATION_COMPLETION.md`](SUITE_UI_UNIFICATION_COMPLETION.md)
 
 ### Remaining differences (intentional)
 
 - Product logos/names; DEML-only Storybook Product depth; FORJD Panel/StatusList demos
-- **Deploy:** live `backend.forjd.co` must be redeployed to clear residual cyan splash
+- **Deploy:** live `backend.forjd.co` must be redeployed after suite CSS sync
 
 ## Phases
 
-1. **Token lock** — done  
-2. **Owned chrome CSS** — done  
-3. **forjd-ui full primitive set** — done  
-4. **Landing lockstep** — done  
-5. **Backend lockstep** — done  
-6. **Storybook lockstep** — done (`suite-docs.css`)  
-7. **Purity** — done (`suite:purity` + Inter sync)
+1. **Token lock** — done
+2. **Owned chrome CSS** — done
+3. **forjd-ui full primitive set** — done
+4. **Landing lockstep** — done
+5. **Backend lockstep** — done
+6. **Storybook lockstep** — done (`suite-docs.css`)
+7. **Purity (foundation)** — done (`suite:purity` + Inter sync)
+8. **Interaction identity** — in progress (Pass 7)

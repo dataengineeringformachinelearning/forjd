@@ -8,16 +8,19 @@ The API root (`GET /` and `GET /docs`) serves a FJORD-themed Swagger UI. Product
 
 ## Local (uv)
 
+**Preferred first run (repo root):** [`docs/START_HERE.md`](../docs/START_HERE.md) — `npm run bootstrap` then `npm run dev:api`.
+
 ```bash
 # From backend/ — builds ../engine via maturin
-uv sync
-cp .env.example .env   # set POSTGRES_DSN to Supabase; REDIS_URL to local Dragonfly
+uv sync --locked
+cp .env.example .env   # local DSN already points at Compose Postgres; soft-migrate on
+# Env/flag inventory: ../config/forjd.catalog.yaml · ../docs/CONFIGURATION.md
 
-# Optional: Compose for Dragonfly + Prefect (Postgres via Supabase by default)
-docker compose up -d dragonfly prefect-server
+# Dragonfly + local Postgres (do not start prefect-server — it steals :4200 from the landing)
+docker compose --profile local-db up -d dragonfly postgres
 
 uv run forjd
-# or: uv run uvicorn app.main:app --reload --port 8000
+# or from repo root: npm run dev:api
 ```
 
 ### Supabase
@@ -45,7 +48,7 @@ uv run forjd
 | GET | `/api/v1/ingest/events?tenant_id=` | List event metadata (no ciphertext bodies) |
 | GET | `/api/v1/ingest/results?tenant_id=` | Rust/Python/Prefect `stream_results` (+ optional `workflow_id`) |
 | POST | `/api/v1/ingest/embeddings` | Tenant-scoped vectors (ML / threat features) |
-| GET | `/api/v1/workflows` | List YAML/JSON workflow definitions |
+| GET | `/api/v1/workflows` | List YAML/JSON workflow definitions (+ `pipeline_steps` cards; compose/export via partner UI, deploy under `workflows/`) |
 | GET/POST | `/api/v1/sessions` | X25519 public session directory (JWT) |
 | GET | `/api/v1/projections` | Durable projection rows |
 | POST | `/api/v1/projections/run` | Advance checkpointed projections |
@@ -178,6 +181,12 @@ fly deploy --config fly.api.toml --ha=false
 ```
 
 Set matching `ENGINE_URL=http://forjd-engine.internal:8080` (already in `fly.api.toml`) and the same `ENGINE_API_TOKEN` on `forjd-engine`. For ML scoring in prod: enable Supabase **vector**, apply `sql/016` (with the rest of `003`–`028`), use the image-installed `ml` + `ml-spiking` groups, and call `/api/v1/ml` (`sql/002_anomaly_embeddings.sql` is historical/unused).
+
+## Workflows
+
+YAML under [`workflows/`](workflows/) is the source of truth. Extend via
+[`docs/EXTENDING.md`](../docs/EXTENDING.md); validate with
+`npm run validate:workflows` (ADR-0028). `GET /api/v1/workflows` is read-only.
 
 ## Notes
 

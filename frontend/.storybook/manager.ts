@@ -1,9 +1,11 @@
 import { addons } from 'storybook/manager-api';
 import { create } from 'storybook/theming';
+import roleA from '../libs/forjd-ui/src/lib/styles/suite-role-a.json';
 
 /**
  * Pass 5 — suite manager theme (void + electric).
- * Same palette as ui.deml.app; brand title is the only product-specific field.
+ * Hex from vendored suite-role-a.json (Role A lock). Storybook theming API
+ * cannot consume CSS variables.
  */
 addons.setConfig({
   theme: create({
@@ -11,21 +13,21 @@ addons.setConfig({
     brandTitle: 'Suite UI · FORJD',
     brandUrl: 'https://forjd.co',
     brandTarget: '_self',
-    colorPrimary: '#2176ff',
-    colorSecondary: '#2176ff',
-    appBg: '#0a0a0a',
-    appContentBg: '#111111',
-    appPreviewBg: '#0a0a0a',
-    appBorderColor: '#222222',
-    appBorderRadius: 8,
-    textColor: '#f5f5f5',
-    textMutedColor: '#aaaaaa',
-    barBg: '#111111',
-    barTextColor: '#aaaaaa',
-    barSelectedColor: '#2176ff',
-    inputBg: '#1a1a1a',
-    inputBorder: '#333333',
-    inputTextColor: '#f5f5f5',
-    inputBorderRadius: 8,
+    colorPrimary: roleA.primary,
+    colorSecondary: roleA.primary,
+    appBg: roleA.bg,
+    appContentBg: roleA.surface,
+    appPreviewBg: roleA.bg,
+    appBorderColor: roleA.border,
+    appBorderRadius: roleA.radius,
+    textColor: roleA.ink,
+    textMutedColor: roleA.inkMuted,
+    barBg: roleA.surface,
+    barTextColor: roleA.inkMuted,
+    barSelectedColor: roleA.primary,
+    inputBg: roleA.surface2,
+    inputBorder: roleA.borderStrong,
+    inputTextColor: roleA.ink,
+    inputBorderRadius: roleA.radius,
   }),
 });

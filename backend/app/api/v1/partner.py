@@ -7,7 +7,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.core.auth import pool_from_request
 from app.core.config import settings
@@ -16,6 +16,8 @@ from app.core.http_errors import (
     client_safe_detail,
     intentional_detail,
 )
+from app.core.sanitize import sanitize_label
+from app.core.text_fields import OptionalName128
 from app.services import partner_provision as provision_svc
 
 # Privileged bootstrap — omit from public OpenAPI discovery.
@@ -32,9 +34,16 @@ class PartnerProvisionBody(BaseModel):
         pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
     )
     slug: str | None = Field(default=None, max_length=63)
-    name: str | None = Field(default=None, max_length=128)
+    name: OptionalName128 = None
     include_tenant_erase: bool = True
     remint_if_exists: bool = False
+
+    @field_validator("external_ref", "slug", mode="before")
+    @classmethod
+    def _clean_ids(cls, value: object) -> object:
+        if value is None:
+            return None
+        return sanitize_label(str(value), max_length=128)
 
 
 def _require_provision_token(authorization: str | None) -> None:

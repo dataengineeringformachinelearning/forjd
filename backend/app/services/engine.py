@@ -1,4 +1,8 @@
-"""Engine client — prefers out-of-process HTTP (`ENGINE_URL`), falls back to in-process PyO3."""
+"""Engine client — prefers out-of-process HTTP (`ENGINE_URL`), falls back to in-process PyO3.
+
+Forwards ``X-Request-ID`` on HTTP so API/engine logs join (ADR-0005).
+Sealed hot path is Rust-first with Python soft fallback elsewhere (ADR-0003).
+"""
 
 from __future__ import annotations
 
@@ -9,6 +13,7 @@ from typing import Any
 import httpx
 
 from app.core.config import settings
+from app.core.request_context import request_id_var, valid_request_id
 
 logger = logging.getLogger("forjd.engine")
 
@@ -54,6 +59,18 @@ def _auth_headers() -> dict[str, str]:
     if not token:
         return {}
     return {"Authorization": f"Bearer {token}", "X-Engine-Token": token}
+
+
+def _correlation_headers() -> dict[str, str]:
+    """Forward API request id so engine tracing joins the same correlation."""
+    request_id = request_id_var.get()
+    if not valid_request_id(request_id):
+        return {}
+    return {"X-Request-ID": request_id}
+
+
+def _request_headers() -> dict[str, str]:
+    return {**_correlation_headers()}
 
 
 def _needs_ipv6_bind(base: str) -> bool:
@@ -108,16 +125,33 @@ async def close_engine_clients() -> None:
 
 
 async def _http_json(method: str, path: str, *, json_body: dict[str, Any] | None = None) -> Any:
+    from app.core.outbound_http import OutboundHttpError, expect_dict, parse_response_content
+    from app.core.sanitize import sanitize_text
+
     client = _ensure_async_client()
-    response = await client.request(method, path, json=json_body)
+    response = await client.request(
+        method,
+        path,
+        json=json_body,
+        headers=_request_headers(),
+    )
     if response.status_code >= 400:
-        detail: str
+        detail = "error"
         try:
-            detail = str(response.json().get("error") or response.text)
-        except Exception:
-            detail = response.text
+            err_body = expect_dict(
+                parse_response_content(response, sanitize=False, max_bytes=64 * 1024)
+            )
+            detail = sanitize_text(str(err_body.get("error") or "error"), max_length=256)
+        except (OutboundHttpError, Exception):  # noqa: BLE001
+            detail = sanitize_text(response.text[:256], max_length=256) or "error"
         raise RuntimeError(f"engine HTTP {response.status_code}: {detail}")
-    return response.json()
+    try:
+        payload = parse_response_content(response, sanitize=False)
+    except OutboundHttpError as exc:
+        raise RuntimeError(f"engine HTTP decode failed: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise RuntimeError("engine HTTP response is not a JSON object")
+    return payload
 
 
 async def process_event(event: dict[str, Any]) -> dict[str, Any]:
@@ -209,6 +243,7 @@ def run_sealed_pipeline_sync(
                     "projection_name": projection_name,
                     "workflow_id": workflow_id,
                 },
+                headers=_request_headers(),
             )
             if response.status_code >= 400:
                 logger.warning(
@@ -217,7 +252,14 @@ def run_sealed_pipeline_sync(
                     response.text[:200],
                 )
                 return None
-            return dict(response.json())
+            from app.core.outbound_http import OutboundHttpError, parse_response_content
+
+            try:
+                payload = parse_response_content(response, sanitize=False)
+            except OutboundHttpError as exc:
+                logger.warning("rust sealed pipeline decode failed: %s", exc)
+                return None
+            return dict(payload) if isinstance(payload, dict) else None
         except Exception as exc:  # noqa: BLE001
             logger.warning("rust sealed pipeline (http) failed: %s", exc)
     return None

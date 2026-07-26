@@ -3,6 +3,63 @@
 > **Engineering journal (historical).** Current architecture lives in `ARCHITECTURE.md` and `AGENTS.md`. Entries below may describe superseded experiments (console PoC, cutover diary, rejected stacks). Do not treat this file as the deploy contract.
 
 ## Log
+
+- 2026-07-26: Sync pass for extend/configure DX — CI + pre-commit `validate_workflows` (+ `--include-examples`); ADR-0028; CONTRIBUTING/SECURITY; ARCHITECTURE/CONNECTION_MAP/PRODUCTION_*/TESTING/AGENTS aligned; DEML BOOK/WHITEPAPER/CONNECTION_MAP/AGENTS + Pipeline Studio.
+- 2026-07-26: Extend/configure DX — `docs/EXTENDING.md`, `npm run validate:workflows` (+ quality/doctor), workflow/detector templates under `examples/`, `WORKFLOWS_STRICT`; DEML Pipeline client validate + FORJD_INTEGRATION deploy loop.
+- 2026-07-26: Pipeline Studio — DEML `/pipeline` catalog+configure+YAML export (YAML remains SoT; no browser persist); FORJD workflow summaries expose size/rate anomaly + outputs for form hydration; Account card links into studio.
+- 2026-07-26: Ops visual hierarchy — DEML dashboard/analytics/vulns/status: page→section-template→hud-panel→activity-list ladder; Exports demoted after primary analytics; no competing H1/H2; threat rows title→meta→time.
+- 2026-07-26: Stream status UX — calm near-real-time chip (`Updating` / `Paused` / `Updates delayed` / `Offline`); never “Live”; pulse only when SSE connected; DEML dashboard/analytics + suite `stream-status` + forjd-ui adapter.
+- 2026-07-26: Pipeline config UX — `GET /api/v1/workflows` returns `pipeline_steps` cards (title/detail/kind); suite `pipeline-flow` + forjd-ui adapter/Storybook; DEML Account read-only visual via BFF proxy (YAML remains SoT).
+- 2026-07-26: High-end + constrained devices — suite-landing drops atmosphere/grid/hairlines under 600px or reduced-data; 44px retry/meta touch; short-viewport hero; Save-Data gates font preload + analytics/monitoring; visibility `/ready` skips while SWR-fresh.
+- 2026-07-26: Coherent state story — `landingReadyStory()` phases loading/ready/degraded (Confirming → Production → Offline/Unavailable/Not ready); shell error boundary + toast share `SHELL_STORY`; suite `data-phase` + confirm breath.
+- 2026-07-26: 80/20 ready UX — happy path is quiet Production badge + pulse; offline/unreachable fold into badge tone + in-badge Retry + one edge line (no callout section interrupting hero→sequence).
+- 2026-07-26: Ruthless landing simplify — unmounted prefs/shortcut-help/history; removed search palette, capability bands, suite footer column; thin shell = error boundary + toast; hero + integrate sequence + ready/docs/legal only.
+- 2026-07-26: Calm landing — cut hero toolbar to Swagger/ReDoc; removed checklist + redundant pillars/features; quieter copy; suite-landing SoT: single atmosphere wash, no stagger, live-only pulse, no card lift; prefs/search via shortcuts.
+- 2026-07-26: Closed suite G1 temporary API docs — self-hosted swagger-ui-dist@5.18.3 + redoc@2.5.0 under `backend/static/vendor/`, owned `suite-apidocs.css`, external swagger boot JS, CSP without jsDelivr on FORJD HTML shells; durable `forjd-tab-panel`; DEML twin templates + contract tests; `scripts/vendor_apidocs.sh`.
+- 2026-07-26: High-end landing craft — hero CTA primary/secondary tiers; badge Live pulse + shorter copy; type rhythm; feature-card hairline/hover; callout left rail; meta instrument strip; features section header; sync:suite from DEML SoT.
+- 2026-07-26: Suite Pass 7 interaction identity — DEML SoT: panel titles in suite-components (triple), tabs/disclosure/bulk motion+disabled parity, `--fj-*` ring/radius/transition aliases, backend hover-lift; sync:suite; bulk-toolbar stories; landing meta `.suite-link`; VISUAL_STANDARDS + SUITE_UI_UNIFICATION updated.
+- 2026-07-26: New-dev path — `docs/START_HERE.md` + `npm run bootstrap` / `verify` (env, Docker Postgres+Dragonfly, uv sync, frontend); README leads with 10-minute flow; doctor checks Docker.
+- 2026-07-26: Commit conventions — `docs/GIT.md` (Conventional Commits + squash-merge history); `scripts/check_commit_msg.py` + `commit-msg` hook via `install-hooks`; PR template; `npm run check:commit-msg`.
+- 2026-07-26: Enforce lint/format/types — frontend `format`/`typecheck`/`lint` scripts + `.prettierignore`; root `.pre-commit-config.yaml` + `npm run install-hooks`; `quality` runs prettier+typecheck; CI frontend gates; engine clippy flags aligned with CI.
+- 2026-07-26: Storybook coverage — Feedback/Data/Chrome stories (loading, page-skeleton, table states, virtual-list, activity, prefs); expanded Button/Forms/Badge/Callout/Surface/Onboarding/Overlay states; `npm run build-storybook` green.
+- 2026-07-26: forjd-ui component API docs — `libs/forjd-ui/COMPONENTS.md` (props/outputs/recipes); README + SUITE_COMPONENTS + lib layout map; JSDoc on button/dialog/sheet/search/onboarding for Storybook autodocs.
+- 2026-07-26: Developer tooling — root `scripts/forjd_tooling.py` + `npm run doctor|quality|dev:api|dev:web`; frontend preflight, `start:poll`/`clean:cache`, serve host/HMR; suite sync/purity actionable errors + `FORJD_DEML_ROOT`; `docs/DEV.md`.
+- 2026-07-26: Fixed closed search `<dialog>` covering the landing (`display:flex` overrode UA `dialog:not([open])`); e2e prefs/checklist now green; unit asserts closed palette `display:none`.
+- 2026-07-26: Critical-path tests — expanded suite unit/integration specs (importMap/importState/data-pack/activity + prefs/onboarding TestBed); landing critical integration; Playwright e2e for landing prefs/checklist; CI runs `ng test frontend` + `forjd-ui` + e2e; backend `test_audit_record`.
+- 2026-07-26: Client activity log — dual-adapter `createActivityLog` (`suite-activity-v1`, capped, scrubbed); `forjd-activity-list` / `viking-activity-list` in Preferences; prefs/onboarding emit; ADR-0027 / `docs/ACTIVITY.md`.
+- 2026-07-26: Suite data pack export/import — dual-adapter `exportSuiteDataPack` / `applySuiteDataPack` (theme + disclosure + onboarding; optional recents); prefs panel merge/replace; ADR-0026.
+- 2026-07-26: Onboarding / empty guidance — dual-adapter `createOnboardingStore` (`suite-onboarding-v1`), `forjd-onboarding-checklist` / `viking-onboarding-checklist`; DEML wizard + settings empties + FORJD partner sequence; ADR-0025 / `docs/ONBOARDING.md`.
+- 2026-07-26: Preferences persist + sync — dual-adapter `createPreferencesStore` (`suite-preferences-v1`), cross-tab `storage` + CustomEvent; theme bridge; `forjd-preferences` / `viking-preferences` + Account card; ⌘,; ADR-0024.
+- 2026-07-26: Keyboard shortcuts — dual-adapter `createShortcutRegistry` + `?` help (`forjd-shortcut-help` / `viking-shortcut-help`); docs in `docs/KEYBOARD_SHORTCUTS.md`; ADR-0023.
+- 2026-07-26: Smart defaults + progressive disclosure — dual-adapter `createDisclosureStore` + `forjd-disclosure` / `viking-disclosure` (`suite-disclosure-v1`); DEML Sites/Account/Analytics advanced sections collapsed by default; ADR-0022.
+- 2026-07-26: Bulk actions / multi-select — dual-adapter `createSelectionModel` + `forjd-bulk-toolbar` / `viking-bulk-toolbar`; `forjd-table` selectable rows; DEML settings services/incidents wired; ADR-0021.
+- 2026-07-26: Priority toasts — capped stack (max 3), tone→priority, dedupe, sticky critical, hover-pause; `success()` / `critical()` helpers; ADR-0020.
+- 2026-07-26: Command history undo/redo — dual-adapter `createCommandHistory` + `FjCommandHistoryService` (⌘Z / ⌘⇧Z, Undo toast); wired theme + clear-recent; ADR-0019.
+- 2026-07-26: Global search — `forjd-search-palette` (⌘K / `/`, ranked filter, localStorage recents); landing curated items + Search CTA; suite-components search chrome synced from Viking.
+- 2026-07-26: Defensive outbound HTTP — `outbound_http.request_json` (no redirects, 2 MiB cap, sanitize + shape guards); wired fetchers/addons/engine/TAXII; frontend `parseResponseJson` for ready-probe; ADR-0018.
+- 2026-07-26: Secrets handling client+server — widen `scrub_for_logs`/`scrub.ts` key+value patterns, deep-scrub JSON logs + Rollbar payloads, scrub console errors before tracker bridges; ADR-0017.
+- 2026-07-26: Secure defaults for cookies/headers/API — `cookies.build_set_cookie` (no session cookies), Vercel CORP, engine + peer-sessions header parity, prod CORS HTTPS/`*` reject, `HttpsRedirectMiddleware`, `apiFetchInit` (`credentials: 'omit'`), `httpsOnlyExceptLoopback` on landing API base; ADR-0016.
+- 2026-07-26: Rate limit + validation + output encoding — extend sole limiter (`/addons/{slug}`, missing-Bearer `auth-failure`); fix SIEM/report `_reject_sensitive_text` max_length; Slug64/AddonSlug + honeypot/tenant/report fields; `encoding.py` + PDF/`encodeForHtml`; 422 drops request `input`; ADR-0015.
+- 2026-07-26: Sanitize UGC + third-party data — `app/core/sanitize.py` + Pydantic `text_fields`, status/domain/partner/service-account wiring, fetcher `sanitize_data`, stream routing tags, Sentry deep scrub; frontend `sanitizeDisplayText`; ADR-0014.
+- 2026-07-26: Client-side attack hardening — `safeHref`/`safeHttpBase` (block javascript/data/protocol-relative + host allowlist), FjButton/FjNav + landing suite links, vercel CSP `frame-ancestors 'none'` + `X-Frame-Options: DENY`; CSRF remains header-auth; ADR-0013.
+- 2026-07-26: SWR cache invalidation — `createSwrCache` (fresh/stale/miss, generation-guarded invalidate, markStale, subscribe); `/ready` + landing visibility/online/retry wired; `applySettled` for silent reconcile; ADR-0012.
+- 2026-07-26: Consistent client fetch states — `createFetchHandle` (`idle|loading|success|error`, flat signals, `run` / `runSettled`); landing `/ready` wired through it; ADR-0011.
+- 2026-07-26: Normalized flat reactive state — landing readiness as scalar + flat computeds, ready-probe cache as status+timestamp, virtual lists/tables via `indicesForWindow` (forjd-ui + viking-ui), landing metrics as `[label, value]` tuples; ADR-0010.
+- 2026-07-26: Graceful offline landing — `offline` vs `unreachable` on `/ready`, online/offline listeners + auto re-probe, defer monitoring/analytics until online, ngsw shell prefetch + navigationUrls; ADR-0009 (not an offline data plane).
+- 2026-07-26: Optimistic UI with rollback — dual-adapter `runOptimistic` (forjd-ui + viking-ui); theme services persist with snapshot rollback on storage failure; `FjErrorBoundary.retryAction` clears failed then restores on throw; ADR-0008.
+- 2026-07-26: Simplified frontend state — dropped multi-key `swr-memory` for a single-slot ready-probe cache, removed monitoring `lastConfiguration` singleton, landing uses local signal + derived `computed` (badge/degraded); removed unused backend `feature_flags` import-time snapshot.
+- 2026-07-26: Added ADRs under `docs/adr/` (0001–0007) for non-obvious patterns — ciphertext/partner boundary, Rust vs Polars, config catalog, correlation-first observability, landing/suite layers, sole rate limiter; module docstrings cite the relevant ADR.
+- 2026-07-26: Separated landing presentation from domain/infra — `core/ready/*` (`/ready` probe), `landing.content.ts`, `monitoring.config.ts`, idle bootstrap module; `Landing` binds only; layer table in `frontend/src/app/README.md`.
+- 2026-07-26: Single config inventory SoT — `config/forjd.catalog.yaml` + `docs/CONFIGURATION.md`, `scripts/check_config_catalog.py` (CI), typed `feature_flags.py`; aligned `.env.example` (dropped orphan `ROLLBAR_ENVIRONMENT`, added `DB_POOL_*`).
+- 2026-07-26: Documented + hardened observability — `docs/OBSERVABILITY.md` correlation contract; 500 bodies carry `request_id`; engine HTTP forwards `X-Request-ID`; `worker_tick` on analytics rollups; client `scrub.ts` + breadcrumbs on landing `/ready`; Sentry/Rollbar header scrubbing.
+- 2026-07-26: Added error boundaries + graceful degradation — `FjErrorBoundary`, toast-backed `GlobalErrorHandler`, chunk-load one-shot reload, landing `/ready` callout+retry (`swrInvalidate`), table/virtual-list error slots; app shell mounts toast host around the outlet.
+- 2026-07-26: Enforced forjd-ui naming/structure/import conventions — `field-a11y`, `FjTone`, group-level `surface.stories`, `forjd-*` demo selectors, reordered `public-api`; viking `confirm-dialog.service` + `VikingVirtualWindow*` aliases; documented in `lib/README.md`.
+- 2026-07-26: Tightened suite UI typing — `FjTableRow` / `VikingTableRecord`, typed Algolia hits + `DemlWidgets`, discriminated `VikingDialogState`, select/radio `VikingOptionValue`, SSR-safe theme/DOM bases; re-enabled strict on viking prod/elements tsconfigs (no explicit `any` remaining).
+- 2026-07-26: Extracted shared overlay/a11y helpers (`NativeDialogSession`, `createToastStore`, `createUidFactory`, `nextRovingIndex`, `suiteThemeToggleAriaLabel`) in forjd-ui + viking-ui; dialog/sheet/toast/theme-toggle now consume them to drop duplicated open/focus/queue code.
+- 2026-07-26: Refactored forjd-ui into feature groups (`core`, `chrome`, `forms`, `overlay`, `feedback`, `data`, `layout`) with import boundaries; left synced `styles/` in place; public-api remains the only app entry.
+- 2026-07-26: Mobile-first composition pass — suite-landing hero/CTA/steps/meta ladder (stack→row, 1→2→4 only at XL), KPI/snapshot grids stack on phone, sm buttons keep 44px touch until tablet; synced into forjd-ui + backend/static.
+- 2026-07-26: Tokenized suite type scale (headline/title/lead fluid clamps) into `suite-tokens.css`; Storybook manager reads Role A hex from vendored `suite-role-a.json` (API cannot use CSS vars).
+- 2026-07-26: Suite UI consistency enforcement — re-synced `backend/static` suite CSS to match forjd-ui/DEML, added `frontend` `suite:purity` + CI gate (closes G14 CSS hash gap), aligned Role C series-4 gold to `#d4af37`.
 - 2026-07-26: Promoted Role C PDF report tokens to suite chrome (primary `#2176ff`, institutional gold `#d4af37`); export PDFs now render source-aware styled reports with metadata instead of a generic CSV-in-PDF dump. Brand artwork blue stays logos-only; `plotHeight` no longer references undefined `--fj-space-20/24`.
 - 2026-07-25: Retired public Storybook — deleted Vercel project `ui` (`ui.forjd.co`); removed `deploy:ui` / `vercel.ui.json`. forjd-ui + local Storybook/Chromatic kept; product host remains `forjd`.
 - 2026-07-25: Visual/Storybook fix — suite-fonts.css Inter SoT, zoneless Storybook preview (stops black spinner), vercel.ui.json builds Storybook; deml/marketing hero cleanup lives in DEML.
@@ -176,7 +233,7 @@
 
 - 2026-07-18: Unblocked partner cutover: YAML `aliases` map legacy workflow/event wire ids onto universal families (no product names in code); extended `fjsvc_` scopes to sessions, replay/DLQ, status, and analytics:read; sql/017 drops crypto_sessions→auth.users FK so service principals can register sessions.
 
-- 2026-07-18: Final universality pass — removed first-party product aliases from `threat_telemetry.yaml`; added `workflows/examples/partner_legacy_aliases.example.yaml` (not registry-loaded); PDF author → FORJD; cutover checklist in root `CUTOVER.md`.
+- 2026-07-18: Final universality pass — removed first-party product aliases from `threat_telemetry.yaml`; added partner alias example under `workflows/examples/` (now `partner_aliases.example.yaml`; not registry-loaded); PDF author → FORJD; cutover checklist in root `CUTOVER.md`.
 
 ## Packages
 
@@ -233,6 +290,7 @@ Direct dependencies only. Star these on GitHub.
 - [chromatic-cli](https://github.com/chromaui/chromatic-cli) — visual regression publishing
 - [vite](https://github.com/vitejs/vite) — bundler (Storybook / Vitest)
 - [vitest](https://github.com/vitest-dev/vitest) — unit tests
+- [playwright](https://github.com/microsoft/playwright) — landing critical-path e2e (`@playwright/test`)
 - [analog](https://github.com/analogjs/analog) — Vite plugin for Angular
 - [ng-packagr](https://github.com/ng-packagr/ng-packagr) — library packaging
 - [prettier](https://github.com/prettier/prettier) — code formatting

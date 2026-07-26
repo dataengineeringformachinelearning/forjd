@@ -5,7 +5,7 @@
 | **Title** | UNIFICATION MANDATE Completion: Multi-Repo Visual Identity as Law |
 | **Author** | Grok Design (suite unification completion) |
 | **Date** | 2026-07-25 |
-| **Status** | Draft (revision 3 — re-review polish: smoke script + lock path) |
+| **Status** | Draft (revision 5 — G1 API docs self-host + suite-apidocs closed on FORJD + DEML; Pass 7 interaction identity partial; 2026-07-26) |
 | **Supersedes (operationally)** | Passes 1–6 "done" claims where exploration finds residual divergence; Pass 6 = foundation complete, **not** identity complete |
 | **Canonical SoT** | DEML `packages/viking-ui` (`@dataengineeringformachinelearning/viking-ui@9.7.3`) |
 | **Related law** | DEML `docs/SUITE_UI_UNIFICATION.md`, FORJD `docs/SUITE_UI_UNIFICATION.md`, `THEME.md` |
@@ -120,7 +120,7 @@ Elevate existing hexes only — void black, electric `#2176ff`, institutional go
 
 | ID | Gap | Severity | Identity-complete blocker? | Evidence |
 | -- | --- | -------- | -------------------------- | -------- |
-| G1 | Swagger-UI + ReDoc from jsDelivr; stock chrome partially overridden; FORJD large inline CSS vs DEML SCSS may diverge (colored methods vs quiet chips) | **High** | **Yes** | FORJD `docs_page.py` / `redoc_page.py`; DEML `swagger.html` / `redoc.html`; `swagger-ui.scss` |
+| G1 | ~~Swagger-UI + ReDoc from jsDelivr + diverging skins~~ → **Closed 2026-07-26:** pinned vendor under `backend/static/vendor/`, owned `suite-apidocs.css`, no CDN/inline skin; DEML twin templates match | **Closed** | **No** | FORJD `docs_page.py` / `redoc_page.py` + DEML `swagger.html` / `redoc.html` + `suite-apidocs.css` |
 | G2 | Leaflet CSS global in deml.app | **Medium** | **Yes** (deml.app chrome leak) | `frontend/angular.json` |
 | G3 | Algolia Experiences third-party chrome | **Medium** | **Yes** (deml/marketing) | `algolia-search.js` |
 | G4 | FORJD backend fonts not delivered | **High** | **Yes** | shells omit suite-fonts; no `/fonts`; sync skips backend binaries |
@@ -133,7 +133,7 @@ Elevate existing hexes only — void black, electric `#2176ff`, institutional go
 | G11 | forjd-ui ≪ viking inventory | **Low for identity** | **No** (backlog when FORJD product UI needs) | ~23 vs ~100+ |
 | G12 | Purity not in CI either repo; Chromatic non-blocking | **High** | **Yes** (enforcement) | workflows as above |
 | G13 | THEME.md / docs still show series example `#c4a035` while code may use `var(--viking-gold-500)` | **Nit** | **No** | doc hygiene |
-| G14 | Purity SHA set incomplete (no backend/static, no fonts binary hashes) | **Medium** | **Yes** for enforcement quality | `check-suite-purity.mjs` five files only |
+| G14 | Purity SHA set incomplete (no backend/static, no fonts binary hashes) | **Medium** | **Partial** — backend/static suite CSS now hashed in DEML + FORJD `suite:purity`; font binary hashes still open | `check-suite-purity.mjs` (+ FORJD `frontend/scripts/check-suite-purity.mjs`) |
 
 ### What is already strong (do not regress)
 
@@ -290,22 +290,21 @@ flowchart LR
 
 ### Close purity holes
 
-#### P1 — Owned API docs chrome (G1)
+#### P1 — Owned API docs chrome (G1) — **DONE 2026-07-26**
 
-**Phase A (required for identity complete):**
+**Phase A shipped:**
 
 | Action | DEML | FORJD |
 | ------ | ---- | ----- |
-| Vendor pin | Copy `swagger-ui-dist@5` CSS/JS and `redoc@2` standalone into `backend/static/vendor/` | Same |
-| Templates | Drop jsDelivr for swagger/redoc; local assets | Same in `docs_page.py` / `redoc_page.py` |
-| Skin unify | Expand `swagger-ui.scss` → `suite-apidocs.css` (or fold into suite-backend); **diff FORJD inline rules vs DEML SCSS first** | Remove large inline `<style>`; consume suite-apidocs only |
-| Visual contract | **Quiet method chips** (KD13) — raised surfaces, not HTTP color rainbow | Converge FORJD colored methods to quiet chips |
-| CSP | Remove jsDelivr from **docs HTML CSP only** where no longer needed for swagger/redoc; keep jsDelivr if other HTML shells still need it | Update `security.py` **and** `backend/tests/test_security_headers.py` (today **asserts** `cdn.jsdelivr.net` present — must co-change) |
-| Contracts | Rewrite `swagger-theme-contract.test.mjs` for cascade + no CDN | Python tests: no CDN URLs; fonts outcome |
+| Vendor pin | `backend/static/vendor/swagger-ui-dist@5.18.3` + `redoc@2.5.0` | Same |
+| Templates | `swagger.html` / `redoc.html` self-host + `docs-swagger-init.js` | `docs_page.py` / `redoc_page.py` |
+| Skin | `suite-apidocs.css` after `viking-ui.css` | `suite-apidocs.css` after suite-backend |
+| Contract | `swagger-theme-contract.test.mjs` + `test_openapi.py` | `test_landing_page.py` + `test_security_headers.py` |
+| CSP | jsDelivr kept for Algolia/widgets (KD14); unused by swagger/redoc | HTML shell CSP: `style-src 'self'` only; no jsDelivr |
 
 **Phase B (optional):** custom suite OpenAPI explorer if skin residual fails acceptance screenshots.
 
-**Acceptance:** Inter, void, electric primary, suite topbar, quiet chips, authorize/try-it controls suite-aligned; no jsDelivr for swagger/redoc assets.
+**Acceptance:** Inter, void, electric primary, suite topbar, quiet chips; no jsDelivr for swagger/redoc assets.
 
 #### P2 — Leaflet isolation (G2)
 

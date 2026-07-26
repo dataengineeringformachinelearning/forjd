@@ -10,6 +10,8 @@ Public surface:
     - ``enabled_addons()`` — the subset enabled by the current settings.
     - ``get_addon(slug)``  — one descriptor by slug.
     - ``addon_enabled(slug)`` — bool gate for callers.
+
+ADR: ``docs/adr/0007-sole-rate-limiter-and-addons.md``.
 """
 
 from __future__ import annotations

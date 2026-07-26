@@ -1,0 +1,224 @@
+# FORJD configuration catalog — single inventory source of truth.
+#
+# Runtime typed consumers (do not duplicate defaults here as authority):
+#   backend → app.core.config.Settings
+#   engine  → data_plane::config::Config + process binary env
+#   frontend → src/environments/environment*.ts
+#
+# This file owns: names, layers, secrecy, feature-flag roles, and example paths.
+# Enforce with: python scripts/check_config_catalog.py
+# Human guide: docs/CONFIGURATION.md
+# ADR: docs/adr/0004-config-catalog-inventory-sot.md
+
+version: 1
+
+# --- Feature flags (config-gated behaviour; empty/false = off) ---
+feature_flags:
+  - name: FORJD_ADDONS
+    layer: backend
+    summary: Comma-separated add-on slugs or "all"; empty disables all add-ons
+    inspect: GET /api/v1/addons
+    docs: backend/docs/ADDONS.md
+  - name: FORJD_ADDONS_CONFIG
+    layer: backend
+    summary: YAML profile path used only when FORJD_ADDONS is empty
+  - name: WORKFLOWS_STRICT
+    layer: backend
+    summary: Fail closed on unknown workflow processors/steps at registry load
+    docs: docs/EXTENDING.md
+  - name: RATE_LIMIT_ENABLED
+    layer: backend
+    summary: Sole rate limiter gate (app/core/rate_limit.py)
+  - name: ENABLE_API_DOCS
+    layer: backend
+    summary: OpenAPI /docs /redoc; forced off in production unless explicitly set
+  - name: SOFT_MIGRATE_SCHEMA
+    layer: backend
+    summary: Local-only soft table shapes; forced false in production
+  - name: REQUIRE_RLS
+    layer: backend
+    summary: Fail ready/startup without RLS; forced true in production
+  - name: REQUIRE_CRYPTO_SESSION
+    layer: backend
+    summary: Require active crypto session for envelopes; forced true in production
+  - name: SUPABASE_AUTH_REQUIRED
+    layer: backend
+    summary: Fail closed when auth config missing on protected routes
+  - name: FORJD_ROLE
+    layer: engine
+    summary: Data-plane role (engine|all|relay|scheduler|probe|normalizer|ingest|cpe)
+  - name: ANALYTICS_ROLLUP_INTERVAL_SECONDS
+    layer: backend
+    summary: "0 disables analytics-rollup worker"
+    kind: worker_gate
+  - name: TRAINING_TICK_SECONDS
+    layer: backend
+    summary: "0 disables ml-training worker"
+    kind: worker_gate
+  - name: RETENTION_SWEEP_INTERVAL_SECONDS
+    layer: backend
+    summary: "0 disables retention worker"
+    kind: worker_gate
+  - name: PROJECTION_TICK_SECONDS
+    layer: backend
+    summary: "0 disables background projection catch-up"
+    kind: worker_gate
+
+# --- Environment / settings inventory ---
+# Fields:
+#   name       — env var / Settings field (UPPER_SNAKE)
+#   layers     — backend | engine | frontend | tooling | infra
+#   secret     — true if values must never be committed / returned by API
+#   settings   — true if must exist on backend Settings (backend layer)
+#   example    — relative path that should document the key (optional)
+#   group      — scannable category
+#   summary    — one line
+
+variables:
+  # App
+  - { name: PROJECT_NAME, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: app }
+  - { name: PROJECT_VERSION, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: app }
+  - { name: API_V1_STR, layers: [backend], secret: false, settings: true, group: app, summary: Not typically set via .env }
+  - { name: ENVIRONMENT, layers: [backend, engine], secret: false, settings: true, example: backend/.env.example, group: app, summary: production|prod|staging|stage|development }
+  - { name: DEBUG, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: app }
+  - { name: HOST, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: app }
+  - { name: PORT, layers: [backend, engine], secret: false, settings: true, example: backend/.env.example, group: app }
+  - { name: ENABLE_API_DOCS, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: app, flag: true }
+  - { name: CORS_ORIGINS, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: app }
+
+  # Auth / edge
+  - { name: API_KEY, layers: [backend], secret: true, settings: true, example: backend/.env.example, group: auth }
+  - { name: FORJD_PROVISION_TOKEN, layers: [backend], secret: true, settings: true, example: backend/.env.example, group: auth }
+  - { name: SUPABASE_URL, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: auth }
+  - { name: SUPABASE_JWT_SECRET, layers: [backend], secret: true, settings: true, example: backend/.env.example, group: auth }
+  - { name: SUPABASE_JWT_AUDIENCE, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: auth }
+  - { name: SUPABASE_AUTH_REQUIRED, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: auth, flag: true }
+
+  # Data stores
+  - { name: POSTGRES_DSN, layers: [backend, engine], secret: true, settings: true, example: backend/.env.example, group: datastore }
+  - { name: DATABASE_URL, layers: [engine], secret: true, settings: false, example: engine/.env.example, group: datastore, summary: Engine alias for Postgres (or POSTGRES_DSN) }
+  - { name: REDIS_URL, layers: [backend, engine], secret: true, settings: true, example: backend/.env.example, group: datastore }
+  - { name: PREFECT_API_URL, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: datastore }
+  - { name: DB_POOL_MIN, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: datastore }
+  - { name: DB_POOL_MAX, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: datastore }
+
+  # Engine bridge (API → Rust)
+  - { name: ENGINE_URL, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: engine }
+  - { name: ENGINE_API_TOKEN, layers: [backend, engine], secret: true, settings: true, example: backend/.env.example, group: engine }
+  - { name: ENGINE_TIMEOUT_SECONDS, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: engine }
+
+  # Engine / data plane
+  - { name: FORJD_ROLE, layers: [engine], secret: false, settings: false, example: engine/.env.example, group: engine, flag: true }
+  - { name: RUST_LOG, layers: [engine], secret: false, settings: false, example: engine/.env.example, group: engine }
+  - { name: FORJD_ENV, layers: [engine], secret: false, settings: false, example: engine/.env.example, group: engine, summary: Engine production gate (distinct from backend ENVIRONMENT) }
+  - { name: FORJD_TRANSPORT_SECURITY, layers: [engine], secret: false, settings: false, example: engine/.env.example, group: engine }
+  - { name: FORJD_INTERNODE_ENCRYPTION, layers: [engine], secret: false, settings: false, example: engine/.env.example, group: engine }
+  - { name: FORJD_INTERNODE_ACTIVE_KID, layers: [engine], secret: false, settings: false, example: engine/.env.example, group: engine }
+  - { name: FORJD_INTERNODE_KEYS, layers: [engine], secret: true, settings: false, example: engine/.env.example, group: engine }
+  - { name: FORJD_NODE_ID, layers: [engine], secret: false, settings: false, group: engine }
+  - { name: MAX_CONCURRENCY, layers: [engine], secret: false, settings: false, group: engine }
+  - { name: BATCH_SIZE, layers: [engine], secret: false, settings: false, group: engine }
+  - { name: POLL_INTERVAL_SECS, layers: [engine], secret: false, settings: false, group: engine }
+  - { name: MAX_ATTEMPTS, layers: [engine], secret: false, settings: false, group: engine }
+  - { name: PINGER_INTERVAL_SECS, layers: [engine], secret: false, settings: false, group: engine }
+  - { name: STRUCTURED_LOGS, layers: [engine], secret: false, settings: false, group: engine }
+  - { name: HEALTH_PINGER_SKIP_TLS_VERIFY, layers: [engine], secret: false, settings: false, group: engine }
+  - { name: NORMALIZER_GROUP_ID, layers: [engine], secret: false, settings: false, group: engine }
+  - { name: CPE_REDIS_URL, layers: [engine], secret: true, settings: false, example: engine/.env.example, group: engine }
+  - { name: REDIS_SSL_CA_B64, layers: [engine], secret: true, settings: false, group: engine }
+  - { name: OTEL_EXPORTER_OTLP_ENDPOINT, layers: [engine], secret: false, settings: false, group: engine, summary: Parked until collector decision }
+
+  # Observability
+  - { name: ROLLBAR_ACCESS_TOKEN, layers: [backend], secret: true, settings: true, example: backend/.env.example, group: observability }
+  - { name: SENTRY_DSN, layers: [backend], secret: true, settings: true, example: backend/.env.example, group: observability }
+  - { name: SENTRY_TRACES_SAMPLE_RATE, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: observability }
+  - { name: SENTRY_ENVIRONMENT, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: observability }
+
+  # Rate limits
+  - { name: RATE_LIMIT_ENABLED, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: rate_limit, flag: true }
+  - { name: READ_RATE_LIMIT_RPM, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: rate_limit }
+  - { name: WRITE_RATE_LIMIT_RPM, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: rate_limit }
+  - { name: INGEST_RATE_LIMIT_RPM, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: rate_limit }
+  - { name: PUBLIC_RATE_LIMIT_RPM, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: rate_limit }
+  - { name: AUTH_FAILURE_RATE_LIMIT_RPM, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: rate_limit }
+
+  # Add-ons
+  - { name: FORJD_ADDONS, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: addons, flag: true }
+  - { name: FORJD_ADDONS_CONFIG, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: addons, flag: true }
+  - { name: OSV_API_URL, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: addons }
+  - { name: HONEYDB_API_ID, layers: [backend], secret: true, settings: true, example: backend/.env.example, group: addons }
+  - { name: HONEYDB_API_KEY, layers: [backend], secret: true, settings: true, example: backend/.env.example, group: addons }
+  - { name: GO_CVE_DICTIONARY_URL, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: addons }
+
+  # Workflows / zero-trust
+  - { name: WORKFLOWS_DIR, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: workflows }
+  - { name: WORKFLOWS_STRICT, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: workflows, flag: true }
+  - { name: SOFT_MIGRATE_SCHEMA, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: zero_trust, flag: true }
+  - { name: REQUIRE_RLS, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: zero_trust, flag: true }
+  - { name: REQUIRE_CRYPTO_SESSION, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: zero_trust, flag: true }
+  - { name: PROJECTION_TICK_SECONDS, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: workers, flag: true }
+  - { name: STREAM_ANOMALY_ZSCORE, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: stream }
+  - { name: STREAM_ANOMALY_MAX_CIPHER_LEN, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: stream }
+
+  # ML
+  - { name: ML_SEQ_LEN, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: ml }
+  - { name: ML_LATENT_DIM, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: ml }
+  - { name: ML_HIDDEN_DIM, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: ml }
+  - { name: ML_EPOCHS, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: ml }
+  - { name: ML_ANOMALY_THRESHOLD, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: ml }
+  - { name: ML_MODEL_DIR, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: ml }
+  - { name: ML_MODEL_VERSION, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: ml }
+  - { name: HF_MODEL_REPO_ID, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: ml }
+  - { name: HF_TOKEN, layers: [backend], secret: true, settings: true, example: backend/.env.example, group: ml }
+
+  # Scanners / egress
+  - { name: PAGESPEED_API_KEY, layers: [backend], secret: true, settings: true, example: backend/.env.example, group: scanners }
+  - { name: HIBP_API_KEY, layers: [backend], secret: true, settings: true, example: backend/.env.example, group: scanners }
+  - { name: TOR_PROXY_URL, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: scanners }
+  - { name: FIRECRAWL_API_KEY, layers: [backend], secret: true, settings: true, example: backend/.env.example, group: scanners }
+  - { name: FIRECRAWL_API_URL, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: scanners }
+  - { name: SCANNER_SERVICE_URL, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: scanners }
+  - { name: OUTBOUND_HOST_ALLOWLIST, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: scanners }
+  - { name: WEBHOOK_SIGNING_SECRETS_JSON, layers: [backend], secret: true, settings: true, example: backend/.env.example, group: scanners }
+
+  # Object storage / exports
+  - { name: OBJECT_STORAGE_ENDPOINT, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: storage }
+  - { name: OBJECT_STORAGE_ACCESS_KEY, layers: [backend], secret: true, settings: true, example: backend/.env.example, group: storage }
+  - { name: OBJECT_STORAGE_SECRET_KEY, layers: [backend], secret: true, settings: true, example: backend/.env.example, group: storage }
+  - { name: OBJECT_STORAGE_BUCKET, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: storage }
+  - { name: OBJECT_STORAGE_REGION, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: storage }
+  - { name: OBJECT_STORAGE_ADDRESSING_STYLE, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: storage }
+  - { name: EXPORT_WORKER_INTERVAL_SECONDS, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: workers }
+  - { name: EXPORT_MAX_ATTEMPTS, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: workers }
+  - { name: EXPORT_TTL_SECONDS, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: workers }
+  - { name: EXPORT_MAX_ARTIFACT_BYTES, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: workers }
+  - { name: EXPORT_MAX_SOURCE_BYTES, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: workers }
+
+  # Supervised workers
+  - { name: INGEST_PROCESSING_INTERVAL_SECONDS, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: workers }
+  - { name: INGEST_PROCESSING_BATCH_SIZE, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: workers }
+  - { name: SOAR_WORKER_INTERVAL_SECONDS, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: workers }
+  - { name: SOAR_WORKER_BATCH_SIZE, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: workers }
+  - { name: ANALYTICS_ROLLUP_INTERVAL_SECONDS, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: workers, flag: true }
+  - { name: ANALYTICS_ML_REFRESH_SECONDS, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: workers }
+  - { name: TRAINING_TICK_SECONDS, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: workers, flag: true }
+  - { name: TRAINING_REFRESH_SECONDS, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: workers }
+  - { name: RETENTION_SWEEP_INTERVAL_SECONDS, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: workers, flag: true }
+  - { name: RETENTION_TELEMETRY_DAYS, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: workers }
+  - { name: RETENTION_RESULTS_DAYS, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: workers }
+  - { name: RETENTION_RECEIPTS_DAYS, layers: [backend], secret: false, settings: true, example: backend/.env.example, group: workers }
+
+  # Platform / infra (not Settings fields)
+  - { name: FLY_APP_NAME, layers: [backend, engine], secret: false, settings: false, group: platform, summary: Injected by Fly; triggers production fail-closed }
+  - { name: DFLY_requirepass, layers: [infra], secret: true, settings: false, group: infra, summary: Dragonfly Fly secret (infra/dragonfly/) }
+  - { name: PREFECT_HOME, layers: [backend], secret: false, settings: false, group: platform, summary: Set in fly.api.toml for Prefect home }
+  - { name: HOME, layers: [backend], secret: false, settings: false, group: platform }
+
+  # Frontend (Angular fileReplacements — not process env)
+  - { name: production, layers: [frontend], secret: false, settings: false, example: frontend/src/environments/environment.ts, group: frontend, summary: Angular environment.production }
+  - { name: apiBaseUrl, layers: [frontend], secret: false, settings: false, example: frontend/src/environments/environment.ts, group: frontend }
+  - { name: sentryDsn, layers: [frontend], secret: false, settings: false, example: frontend/src/environments/environment.ts, group: frontend, summary: Public client DSN }
+  - { name: rollbarAccessToken, layers: [frontend], secret: false, settings: false, example: frontend/src/environments/environment.ts, group: frontend, summary: Public post_client_item token }
+
+  # Local tooling
+  - { name: CHROMATIC_PROJECT_TOKEN, layers: [tooling], secret: true, settings: false, group: tooling, summary: Root .env only; not CI }

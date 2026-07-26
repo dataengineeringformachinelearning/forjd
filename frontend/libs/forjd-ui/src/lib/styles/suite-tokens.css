@@ -58,9 +58,10 @@ html[data-theme="dark"] {
   --suite-ink-on-primary: #ffffff;
   --suite-ink-inverse: #0a0a0a;
 
-  /* --- Borders --- */
+  /* --- Borders (strong ≥3:1 UI contrast on void surfaces — WCAG 1.4.11) --- */
   --suite-border: #222222;
-  --suite-border-strong: #333333;
+  --suite-border-strong: #666666;
+  --suite-border-control: var(--suite-border-strong);
   --suite-border-subtle: color-mix(
     in srgb,
     var(--suite-border) 70%,
@@ -68,9 +69,11 @@ html[data-theme="dark"] {
   );
   --suite-hairline: color-mix(in srgb, var(--suite-primary) 28%, transparent);
 
-  /* --- Primary / accent (electric command) --- */
-  --suite-primary: #2176ff;
-  --suite-primary-hover: #4d94ff;
+  /* --- Primary / accent (electric command) ---
+     Fill/hover are darkened for ≥4.5:1 white-on-fill. Brand hue kept on series-1.
+     --suite-primary-strong is the AA text/link color on dark surfaces. */
+  --suite-primary: #1565f0;
+  --suite-primary-hover: #0f5ae0;
   --suite-primary-active: #0a4fd4;
   --suite-primary-soft: color-mix(
     in srgb,
@@ -79,41 +82,46 @@ html[data-theme="dark"] {
   );
   --suite-primary-strong: #7ab0ff;
   --suite-accent: var(--suite-primary);
-  --suite-accent-hover: var(--suite-primary-hover);
+  --suite-accent-hover: var(--suite-primary-strong);
   /* Institutional gold — chrome / prestige moments (not chart series by default) */
   --suite-gold: #d4af37;
   --suite-gold-soft: color-mix(in srgb, var(--suite-gold) 16%, transparent);
+  --suite-gold-text: #e8c96a;
 
-  /* --- Status --- */
+  /* --- Status (fills keep brand chroma; *-text is AA foreground on surfaces) --- */
   --suite-success: #2a9d8f;
   --suite-success-soft: color-mix(
     in srgb,
     var(--suite-success) 16%,
     transparent
   );
+  --suite-success-text: #5ec4b6;
+  --suite-success-fill: #1a7066;
   --suite-warning: #d69e2e;
   --suite-warning-soft: color-mix(
     in srgb,
     var(--suite-warning) 16%,
     transparent
   );
+  --suite-warning-text: #e8c25a;
   --suite-danger: #a83344;
   --suite-danger-soft: color-mix(in srgb, var(--suite-danger) 16%, transparent);
+  --suite-danger-text: #dc6b78;
   --suite-info: var(--suite-primary-strong);
 
-  /* --- Focus / ring --- */
-  --suite-focus: var(--suite-primary-hover);
-  --suite-ring: var(--suite-primary-hover);
+  /* --- Focus / ring (bright for visibility — not the darkened fill hover) --- */
+  --suite-focus: #4d94ff;
+  --suite-ring: #4d94ff;
   --suite-ring-width: 2px;
   --suite-ring-offset: 2px;
 
   /* --- Chart series (Role B) — tokenized; prefer these over hard-coded hexes --- */
-  --suite-series-1: var(--suite-primary);
+  --suite-series-1: #2176ff;
   --suite-series-2: #922b3e;
   --suite-series-3: var(--suite-success);
   --suite-series-4: var(--suite-gold);
   --suite-series-5: var(--suite-danger);
-  --suite-series-6: var(--suite-primary-hover);
+  --suite-series-6: #4d94ff;
   --suite-series-7: #162544;
   --suite-series-8: #666666;
   --suite-series-default: var(--suite-series-1);
@@ -137,6 +145,16 @@ html[data-theme="dark"] {
   --suite-text-3xl: 2.25rem; /* 36px */
   --suite-text-4xl: 3rem; /* 48px */
   --suite-text-display: clamp(2.5rem, 7vw, 3rem);
+  --suite-text-display-lg: clamp(2.25rem, 5vw, 3.75rem);
+  --suite-text-display-md: clamp(2rem, 4.5vw, 3rem);
+  /* Hero industrial titles — fluid, tokenized clamps */
+  --suite-text-headline: clamp(1.35rem, 3.2vw, 2rem);
+  --suite-text-headline-quiet: clamp(1.2rem, 2.6vw, 1.65rem);
+  --suite-text-title: clamp(1.5rem, 3.5vw, 2rem);
+  --suite-text-title-lg: clamp(1.75rem, 5vw, 2.5rem);
+  --suite-text-title-sm: clamp(1.35rem, 3vw, 1.75rem);
+  --suite-text-lead: 1.25rem; /* 20px section lead */
+  --suite-text-lead-fluid: clamp(1.05rem, 2vw, 1.25rem);
 
   --suite-weight-regular: 400;
   --suite-weight-medium: 500;
@@ -173,10 +191,18 @@ html[data-theme="dark"] {
   --suite-space-10: 96px;
   --suite-space-11: 112px;
   --suite-space-12: 128px;
+  --suite-space-14: 160px;
+  --suite-space-16: 192px;
 
   --suite-space-compact: 12px;
   --suite-page-gutter: clamp(1rem, 4vw, 1.5rem);
-  --suite-section-gap: clamp(2.5rem, 6vw, 4rem);
+  /* Major section rhythm — more air between stages; not card/list density */
+  --suite-section-gap: clamp(3rem, 7vw, 5rem);
+  /* Related blocks inside a section (header→grid, band stack) */
+  --suite-block-gap: clamp(1.75rem, 3.5vw, 2.5rem);
+  /* Dense operational rows (tables, status, meta) */
+  --suite-density-gap: var(--suite-space-1);
+  --suite-cluster-gap: var(--suite-space-2);
   --suite-content-max: 78.75rem; /* 1260px */
   --suite-readable-max: 48rem;
   /* Mobile touch target (WCAG AA / SaaS) */
@@ -185,6 +211,15 @@ html[data-theme="dark"] {
   --suite-control-height: 2.5rem; /* 40px */
   --suite-control-height-sm: 2rem; /* 32px */
   --suite-control-height-lg: var(--suite-touch);
+  /* Shared control chrome — buttons, inputs, selects align to this grid */
+  --suite-control-px: var(--suite-space-2);
+  --suite-control-px-lg: var(--suite-space-3);
+  --suite-control-fs: var(--suite-text-md);
+  --suite-control-fs-sm: var(--suite-text-sm);
+  --suite-control-check: 1.25rem; /* checkbox / radio glyph */
+  /* Soft inner focus for fields (pairs with :focus-visible outline) */
+  --suite-control-focus-ring: 0 0 0 1px
+    color-mix(in srgb, var(--suite-primary) 42%, transparent);
 
   /* --- Radius --- */
   --suite-radius-xs: 4px;
@@ -196,17 +231,41 @@ html[data-theme="dark"] {
   --suite-radius-control: var(--suite-radius);
   --suite-radius-surface: var(--suite-radius-lg);
 
-  /* --- Elevation --- */
-  --suite-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  /* --- Elevation (machined, stepped — never decorative glow stacks) --- */
+  /* Drop shadows: short/hard near-edge + soft ambient; keep opacity low */
+  --suite-shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.28);
   --suite-shadow-sm:
-    0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.12);
+    0 1px 2px rgba(0, 0, 0, 0.28), 0 3px 10px rgba(0, 0, 0, 0.14);
   --suite-shadow-md:
-    0 2px 4px rgba(0, 0, 0, 0.18), 0 10px 24px rgba(0, 0, 0, 0.16);
+    0 2px 4px rgba(0, 0, 0, 0.26), 0 8px 20px rgba(0, 0, 0, 0.16);
   --suite-shadow-lg:
-    0 4px 8px rgba(0, 0, 0, 0.2), 0 20px 40px rgba(0, 0, 0, 0.2);
+    0 4px 8px rgba(0, 0, 0, 0.28), 0 16px 36px rgba(0, 0, 0, 0.22);
   --suite-shadow-hover:
-    0 2px 4px rgba(0, 0, 0, 0.2), 0 12px 28px rgba(0, 0, 0, 0.2);
-  --suite-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.055);
+    0 2px 4px rgba(0, 0, 0, 0.28), 0 10px 22px rgba(0, 0, 0, 0.18);
+  /* Top-edge specular — primary depth cue on dark steel */
+  --suite-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  /* Recessed wells (tables, tablists, metric panels) */
+  --suite-shadow-inset:
+    inset 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  /* Overlay glass — modals / loading only; not base cards */
+  --suite-glass: color-mix(
+    in srgb,
+    var(--suite-surface-elevated) 82%,
+    transparent
+  );
+  --suite-glass-strong: color-mix(
+    in srgb,
+    var(--suite-surface-elevated) 92%,
+    transparent
+  );
+  --suite-glass-blur: 8px;
+  /* Composed elevation recipes (prefer these in chrome) */
+  --suite-elevation-1: var(--suite-highlight);
+  --suite-elevation-2: var(--suite-shadow-sm), var(--suite-highlight);
+  --suite-elevation-3: var(--suite-shadow-md), var(--suite-highlight);
+  --suite-elevation-4: var(--suite-shadow-lg), var(--suite-highlight);
+  --suite-elevation-hover: var(--suite-shadow-hover), var(--suite-highlight);
+  --suite-elevation-inset: var(--suite-shadow-inset);
 
   /* --- Z-index scale --- */
   --suite-z-base: 0;
@@ -217,18 +276,34 @@ html[data-theme="dark"] {
   --suite-z-toast: 1400;
   --suite-z-max: 1500;
 
-  /* --- Motion --- */
+  /* --- Motion (aerospace: short, decisive, no bounce) --- */
   --suite-ease: cubic-bezier(0.2, 0, 0, 1);
   --suite-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --suite-ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --suite-duration-instant: 75ms;
   --suite-duration-fast: 150ms;
   --suite-duration: 250ms;
   --suite-duration-slow: 350ms;
+  /* Geometry: 1px lift / press — perceptible, never theatrical */
+  --suite-hover-lift: -1px;
+  --suite-press-sink: 1px;
+  --suite-nudge: 2px;
+  --suite-reveal-distance: 0.5rem;
+  --suite-active-scale: 0.985;
   --suite-transition:
     background-color var(--suite-duration-fast) var(--suite-ease),
     border-color var(--suite-duration-fast) var(--suite-ease),
     color var(--suite-duration-fast) var(--suite-ease),
     opacity var(--suite-duration-fast) var(--suite-ease),
+    box-shadow var(--suite-duration-fast) var(--suite-ease),
     transform var(--suite-duration-fast) var(--suite-ease);
+  --suite-transition-transform: transform var(--suite-duration-fast)
+    var(--suite-ease-emphasized);
+  --suite-transition-colors:
+    background-color var(--suite-duration-fast) var(--suite-ease),
+    border-color var(--suite-duration-fast) var(--suite-ease),
+    color var(--suite-duration-fast) var(--suite-ease),
+    box-shadow var(--suite-duration-fast) var(--suite-ease);
 
   /* --- Breakpoints (THEME.md mobile-first contract) --- */
   --suite-bp-sm: 600px;
@@ -256,6 +331,7 @@ html[data-theme="dark"] {
   --viking-border: var(--suite-border);
   --viking-border-strong: var(--suite-border-strong);
   --viking-border-subtle: var(--suite-border-subtle);
+  --viking-border-control: var(--suite-border-control);
   --viking-border-container: var(--suite-border);
   --viking-border-accent: var(--suite-hairline);
   --viking-text: var(--suite-ink);
@@ -269,9 +345,13 @@ html[data-theme="dark"] {
   --viking-accent-strong: var(--suite-primary-strong);
   --viking-accent-content: var(--suite-ink-on-primary);
   --viking-gold-500: var(--suite-gold);
+  --viking-gold-text: var(--suite-gold-text);
   --viking-success: var(--suite-success);
+  --viking-success-text: var(--suite-success-text);
   --viking-warning: var(--suite-warning);
+  --viking-warning-text: var(--suite-warning-text);
   --viking-danger: var(--suite-danger);
+  --viking-danger-text: var(--suite-danger-text);
   --viking-ring: var(--suite-ring);
   --viking-ring-width: var(--suite-ring-width);
   --viking-ring-offset: var(--suite-ring-offset);
@@ -288,6 +368,18 @@ html[data-theme="dark"] {
   --viking-font-size-2xl: var(--suite-text-2xl);
   --viking-font-size-3xl: var(--suite-text-3xl);
   --viking-font-size-4xl: var(--suite-text-4xl);
+  --viking-font-size-5xl: 3.75rem;
+  --viking-font-size-6xl: 4.5rem;
+  --viking-font-size-display: var(--suite-text-display);
+  --viking-font-size-display-lg: var(--suite-text-display-lg);
+  --viking-font-size-display-md: var(--suite-text-display-md);
+  --viking-font-size-headline: var(--suite-text-headline);
+  --viking-font-size-headline-quiet: var(--suite-text-headline-quiet);
+  --viking-font-size-title: var(--suite-text-title);
+  --viking-font-size-title-lg: var(--suite-text-title-lg);
+  --viking-font-size-title-sm: var(--suite-text-title-sm);
+  --viking-font-size-lead: var(--suite-text-lead);
+  --viking-font-size-lead-fluid: var(--suite-text-lead-fluid);
   --viking-font-weight-regular: var(--suite-weight-regular);
   --viking-font-weight-medium: var(--suite-weight-medium);
   --viking-font-weight-semibold: var(--suite-weight-semibold);
@@ -303,6 +395,8 @@ html[data-theme="dark"] {
   --viking-letter-spacing-wide: var(--suite-tracking-wide);
   --viking-letter-spacing-caps: var(--suite-tracking-caps);
   --viking-letter-spacing-display: var(--suite-tracking-brand);
+  --viking-space-0: var(--suite-space-0);
+  --viking-space-px: var(--suite-space-px);
   --viking-space-0-5: var(--suite-space-0-5);
   --viking-space-1: var(--suite-space-1);
   --viking-space-2: var(--suite-space-2);
@@ -316,6 +410,8 @@ html[data-theme="dark"] {
   --viking-space-10: var(--suite-space-10);
   --viking-space-11: var(--suite-space-11);
   --viking-space-12: var(--suite-space-12);
+  --viking-space-14: var(--suite-space-14);
+  --viking-space-16: var(--suite-space-16);
   --viking-space-compact-gap: var(--suite-space-compact);
   --viking-touch-target-min: var(--suite-touch);
   --viking-radius-xs: var(--suite-radius-xs);
@@ -329,16 +425,43 @@ html[data-theme="dark"] {
   --viking-shadow-md: var(--suite-shadow-md);
   --viking-shadow-lg: var(--suite-shadow-lg);
   --viking-shadow-hover: var(--suite-shadow-hover);
+  --viking-shadow-inner: var(--suite-shadow-inset);
   --viking-surface-highlight: var(--suite-highlight);
+  --viking-elevation-1: var(--suite-elevation-1);
+  --viking-elevation-2: var(--suite-elevation-2);
+  --viking-elevation-3: var(--suite-elevation-3);
+  --viking-elevation-4: var(--suite-elevation-4);
+  --viking-elevation-hover: var(--suite-elevation-hover);
+  --viking-elevation-inset: var(--suite-elevation-inset);
+  --viking-glass: var(--suite-glass);
+  --viking-glass-strong: var(--suite-glass-strong);
+  --viking-glass-blur: var(--suite-glass-blur);
+  --viking-duration-instant: var(--suite-duration-instant);
   --viking-duration-fast: var(--suite-duration-fast);
   --viking-duration: var(--suite-duration);
   --viking-duration-slow: var(--suite-duration-slow);
   --viking-ease-out: var(--suite-ease-out);
-  --viking-ease-emphasized: var(--suite-ease);
+  --viking-ease-emphasized: var(--suite-ease-emphasized);
+  --viking-state-hover-lift: var(--suite-hover-lift);
+  --viking-state-press-sink: var(--suite-press-sink);
+  --viking-state-nudge: var(--suite-nudge);
+  --viking-state-reveal-distance: var(--suite-reveal-distance);
+  --viking-state-active-scale: var(--suite-active-scale);
   --viking-transition-interactive: var(--suite-transition);
+  --viking-transition-colors: var(--suite-transition-colors);
+  --viking-transition-transform: var(--suite-transition-transform);
   --viking-control-height: var(--suite-control-height);
+  --viking-control-height-sm: var(--suite-control-height-sm);
+  --viking-control-height-lg: var(--suite-control-height-lg);
+  --viking-control-px: var(--suite-control-px);
+  --viking-control-fs: var(--suite-control-fs);
+  --viking-control-check: var(--suite-control-check);
+  --viking-control-focus-ring: var(--suite-control-focus-ring);
   --viking-page-gutter: var(--suite-page-gutter);
   --viking-page-section-gap: var(--suite-section-gap);
+  --viking-page-stack-gap: var(--suite-block-gap);
+  --viking-block-gap: var(--suite-block-gap);
+  --viking-density-gap: var(--suite-density-gap);
   --viking-container-max-width: var(--suite-content-max);
   --viking-content-readable-max-width: var(--suite-readable-max);
   --viking-bp-sm: var(--suite-bp-sm);
@@ -371,22 +494,33 @@ html[data-theme="dark"] {
   --fj-surface-elevated: var(--suite-surface-elevated);
   --fj-border: var(--suite-border);
   --fj-border-strong: var(--suite-border-strong);
+  --fj-border-control: var(--suite-border-control);
   --fj-hairline: var(--suite-hairline);
   --fj-overlay: var(--suite-overlay);
   --fj-primary: var(--suite-primary);
   --fj-primary-hover: var(--suite-primary-hover);
+  --fj-primary-active: var(--suite-primary-active);
   --fj-primary-soft: var(--suite-primary-soft);
+  --fj-primary-strong: var(--suite-primary-strong);
   --fj-focus: var(--suite-focus);
+  --fj-ring: var(--suite-ring);
+  --fj-ring-width: var(--suite-ring-width);
+  --fj-ring-offset: var(--suite-ring-offset);
   --fj-gold: var(--suite-gold);
   --fj-gold-soft: var(--suite-gold-soft);
+  --fj-gold-text: var(--suite-gold-text);
   --fj-accent: var(--suite-accent);
   --fj-accent-hover: var(--suite-accent-hover);
   --fj-warning: var(--suite-warning);
+  --fj-warning-text: var(--suite-warning-text);
   --fj-danger: var(--suite-danger);
+  --fj-danger-text: var(--suite-danger-text);
   --fj-success: var(--suite-success);
+  --fj-success-text: var(--suite-success-text);
   --fj-text: var(--suite-ink);
   --fj-text-muted: var(--suite-ink-muted);
   --fj-text-subtle: var(--suite-ink-subtle);
+  --fj-text-disabled: var(--suite-ink-disabled);
   --fj-text-on-primary: var(--suite-ink-on-primary);
   --fj-font-sans: var(--suite-font-sans);
   --fj-font-mono: var(--suite-font-mono);
@@ -398,6 +532,9 @@ html[data-theme="dark"] {
   --fj-text-xl: var(--suite-text-xl);
   --fj-text-2xl: var(--suite-text-2xl);
   --fj-text-display: var(--suite-text-display);
+  --fj-text-headline: var(--suite-text-headline);
+  --fj-text-headline-quiet: var(--suite-text-headline-quiet);
+  --fj-text-lead: var(--suite-text-lead);
   --fj-leading-tight: var(--suite-leading-tight);
   --fj-leading-snug: var(--suite-leading-snug);
   --fj-leading-normal: var(--suite-leading-normal);
@@ -406,7 +543,13 @@ html[data-theme="dark"] {
   --fj-tracking-brand: var(--suite-tracking-brand);
   --fj-tracking-caps: var(--suite-tracking-caps);
   --fj-radius: var(--suite-radius);
+  --fj-radius-xs: var(--suite-radius-xs);
+  --fj-radius-sm: var(--suite-radius-sm);
   --fj-radius-lg: var(--suite-radius-lg);
+  --fj-radius-xl: var(--suite-radius-xl);
+  --fj-radius-pill: var(--suite-radius-pill);
+  --fj-radius-control: var(--suite-radius-control);
+  --fj-radius-surface: var(--suite-radius-surface);
   --fj-space-1: var(--suite-space-0-5);
   --fj-space-2: var(--suite-space-1);
   --fj-space-3: var(--suite-space-compact);
@@ -419,18 +562,46 @@ html[data-theme="dark"] {
   --fj-space-12: var(--suite-space-6);
   --fj-touch-target: var(--suite-touch);
   --fj-control-height: var(--suite-control-height);
+  --fj-control-height-sm: var(--suite-control-height-sm);
+  --fj-control-height-lg: var(--suite-control-height-lg);
+  --fj-control-px: var(--suite-control-px);
+  --fj-control-fs: var(--suite-control-fs);
+  --fj-control-check: var(--suite-control-check);
+  --fj-control-focus-ring: var(--suite-control-focus-ring);
   --fj-page-gutter: var(--suite-page-gutter);
   --fj-section-gap: var(--suite-section-gap);
+  --fj-block-gap: var(--suite-block-gap);
+  --fj-density-gap: var(--suite-density-gap);
   --fj-content-max: var(--suite-content-max);
   --fj-readable-max: var(--suite-readable-max);
   --fj-bp-md: var(--suite-bp-md);
   --fj-bp-lg: var(--suite-bp-lg);
   --fj-ease: var(--suite-ease);
   --fj-ease-out: var(--suite-ease-out);
+  --fj-ease-emphasized: var(--suite-ease-emphasized);
+  --fj-duration-instant: var(--suite-duration-instant);
   --fj-duration-fast: var(--suite-duration-fast);
   --fj-duration: var(--suite-duration);
   --fj-duration-slow: var(--suite-duration-slow);
+  --fj-transition: var(--suite-transition);
+  --fj-transition-transform: var(--suite-transition-transform);
+  --fj-hover-lift: var(--suite-hover-lift);
+  --fj-active-scale: var(--suite-active-scale);
+  --fj-press-sink: var(--suite-press-sink);
+  --fj-nudge: var(--suite-nudge);
+  --fj-reveal-distance: var(--suite-reveal-distance);
+  --fj-highlight: var(--suite-highlight);
+  --fj-elevation-1: var(--suite-elevation-1);
+  --fj-elevation-2: var(--suite-elevation-2);
+  --fj-elevation-3: var(--suite-elevation-3);
+  --fj-elevation-4: var(--suite-elevation-4);
+  --fj-elevation-hover: var(--suite-elevation-hover);
+  --fj-elevation-inset: var(--suite-elevation-inset);
+  --fj-glass: var(--suite-glass);
+  --fj-glass-strong: var(--suite-glass-strong);
+  --fj-glass-blur: var(--suite-glass-blur);
   --fj-transition-interactive: var(--suite-transition);
+  --fj-transition-colors: var(--suite-transition-colors);
   --fj-z-dropdown: var(--suite-z-dropdown);
   --fj-z-modal: var(--suite-z-modal);
   --fj-z-toast: var(--suite-z-toast);
@@ -455,12 +626,13 @@ html[data-theme="light"] {
   --suite-ink: #080d1f;
   --suite-ink-muted: #555555;
   --suite-ink-subtle: #666666;
-  --suite-ink-disabled: #999999;
+  --suite-ink-disabled: #666666;
   --suite-ink-on-primary: #ffffff;
   --suite-ink-inverse: #f5f5f5;
 
   --suite-border: #d7e0ef;
-  --suite-border-strong: #8fa2c2;
+  --suite-border-strong: #58719e;
+  --suite-border-control: var(--suite-border-strong);
   --suite-border-subtle: color-mix(
     in srgb,
     var(--suite-border) 70%,
@@ -468,37 +640,74 @@ html[data-theme="light"] {
   );
 
   --suite-primary: #1565f0;
-  --suite-primary-hover: #2176ff;
-  --suite-primary-active: #0a4fd4;
+  --suite-primary-hover: #0a4fd4;
+  --suite-primary-active: #073a99;
   --suite-primary-soft: color-mix(
     in srgb,
     var(--suite-primary) 12%,
     transparent
   );
   --suite-primary-strong: #073a99;
+  --suite-accent-hover: var(--suite-primary-strong);
   --suite-focus: var(--suite-primary);
   --suite-ring: var(--suite-primary);
+
+  /* Status text on light surfaces (fills keep brand chroma for soft/chart use) */
+  --suite-gold-text: #7a6410;
+  --suite-success-text: #187066;
+  --suite-success-fill: #1a7066;
+  --suite-warning-text: #7a580e;
+  --suite-danger-text: #a83344;
 
   /* Series stay chromatically stable; only series-7 (muted baseline) lightens */
   --suite-series-7: #8fa2c2;
   --suite-series-8: #999999;
 
-  --suite-shadow-xs: 0 1px 2px rgba(8, 13, 31, 0.06);
+  --suite-shadow-xs: 0 1px 1px rgba(8, 13, 31, 0.05);
   --suite-shadow-sm:
-    0 1px 2px rgba(8, 13, 31, 0.06), 0 4px 12px rgba(8, 13, 31, 0.06);
+    0 1px 2px rgba(8, 13, 31, 0.05), 0 3px 10px rgba(8, 13, 31, 0.05);
   --suite-shadow-md:
-    0 2px 4px rgba(8, 13, 31, 0.06), 0 10px 24px rgba(8, 13, 31, 0.08);
+    0 2px 4px rgba(8, 13, 31, 0.06), 0 8px 20px rgba(8, 13, 31, 0.07);
   --suite-shadow-lg:
-    0 4px 8px rgba(8, 13, 31, 0.08), 0 20px 40px rgba(8, 13, 31, 0.1);
+    0 4px 8px rgba(8, 13, 31, 0.07), 0 16px 36px rgba(8, 13, 31, 0.09);
   --suite-shadow-hover:
-    0 2px 4px rgba(8, 13, 31, 0.08), 0 12px 28px rgba(8, 13, 31, 0.1);
-  --suite-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    0 2px 4px rgba(8, 13, 31, 0.07), 0 10px 22px rgba(8, 13, 31, 0.08);
+  --suite-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --suite-shadow-inset:
+    inset 0 1px 2px rgba(8, 13, 31, 0.06), inset 0 0 0 1px rgba(8, 13, 31, 0.04);
+  --suite-glass: color-mix(in srgb, #ffffff 78%, transparent);
+  --suite-glass-strong: color-mix(in srgb, #ffffff 90%, transparent);
+  --suite-elevation-1: var(--suite-highlight);
+  --suite-elevation-2: var(--suite-shadow-sm), var(--suite-highlight);
+  --suite-elevation-3: var(--suite-shadow-md), var(--suite-highlight);
+  --suite-elevation-4: var(--suite-shadow-lg), var(--suite-highlight);
+  --suite-elevation-hover: var(--suite-shadow-hover), var(--suite-highlight);
+  --suite-elevation-inset: var(--suite-shadow-inset);
 }
 
+/* WCAG 2.3.3 — zero motion tokens; consumers must not invent alternate timings */
 @media (prefers-reduced-motion: reduce) {
   :root {
+    --suite-duration-instant: 0ms;
     --suite-duration-fast: 0ms;
     --suite-duration: 0ms;
     --suite-duration-slow: 0ms;
+    --suite-hover-lift: 0px;
+    --suite-press-sink: 0px;
+    --suite-nudge: 0px;
+    --suite-reveal-distance: 0px;
+    --suite-active-scale: 1;
+    --suite-transition: none;
+    --suite-transition-transform: none;
+    --suite-transition-colors: none;
+  }
+}
+
+/* Opaque fallbacks — glass blur is hierarchy aid, not required */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --suite-glass-blur: 0px;
+    --suite-glass: var(--suite-surface-elevated);
+    --suite-glass-strong: var(--suite-surface-elevated);
   }
 }

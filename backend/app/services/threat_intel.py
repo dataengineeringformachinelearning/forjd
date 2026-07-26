@@ -18,13 +18,14 @@ from fastapi import HTTPException, status
 
 from app.core.auth import AuthUser, require_user_principal
 from app.core.config import settings
+from app.core.outbound_http import DEFAULT_MAX_RESPONSE_BYTES, OutboundHttpError, read_bounded_body
 from app.services import tenants as tenant_svc
 
 logger = logging.getLogger("forjd.threat_intel")
 
 ABUSE_CH_URL = "https://feodotracker.abuse.ch/downloads/ipblocklist.txt"
 _IPV4_RE = re.compile(r"^(?:(?:25[0-5]|2[0-4]\d|[01]?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d?\d)$")
-_MAX_TAXII_RESPONSE_BYTES = 2 * 1024 * 1024
+_MAX_TAXII_RESPONSE_BYTES = DEFAULT_MAX_RESPONSE_BYTES
 
 
 def require_platform_admin(user: AuthUser) -> AuthUser:
@@ -457,14 +458,10 @@ async def _read_taxii_response(response: httpx.Response) -> bytes:
     if 300 <= response.status_code < 400:
         raise ValueError("TAXII redirects are not allowed")
     response.raise_for_status()
-    chunks: list[bytes] = []
-    size = 0
-    async for chunk in response.aiter_bytes():
-        size += len(chunk)
-        if size > _MAX_TAXII_RESPONSE_BYTES:
-            raise ValueError("TAXII response exceeds 2 MiB")
-        chunks.append(chunk)
-    return b"".join(chunks)
+    try:
+        return await read_bounded_body(response, max_bytes=_MAX_TAXII_RESPONSE_BYTES)
+    except OutboundHttpError as exc:
+        raise ValueError(str(exc) or "TAXII response read failed") from exc
 
 
 # --- Lookup / list (JWT + membership for tenant scope) ---

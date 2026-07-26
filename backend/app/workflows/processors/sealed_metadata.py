@@ -2,6 +2,9 @@
 
 Config-driven via YAML ``pipeline.processor: sealed_metadata``. Operates on
 cipher lengths + routing metadata only — never decrypts.
+
+ADR: ``docs/adr/0003-rust-streams-polars-batch.md``,
+``docs/adr/0002-ciphertext-only-partner-boundary.md``.
 """
 
 from __future__ import annotations

@@ -12,17 +12,12 @@
    ============================================================================= */
 :is(.suite-landing, .fj-landing, .landing-container, .community-home) {
   /* Restrained command atmosphere — no neon orbs; stepped light only. */
+  /* Single electric wash — calm confidence over layered theater */
   --_suite-landing-glow: color-mix(
     in srgb,
-    var(--suite-primary) 14%,
+    var(--suite-primary) 11%,
     transparent
   );
-  --_suite-landing-glow-mid: color-mix(
-    in srgb,
-    var(--suite-primary) 7%,
-    transparent
-  );
-  --_suite-landing-gold: color-mix(in srgb, var(--suite-gold) 8%, transparent);
   position: relative;
   isolation: isolate;
   min-height: 100%;
@@ -44,19 +39,9 @@
   pointer-events: none;
   background:
     radial-gradient(
-      110% 80% at 8% -15%,
+      100% 70% at 12% -10%,
       var(--_suite-landing-glow),
-      transparent 58%
-    ),
-    radial-gradient(
-      70% 55% at 88% 8%,
-      var(--_suite-landing-gold),
-      transparent 52%
-    ),
-    radial-gradient(
-      50% 40% at 50% 100%,
-      var(--_suite-landing-glow-mid),
-      transparent 60%
+      transparent 62%
     ),
     var(--suite-bg);
 }
@@ -68,19 +53,19 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.1;
+  opacity: 0.03;
   background-image:
     linear-gradient(
-      color-mix(in srgb, var(--suite-border) 60%, transparent) 1px,
+      color-mix(in srgb, var(--suite-border) 40%, transparent) 1px,
       transparent 1px
     ),
     linear-gradient(
       90deg,
-      color-mix(in srgb, var(--suite-border) 60%, transparent) 1px,
+      color-mix(in srgb, var(--suite-border) 40%, transparent) 1px,
       transparent 1px
     );
-  background-size: var(--suite-space-8) var(--suite-space-8);
-  mask-image: radial-gradient(ellipse at 30% 0%, black 0%, transparent 62%);
+  background-size: var(--suite-space-10) var(--suite-space-10);
+  mask-image: radial-gradient(ellipse at 30% 0%, black 0%, transparent 48%);
 }
 
 /* Children above atmosphere */
@@ -92,7 +77,36 @@
 @media (prefers-reduced-motion: reduce) {
   :is(.suite-landing, .fj-landing)::after,
   .landing-container.suite-landing::after {
-    opacity: 0.08;
+    opacity: 0.04;
+  }
+}
+
+/*
+ * Constrained delivery — solid void, skip grid mask + paint-heavy hairlines.
+ * High-end / wide viewports keep the electric wash + grid.
+ * prefers-reduced-data is progressive (unsupported browsers ignore the clause).
+ */
+@media (max-width: 600px), (prefers-reduced-data: reduce) {
+  :is(.suite-landing, .fj-landing)::before,
+  .landing-container.suite-landing::before,
+  .community-home.suite-landing::before {
+    background: var(--suite-bg);
+  }
+
+  :is(.suite-landing, .fj-landing)::after,
+  .landing-container.suite-landing::after {
+    content: none;
+    display: none;
+  }
+
+  :is(.suite-landing-feature, .landing__feature)
+    :is(.suite-card, .viking-card, .fj-card)::before,
+  :is(.suite-landing-steps, .landing__steps)
+    :is(.suite-landing-feature, .landing__feature)
+    :is(.suite-card, .viking-card, .fj-card)::before,
+  :is(.landing__band-panel) :is(.suite-card, .viking-card, .fj-card)::before {
+    content: none;
+    display: none;
   }
 }
 
@@ -101,7 +115,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--suite-section-gap);
-  padding-block: var(--suite-space-8) var(--suite-space-12);
+  padding-block: var(--suite-space-8) var(--suite-space-14);
   min-height: min(100dvh, 100%);
   max-width: var(--suite-content-max);
   margin-inline: auto;
@@ -178,15 +192,73 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
 ) {
   display: flex;
   flex-direction: column;
-  gap: var(--suite-space-4);
+  gap: var(--suite-space-3);
   max-width: 52rem;
-  min-height: min(78dvh, 40rem);
+  /* Mobile-first: keep steps in the first scroll; grow tall only on large viewports */
+  min-height: min(52dvh, 26rem);
   justify-content: center;
-  padding-block: var(--suite-space-10) var(--suite-space-5);
-  animation: suite-hero-in var(--suite-duration-slow) var(--suite-ease) both;
+  padding-block: var(--suite-space-7) var(--suite-space-5);
 }
 
-/* Live status pill */
+/* Expensive type rhythm — tighten brand↔headline; open lede→actions */
+:is(.suite-landing-mark, .landing__hero-mark)
+  + :is(.suite-landing-brand, .fj-brand, .landing__brand) {
+  margin-top: calc(-1 * var(--suite-space-0-5));
+}
+
+:is(.suite-landing-brand, .fj-brand, .landing__brand)
+  + :is(.suite-landing-headline, .landing__hero-line, .fj-headline) {
+  margin-top: calc(-1 * var(--suite-space-1));
+}
+
+:is(.suite-landing-lede, .landing__lede, .fj-lede)
+  + :is(.suite-landing-actions, .landing__actions) {
+  margin-top: var(--suite-space-2);
+}
+
+/* Instant hero — no staggered reveal (calm confidence over clever motion) */
+
+@media (min-width: 768px) {
+  :is(
+    .suite-landing-hero,
+    .fj-landing-hero,
+    .landing__hero,
+    .viking-unified-hero
+  ) {
+    gap: var(--suite-space-4);
+    min-height: min(58dvh, 30rem);
+    padding-block: var(--suite-space-9) var(--suite-space-6);
+  }
+}
+
+@media (min-width: 1024px) {
+  :is(
+    .suite-landing-hero,
+    .fj-landing-hero,
+    .landing__hero,
+    .viking-unified-hero
+  ) {
+    min-height: min(64dvh, 34rem);
+    padding-block: var(--suite-space-10) var(--suite-space-6);
+  }
+}
+
+/* Short / landscape viewports — keep brand + CTAs in the first screen */
+@media (max-height: 500px), (max-height: 420px) and (orientation: landscape) {
+  :is(
+    .suite-landing-hero,
+    .fj-landing-hero,
+    .landing__hero,
+    .viking-unified-hero
+  ) {
+    min-height: 0;
+    justify-content: flex-start;
+    padding-block: var(--suite-space-4) var(--suite-space-3);
+    gap: var(--suite-space-2);
+  }
+}
+
+/* Status pill — 80% quiet Production; 20% data-tone + in-badge Retry */
 :is(
   .suite-landing-badge,
   .hero-badge,
@@ -195,8 +267,9 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
 ) {
   display: inline-flex;
   align-items: center;
-  gap: var(--suite-space-2);
+  gap: var(--suite-space-1);
   width: fit-content;
+  max-width: min(100%, 32rem);
   margin: 0;
   padding: var(--suite-space-1) var(--suite-space-2);
   border: 1px solid color-mix(in srgb, var(--suite-primary) 28%, transparent);
@@ -211,24 +284,133 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   box-shadow: var(--suite-highlight);
 }
 
+/* Loading chapter — muted confirming, not success green yet */
+:is(
+  .suite-landing-badge,
+  .hero-badge,
+  .viking-unified-hero-badge
+)[data-phase="loading"] {
+  border-color: color-mix(in srgb, var(--suite-border-strong) 80%, transparent);
+  background: color-mix(in srgb, var(--suite-surface-2) 80%, transparent);
+  color: var(--suite-ink-muted);
+}
+
+:is(
+    .suite-landing-badge,
+    .hero-badge,
+    .viking-unified-hero-badge
+  )[data-phase="loading"]
+  .badge-dot {
+  background: var(--suite-ink-muted);
+  animation: suite-confirm 1.4s var(--suite-ease) infinite;
+}
+
+:is(
+  .suite-landing-badge,
+  .hero-badge,
+  .viking-unified-hero-badge
+)[data-tone="warning"] {
+  border-color: color-mix(in srgb, var(--suite-warning) 45%, transparent);
+  background: color-mix(in srgb, var(--suite-warning) 12%, transparent);
+  color: var(--suite-warning);
+}
+
+:is(
+  .suite-landing-badge,
+  .hero-badge,
+  .viking-unified-hero-badge
+)[data-tone="danger"] {
+  border-color: color-mix(in srgb, var(--suite-danger) 45%, transparent);
+  background: color-mix(in srgb, var(--suite-danger) 12%, transparent);
+  color: var(--suite-danger);
+}
+
+:is(
+    .suite-landing-badge,
+    .hero-badge,
+    .viking-unified-hero-badge
+  )[data-tone="warning"]
+  .badge-dot,
+:is(
+    .suite-landing-badge,
+    .hero-badge,
+    .viking-unified-hero-badge
+  )[data-tone="danger"]
+  .badge-dot {
+  background: currentColor;
+}
+
 :is(.badge-dot, .pulse-dot) {
   width: var(--suite-space-0-5);
   height: var(--suite-space-0-5);
   border-radius: var(--suite-radius-pill);
   background: var(--suite-success);
-  /* Static status mark — no glow pulse on base chrome. */
-  box-shadow: none;
   flex-shrink: 0;
+}
+
+/* Pulse only when explicitly marked live — static otherwise */
+:is(.badge-dot).pulse-dot {
+  animation: suite-pulse 3.6s var(--suite-ease) infinite;
 }
 
 :is(.badge-text) {
   color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Compact edge retry — 44px touch floor; lives in the badge, not a callout */
+:is(.suite-landing-badge-retry) {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  margin-inline-start: var(--suite-space-0-5);
+  min-height: var(--suite-touch);
+  min-width: var(--suite-touch);
+  padding: 0 var(--suite-space-2);
+  border: 1px solid color-mix(in srgb, currentColor 45%, transparent);
+  border-radius: var(--suite-radius-pill);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  transition: var(--suite-transition-colors);
+}
+
+:is(.suite-landing-badge-retry):hover,
+:is(.suite-landing-badge-retry):focus-visible {
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  outline: none;
+}
+
+:is(.suite-landing-badge-retry):focus-visible {
+  outline: var(--suite-ring-width) solid var(--suite-ring);
+  outline-offset: var(--suite-ring-offset);
+}
+
+/* One quiet edge line under the badge — never displaces hero → CTAs → sequence */
+:is(.suite-landing-edge, .landing__ready-edge) {
+  margin: calc(var(--suite-space-1) * -1) 0 0;
+  max-width: 36rem;
+  color: var(--suite-ink-muted);
+  font-family: var(--suite-font-sans);
+  font-size: var(--suite-text-sm);
+  font-weight: var(--suite-weight-regular);
+  letter-spacing: var(--suite-tracking-normal);
+  line-height: var(--suite-leading-snug);
+  text-transform: none;
 }
 
 :is(.suite-landing-mark, .landing__hero-mark) {
   width: min(3.75rem, 16vw);
   height: auto;
-  margin-bottom: var(--suite-space-1);
+  margin-bottom: 0;
   filter: none;
 }
 
@@ -255,7 +437,7 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   .viking-unified-hero-title
 ) {
   margin: 0;
-  font-size: clamp(1.35rem, 3.2vw, 2rem);
+  font-size: var(--suite-text-headline);
   font-weight: var(--suite-weight-medium);
   letter-spacing: var(--suite-tracking-tight);
   max-width: 36rem;
@@ -268,7 +450,7 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
 .suite-landing-brand
   + :is(.title, .viking-unified-hero-title, .suite-landing-headline),
 .hero-brand + :is(.title, .viking-unified-hero-title) {
-  font-size: clamp(1.2rem, 2.6vw, 1.65rem);
+  font-size: var(--suite-text-headline-quiet);
   color: color-mix(in srgb, var(--suite-ink) 92%, var(--suite-primary) 8%);
   max-width: 32rem;
 }
@@ -295,10 +477,173 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   .cta-group
 ) {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
   gap: var(--suite-space-3);
-  margin-top: var(--suite-space-2);
-  align-items: center;
+  width: 100%;
+  margin-top: var(--suite-space-1);
+}
+
+/* Flat CTA row (marketing / deml) — children are suite-btn */
+:is(
+    .suite-landing-actions,
+    .landing__actions,
+    .viking-unified-hero-actions,
+    .cta-group
+  )
+  > :is(.suite-btn, .viking-btn, .fj-btn, forjd-button, viking-button) {
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: center;
+}
+
+:is(
+    .suite-landing-actions,
+    .landing__actions,
+    .viking-unified-hero-actions,
+    .cta-group
+  )
+  > :is(forjd-button, viking-button)
+  :is(.suite-btn, .viking-btn, .fj-btn) {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Tiered CTAs — primary command row + quiet secondary instrument strip */
+:is(.suite-landing-actions-primary, .landing__actions-primary) {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: var(--suite-cluster-gap);
+  width: 100%;
+}
+
+:is(.suite-landing-actions-secondary, .landing__actions-secondary) {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: var(--suite-space-1);
+  width: 100%;
+  padding-top: var(--suite-space-1);
+  border-top: 1px solid color-mix(in srgb, var(--suite-border) 80%, transparent);
+}
+
+:is(.suite-landing-actions-primary, .landing__actions-primary)
+  > :is(forjd-button, viking-button, .suite-btn, .viking-btn, .fj-btn),
+:is(.suite-landing-actions-secondary, .landing__actions-secondary)
+  > :is(
+    forjd-button,
+    viking-button,
+    .suite-btn,
+    .viking-btn,
+    .fj-btn,
+    forjd-theme-toggle,
+    viking-theme-toggle
+  ) {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+:is(.suite-landing-actions-primary, .landing__actions-primary)
+  :is(.suite-btn, .viking-btn, .fj-btn),
+:is(.suite-landing-actions-secondary, .landing__actions-secondary)
+  :is(.suite-btn, .viking-btn, .fj-btn) {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Secondary ghosts — color only (no lift) so the toolbar stays calm */
+:is(.suite-landing-actions-secondary, .landing__actions-secondary)
+  :is(.suite-btn, .viking-btn, .fj-btn)[data-variant="ghost"]:hover:not(
+    :disabled
+  ):not([aria-disabled="true"]),
+:is(.suite-landing-actions-secondary, .landing__actions-secondary)
+  :is(.suite-btn, .viking-btn, .fj-btn)[data-variant="ghost"]:active:not(
+    :disabled
+  ) {
+  transform: none;
+}
+
+@media (min-width: 600px) {
+  :is(
+      .suite-landing-actions,
+      .landing__actions,
+      .viking-unified-hero-actions,
+      .cta-group
+    ):not(:has(.suite-landing-actions-primary)):not(
+      :has(.landing__actions-primary)
+    ) {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    width: auto;
+    gap: var(--suite-cluster-gap);
+  }
+
+  :is(
+      .suite-landing-actions,
+      .landing__actions,
+      .viking-unified-hero-actions,
+      .cta-group
+    ):not(:has(.suite-landing-actions-primary)):not(
+      :has(.landing__actions-primary)
+    )
+    > :is(.suite-btn, .viking-btn, .fj-btn, forjd-button, viking-button) {
+    width: auto;
+  }
+
+  :is(
+      .suite-landing-actions,
+      .landing__actions,
+      .viking-unified-hero-actions,
+      .cta-group
+    ):not(:has(.suite-landing-actions-primary)):not(
+      :has(.landing__actions-primary)
+    )
+    > :is(forjd-button, viking-button)
+    :is(.suite-btn, .viking-btn, .fj-btn) {
+    width: auto;
+  }
+
+  :is(.suite-landing-actions-primary, .landing__actions-primary) {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    width: auto;
+  }
+
+  :is(.suite-landing-actions-primary, .landing__actions-primary)
+    > :is(forjd-button, viking-button, .suite-btn, .viking-btn, .fj-btn),
+  :is(.suite-landing-actions-primary, .landing__actions-primary)
+    :is(.suite-btn, .viking-btn, .fj-btn) {
+    width: auto;
+  }
+
+  :is(.suite-landing-actions-secondary, .landing__actions-secondary) {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    width: auto;
+    gap: var(--suite-space-1);
+  }
+
+  :is(.suite-landing-actions-secondary, .landing__actions-secondary)
+    > :is(
+      forjd-button,
+      viking-button,
+      .suite-btn,
+      .viking-btn,
+      .fj-btn,
+      forjd-theme-toggle,
+      viking-theme-toggle
+    ),
+  :is(.suite-landing-actions-secondary, .landing__actions-secondary)
+    :is(.suite-btn, .viking-btn, .fj-btn) {
+    width: auto;
+  }
 }
 
 /* CTA content helpers inside suite-btn */
@@ -317,17 +662,6 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   /* structural alias only — chrome from suite-btn */
 }
 
-@keyframes suite-hero-in {
-  from {
-    opacity: 0;
-    transform: translateY(0.85rem);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 @keyframes suite-pulse {
   0% {
     box-shadow: 0 0 0 0
@@ -341,18 +675,31 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   }
 }
 
+/* Soft confirm breath — loading chapter (opacity only) */
+@keyframes suite-confirm {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  :is(.badge-dot).pulse-dot,
   :is(
-    .suite-landing-hero,
-    .fj-landing-hero,
-    .landing__hero,
-    .viking-unified-hero
-  ) {
+      .suite-landing-badge,
+      .hero-badge,
+      .viking-unified-hero-badge
+    )[data-phase="loading"]
+    .badge-dot {
     animation: none;
+    opacity: 1;
   }
 
-  :is(.badge-dot, .pulse-dot) {
-    animation: none;
+  :is(.showcase-link, .community-showcase-cta):hover {
+    transform: none;
   }
 }
 
@@ -371,7 +718,7 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   flex-direction: column;
   gap: var(--suite-space-2);
   max-width: var(--suite-readable-max);
-  margin-bottom: var(--suite-space-5);
+  margin-bottom: var(--suite-block-gap);
 }
 
 :is(.suite-landing-tag, .landing__tag, .section-tag, .strip-label) {
@@ -452,14 +799,7 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   font-size: var(--suite-text-md);
 }
 
-:is(.suite-panel-title, .fj-panel-title) {
-  margin: 0 0 var(--suite-space-2);
-  font-family: var(--suite-font-sans);
-  font-size: var(--suite-text-lg);
-  font-weight: var(--suite-weight-semibold);
-  letter-spacing: var(--suite-tracking-tight);
-  color: var(--suite-ink);
-}
+/* Panel titles: owned by suite-components.css (triple .suite- / .viking- / .fj-) */
 
 /* =============================================================================
    Steps / grids / features
@@ -470,16 +810,18 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   padding: 0;
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--suite-space-3);
+  gap: var(--suite-space-2);
 }
 
 @media (min-width: 768px) {
   :is(.suite-landing-steps, .landing__steps, .quick-start-steps) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--suite-space-3);
   }
 }
 
-@media (min-width: 1024px) {
+/* 4-up only when each step can stay readable — avoid skinny desktop shrink */
+@media (min-width: 1440px) {
   :is(.suite-landing-steps, .landing__steps, .quick-start-steps) {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -497,7 +839,7 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
 :is(.suite-landing-grid, .landing__grid, .community-showcase-grid) {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--suite-space-3);
+  gap: var(--suite-space-2);
 }
 
 @media (min-width: 768px) {
@@ -550,18 +892,65 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
 
 .quick-start-step,
 .security-pillar {
-  padding: var(--suite-space-3);
+  padding: var(--suite-space-3) var(--suite-space-3) var(--suite-space-2);
   border: 1px solid var(--suite-border);
   border-radius: var(--suite-radius-surface);
   background: var(--suite-surface);
-  box-shadow: var(--suite-shadow-sm), var(--suite-highlight);
+  box-shadow: var(--suite-elevation-1);
   transition: var(--suite-transition);
 }
 
 .quick-start-step:hover,
-.security-pillar:hover {
+.quick-start-step:focus-visible,
+.security-pillar:hover,
+.security-pillar:focus-visible {
   border-color: var(--suite-border-strong);
-  box-shadow: var(--suite-shadow-hover), var(--suite-highlight);
+  background: var(--suite-surface-elevated);
+  /* Border/surface only — no lift on dense landing grids */
+}
+
+/* forjd-panel / viking-card tiles — hairline + quiet border hover (no lift) */
+:is(.suite-landing-feature, .landing__feature)
+  :is(.suite-card, .viking-card, .fj-card),
+:is(.suite-landing-steps, .landing__steps)
+  :is(.suite-landing-feature, .landing__feature)
+  :is(.suite-card, .viking-card, .fj-card),
+:is(.landing__band-panel) :is(.suite-card, .viking-card, .fj-card) {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  transition: var(--suite-transition-colors);
+}
+
+:is(.suite-landing-feature, .landing__feature)
+  :is(.suite-card, .viking-card, .fj-card)::before,
+:is(.suite-landing-steps, .landing__steps)
+  :is(.suite-landing-feature, .landing__feature)
+  :is(.suite-card, .viking-card, .fj-card)::before,
+:is(.landing__band-panel) :is(.suite-card, .viking-card, .fj-card)::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--suite-primary) 28%, transparent),
+    color-mix(in srgb, var(--suite-highlight) 55%, transparent) 40%,
+    transparent 85%
+  );
+  opacity: 0.55;
+}
+
+:is(.suite-landing-feature, .landing__feature):hover
+  :is(.suite-card, .viking-card, .fj-card),
+:is(.suite-landing-steps, .landing__steps)
+  :is(.suite-landing-feature, .landing__feature):hover
+  :is(.suite-card, .viking-card, .fj-card) {
+  border-color: var(--suite-border-strong);
+  background: var(--suite-surface-elevated);
 }
 
 /* =============================================================================
@@ -570,13 +959,13 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
 :is(.suite-landing-bands, .landing__bands) {
   display: flex;
   flex-direction: column;
-  gap: var(--suite-space-8);
+  gap: var(--suite-section-gap);
 }
 
 :is(.suite-landing-band, .landing__band, .showcase-band) {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--suite-space-5);
+  gap: var(--suite-block-gap);
   align-items: stretch;
 }
 
@@ -602,7 +991,7 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
 :is(.suite-landing-band-copy, .landing__band-copy, .showcase-band-copy) {
   display: flex;
   flex-direction: column;
-  gap: var(--suite-space-3);
+  gap: var(--suite-space-2);
   justify-content: center;
 }
 
@@ -633,8 +1022,10 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   transition: var(--suite-transition);
 }
 
-:is(.showcase-link, .community-showcase-cta):hover {
+:is(.showcase-link, .community-showcase-cta):hover,
+:is(.showcase-link, .community-showcase-cta):focus-visible {
   color: var(--suite-primary-hover);
+  transform: translateX(var(--suite-nudge));
 }
 
 :is(.showcase-link-row) {
@@ -650,7 +1041,7 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--suite-space-2);
+  gap: var(--suite-density-gap);
 }
 
 :is(.suite-landing-metric-list, .landing__metric-list) li,
@@ -660,8 +1051,19 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   align-items: baseline;
   gap: var(--suite-space-3);
   border-bottom: 1px solid var(--suite-border);
-  padding-bottom: var(--suite-space-2);
+  padding-block: var(--suite-space-1);
   font-size: var(--suite-text-md);
+}
+
+:is(.suite-landing-metric-list, .landing__metric-list) li:first-child,
+:is(.visual-metric):first-child {
+  padding-top: var(--suite-space-0-5);
+}
+
+:is(.suite-landing-metric-list, .landing__metric-list) li:last-child,
+:is(.visual-metric):last-child {
+  border-bottom: 0;
+  padding-bottom: var(--suite-space-0-5);
 }
 
 :is(.suite-landing-metric-list, .landing__metric-list) span,
@@ -700,7 +1102,7 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
 :is(.widget-showcase, .pricing-showcase, .security-pillars-band) {
   display: flex;
   flex-direction: column;
-  gap: var(--suite-space-5);
+  gap: var(--suite-block-gap);
 }
 
 :is(.widget-showcase-inner) {
@@ -763,10 +1165,11 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
 
 :is(.pricing-card) {
   padding: var(--suite-space-5);
-  border: 1px solid var(--suite-border);
+  border: 1px solid var(--suite-border-strong);
   border-radius: var(--suite-radius-surface);
-  background: var(--suite-surface);
-  box-shadow: var(--suite-shadow-md), var(--suite-highlight);
+  background: var(--suite-surface-elevated);
+  /* Focal commercial surface — one step above peer cards */
+  box-shadow: var(--suite-elevation-3);
   display: flex;
   flex-direction: column;
   gap: var(--suite-space-3);
@@ -812,7 +1215,7 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   padding: 0;
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--suite-space-3);
+  gap: var(--suite-space-2);
 }
 
 @media (min-width: 768px) {
@@ -831,23 +1234,26 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
 :is(.community-showcase-card, .community-resource-link) {
   display: flex;
   flex-direction: column;
-  gap: var(--suite-space-2);
-  padding: var(--suite-space-3);
+  gap: var(--suite-density-gap);
+  padding: var(--suite-space-3) var(--suite-space-3) var(--suite-space-2);
   border: 1px solid var(--suite-border);
   border-radius: var(--suite-radius-surface);
   background: var(--suite-surface);
   color: inherit;
   text-decoration: none;
-  box-shadow: var(--suite-shadow-sm), var(--suite-highlight);
+  box-shadow: var(--suite-elevation-1);
   transition: var(--suite-transition);
   min-height: 100%;
 }
 
 :is(.community-showcase-card):hover,
-:is(.community-resource-link):hover {
+:is(.community-showcase-card):focus-visible,
+:is(.community-resource-link):hover,
+:is(.community-resource-link):focus-visible {
   border-color: var(--suite-border-strong);
-  box-shadow: var(--suite-shadow-hover), var(--suite-highlight);
+  box-shadow: var(--suite-elevation-hover);
   background: var(--suite-surface-elevated);
+  transform: translateY(var(--suite-hover-lift));
 }
 
 :is(.community-showcase-card) p,
@@ -891,16 +1297,38 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
 }
 
 /* =============================================================================
-   Meta footer strip
+   Meta footer strip — instrument ledger
    ============================================================================= */
 :is(.suite-landing-meta, .landing__meta) {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: var(--suite-space-4);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--suite-space-3) var(--suite-space-4);
   border-top: 1px solid var(--suite-border);
-  padding-top: var(--suite-space-6);
+  padding-top: var(--suite-space-5);
+  margin-top: var(--suite-space-3);
   font-size: var(--suite-text-sm);
   position: relative;
+  align-items: start;
+}
+
+@media (min-width: 600px) {
+  :is(.suite-landing-meta, .landing__meta) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--suite-space-3) var(--suite-space-5);
+    padding-top: var(--suite-space-6);
+  }
+}
+
+@media (min-width: 1024px) {
+  :is(.suite-landing-meta, .landing__meta) {
+    grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr));
+  }
+
+  :is(.suite-landing-meta, .landing__meta) > div + div {
+    border-inline-start: 1px solid
+      color-mix(in srgb, var(--suite-border) 70%, transparent);
+    padding-inline-start: var(--suite-space-4);
+  }
 }
 
 :is(.suite-landing-meta, .landing__meta)::before {
@@ -908,14 +1336,14 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   position: absolute;
   top: -1px;
   left: 0;
-  width: 6rem;
+  width: min(100%, 12rem);
   height: 1px;
   background: linear-gradient(
     90deg,
-    var(--suite-primary),
-    color-mix(in srgb, var(--suite-primary) 0%, transparent)
+    color-mix(in srgb, var(--suite-primary) 55%, transparent),
+    transparent
   );
-  opacity: 0.75;
+  opacity: 0.5;
 }
 
 :is(.suite-landing-meta, .landing__meta) span {
@@ -925,21 +1353,35 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   letter-spacing: var(--suite-tracking-caps);
   text-transform: uppercase;
   font-size: var(--suite-text-xs);
-  margin-bottom: var(--suite-space-1);
+  margin-bottom: var(--suite-space-0-5);
 }
 
-:is(.suite-landing-meta, .landing__meta) a {
+:is(.suite-landing-meta, .landing__meta) a,
+:is(.suite-landing-meta, .landing__meta) .suite-link,
+:is(.suite-landing-meta, .landing__meta) .viking-link,
+:is(.suite-landing-meta, .landing__meta) .fj-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--suite-touch);
   color: inherit;
   text-decoration: none;
+  border-radius: var(--suite-radius-control);
+  transition: var(--suite-transition-colors);
 }
 
 :is(.suite-landing-meta, .landing__meta) a:hover code,
-:is(.suite-landing-meta, .landing__meta) a:focus-visible code {
+:is(.suite-landing-meta, .landing__meta) a:focus-visible code,
+:is(.suite-landing-meta, .landing__meta) .suite-link:hover code,
+:is(.suite-landing-meta, .landing__meta) .suite-link:focus-visible code,
+:is(.suite-landing-meta, .landing__meta) .viking-link:hover code,
+:is(.suite-landing-meta, .landing__meta) .viking-link:focus-visible code,
+:is(.suite-landing-meta, .landing__meta) .fj-link:hover code,
+:is(.suite-landing-meta, .landing__meta) .fj-link:focus-visible code {
   color: var(--suite-primary);
 }
 
 :is(.suite-landing-meta, .landing__meta) code {
-  color: var(--suite-success);
+  color: var(--suite-ink);
   font-family: var(--suite-font-mono);
   word-break: break-all;
 }

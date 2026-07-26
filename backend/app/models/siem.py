@@ -16,6 +16,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.core.sanitize import sanitize_label, sanitize_text
+
 Severity = Literal["informational", "low", "medium", "high", "critical"]
 SignalCategory = Literal[
     "authentication",
@@ -64,8 +66,15 @@ _FORBIDDEN_KEY_PARTS = (
 )
 
 
-def _reject_sensitive_text(value: str, *, field_name: str) -> str:
-    clean = value.strip()
+def _reject_sensitive_text(
+    value: str,
+    *,
+    field_name: str,
+    max_length: int = 512,
+    allow_newlines: bool = False,
+) -> str:
+    """Sanitize + reject emails/credentials; honor the caller's field max_length."""
+    clean = sanitize_text(value, max_length=max_length, allow_newlines=allow_newlines)
     if _EMAIL_RE.search(clean):
         raise ValueError(f"{field_name} must use a pseudonym, not an email address")
     lowered = clean.lower()
@@ -93,7 +102,7 @@ def _normalize_metadata_object(
         raise ValueError(f"{path} contains too many keys")
     clean: dict[str, Any] = {}
     for raw_key, item in value.items():
-        key = str(raw_key).strip()
+        key = sanitize_label(str(raw_key), max_length=64)
         lowered = key.lower()
         if not key or len(key) > 64:
             raise ValueError("metadata keys must be 1-64 characters")
@@ -106,7 +115,7 @@ def _normalize_metadata_object(
             clean[key] = _reject_sensitive_text(item, field_name=item_path)
         elif isinstance(item, bool) or item is None:
             clean[key] = item
-        elif isinstance(item, (int, float)):
+        elif isinstance(item, int | float):
             numeric = float(item)
             if not math.isfinite(numeric) or not -1_000_000_000 <= numeric <= 1_000_000_000:
                 raise ValueError(f"metadata value {key!r} is outside the allowed range")
@@ -122,8 +131,8 @@ def _normalize_metadata_object(
                     if len(child) > 256:
                         raise ValueError(f"metadata list item {key!r} is too long")
                     normalized.append(_reject_sensitive_text(child, field_name=f"metadata.{key}"))
-                elif isinstance(child, bool) or child is None or isinstance(child, (int, float)):
-                    if isinstance(child, (int, float)) and not isinstance(child, bool):
+                elif isinstance(child, bool) or child is None or isinstance(child, int | float):
+                    if isinstance(child, int | float) and not isinstance(child, bool):
                         numeric = float(child)
                         if not math.isfinite(numeric):
                             raise ValueError(f"metadata list item {key!r} must be finite")
@@ -210,7 +219,14 @@ class CreateSecuritySignalRequest(BaseModel):
     @field_validator("title", "summary")
     @classmethod
     def _safe_text(cls, value: str, info: Any) -> str:
-        return _reject_sensitive_text(value, field_name=info.field_name)
+        if info.field_name == "summary":
+            return _reject_sensitive_text(
+                value,
+                field_name=info.field_name,
+                max_length=2048,
+                allow_newlines=True,
+            )
+        return _reject_sensitive_text(value, field_name=info.field_name, max_length=255)
 
     @field_validator("observed_at")
     @classmethod

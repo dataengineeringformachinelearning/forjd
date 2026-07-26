@@ -6,10 +6,22 @@ from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from app.core.auth import AuthUser, get_current_user, get_optional_user, pool_from_request
 from app.core.http_errors import intentional_detail
+from app.core.text_fields import (
+    Body8k,
+    Description4k,
+    Name128,
+    OptionalBody8k,
+    OptionalDescription4k,
+    OptionalName128,
+    OptionalSlug64,
+    OptionalTitle200,
+    Slug64,
+    Title200,
+)
 from app.services import status as status_svc
 
 router = APIRouter(prefix="/status", tags=["status"])
@@ -17,56 +29,56 @@ router = APIRouter(prefix="/status", tags=["status"])
 
 class CreatePageRequest(BaseModel):
     tenant_id: UUID
-    slug: str = Field(..., min_length=2, max_length=64)
-    title: str = Field(..., min_length=1, max_length=200)
-    description: str = ""
+    slug: Slug64
+    title: Title200
+    description: Description4k = ""
     is_published: bool = False
 
 
 class UpdatePageRequest(BaseModel):
     tenant_id: UUID
-    slug: str | None = Field(default=None, min_length=2, max_length=64)
-    title: str | None = Field(default=None, min_length=1, max_length=200)
-    description: str | None = None
+    slug: OptionalSlug64 = None
+    title: OptionalTitle200 = None
+    description: OptionalDescription4k = None
     is_published: bool | None = None
 
 
 class CreateServiceRequest(BaseModel):
     tenant_id: UUID
-    name: str = Field(..., min_length=1, max_length=128)
+    name: Name128
     status: Literal["operational", "degraded", "partial_outage", "major_outage", "maintenance"] = (
         "operational"
     )
-    description: str = ""
+    description: Description4k = ""
     probe_url: str | None = None
     sort_order: int = 0
 
 
 class UpdateServiceRequest(BaseModel):
     tenant_id: UUID
-    name: str | None = Field(default=None, min_length=1, max_length=128)
+    name: OptionalName128 = None
     status: (
         Literal["operational", "degraded", "partial_outage", "major_outage", "maintenance"] | None
     ) = None
-    description: str | None = None
+    description: OptionalDescription4k = None
     probe_url: str | None = None
     sort_order: int | None = None
 
 
 class CreateIncidentRequest(BaseModel):
     tenant_id: UUID
-    title: str = Field(..., min_length=1, max_length=200)
+    title: Title200
     status: Literal["investigating", "identified", "monitoring", "resolved"] = "investigating"
     severity: Literal["minor", "major", "critical"] = "minor"
-    body: str = ""
+    body: Body8k = ""
 
 
 class UpdateIncidentRequest(BaseModel):
     tenant_id: UUID
-    title: str | None = Field(default=None, min_length=1, max_length=200)
+    title: OptionalTitle200 = None
     status: Literal["investigating", "identified", "monitoring", "resolved"] | None = None
     severity: Literal["minor", "major", "critical"] | None = None
-    body: str | None = None
+    body: OptionalBody8k = None
 
 
 def _pool(request: Request) -> Any:
@@ -123,7 +135,7 @@ async def list_published(request: Request) -> dict[str, Any]:
 @router.get("/pages/slug/{slug}")
 async def public_page(
     request: Request,
-    slug: str,
+    slug: Slug64,
     user: AuthUser | None = Depends(get_optional_user),
 ) -> dict[str, Any]:
     # Service principals (DEML BFF) get tenant_id for widget/ingest routing only.

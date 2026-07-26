@@ -51,6 +51,14 @@ jobs:
           uv run ruff check .
           uv run ruff format --check .
 
+      - name: Config catalog (env / flags SoT)
+        working-directory: .
+        run: uv run --project backend python scripts/check_config_catalog.py
+
+      - name: Validate workflow YAML
+        working-directory: .
+        run: uv run --project backend python scripts/validate_workflows.py --include-examples
+
       - name: Unit tests
         run: uv run python -m unittest discover -s tests
 
@@ -101,8 +109,28 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Unit tests
-        run: npx ng test --no-watch
+      - name: Format (Prettier)
+        run: npm run format:check
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Suite purity (forjd-ui ↔ backend/static)
+        run: npm run suite:purity
+
+      - name: Unit tests (app)
+        run: npx ng test frontend --no-watch
+
+      - name: Unit tests (forjd-ui)
+        run: npx ng test forjd-ui --no-watch
 
       - name: Production build
         run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E critical paths
+        run: npm run test:e2e
+        env:
+          CI: true

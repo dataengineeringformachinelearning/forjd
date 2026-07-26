@@ -8,6 +8,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.core.sanitize import sanitize_label, sanitize_text
+from app.core.text_fields import (
+    Description4k,
+    OptionalDescription4k,
+    OptionalTitle255,
+    Title255,
+)
 from app.models.siem import validate_signal_metadata
 
 
@@ -22,7 +29,7 @@ class ThreatRefreshRequest(_StrictRequest):
 
 class TaxiiIngestRequest(_StrictRequest):
     collection_url: str = Field(..., min_length=8, max_length=2048)
-    source: str = Field(..., min_length=1, max_length=255)
+    source: Title255
     username: str | None = Field(default=None, max_length=256)
     password: str | None = Field(default=None, max_length=512)
     tenant_id: UUID | None = None
@@ -59,8 +66,8 @@ class CorrelateRequest(_StrictRequest):
 # --- SOC ---
 class CreateCaseRequest(_StrictRequest):
     tenant_id: UUID
-    title: str = Field(..., min_length=1, max_length=255)
-    description: str = ""
+    title: Title255
+    description: Description4k = ""
     severity: Literal["low", "medium", "high", "critical"] = "medium"
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -72,8 +79,8 @@ class CreateCaseRequest(_StrictRequest):
 
 class UpdateCaseRequest(_StrictRequest):
     tenant_id: UUID
-    title: str | None = Field(default=None, min_length=1, max_length=255)
-    description: str | None = Field(default=None, max_length=4096)
+    title: OptionalTitle255 = None
+    description: OptionalDescription4k = None
     status: Literal["open", "investigating", "mitigated", "resolved", "false_positive"] | None = (
         None
     )
@@ -112,26 +119,30 @@ class PlaybookActionIn(_StrictRequest):
             raise ValueError(f"unsupported {self.action_type} configuration keys: {sorted(extra)}")
         if len(str(self.configuration)) > 4096:
             raise ValueError("action configuration is too large")
+        cleaned: dict[str, Any] = {}
         for key, value in self.configuration.items():
             if key != "secret_ref" and any(
                 part in key.lower() for part in ("password", "secret", "token", "authorization")
             ):
                 raise ValueError("inline action credentials are not allowed; use a secret_ref")
-            if isinstance(value, str) and len(value) > 2048:
-                raise ValueError("action configuration value is too long")
-        secret_ref = self.configuration.get("secret_ref")
+            if isinstance(value, str):
+                text = sanitize_text(value, max_length=2048, allow_newlines=False)
+                cleaned[key] = text
+            else:
+                cleaned[key] = value
+        secret_ref = cleaned.get("secret_ref")
         if secret_ref is not None and (
             not isinstance(secret_ref, str)
             or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", secret_ref)
         ):
             raise ValueError("webhook secret_ref must be an opaque 1-128 character identifier")
-        return self
+        return self.model_copy(update={"configuration": cleaned})
 
 
 class CreatePlaybookRequest(_StrictRequest):
     tenant_id: UUID
-    name: str = Field(..., min_length=1, max_length=255)
-    description: str = ""
+    name: Title255
+    description: Description4k = ""
     trigger_conditions: dict[str, Any] = Field(default_factory=dict)
     actions: list[PlaybookActionIn] = Field(default_factory=list, max_length=50)
 
@@ -143,8 +154,8 @@ class CreatePlaybookRequest(_StrictRequest):
 
 class UpdatePlaybookRequest(_StrictRequest):
     tenant_id: UUID
-    name: str | None = Field(default=None, min_length=1, max_length=255)
-    description: str | None = Field(default=None, max_length=4096)
+    name: OptionalTitle255 = None
+    description: OptionalDescription4k = None
     is_active: bool | None = None
     trigger_conditions: dict[str, Any] | None = None
     actions: list[PlaybookActionIn] | None = Field(default=None, max_length=50)
@@ -176,6 +187,15 @@ class AcknowledgePlaybookActionRequest(_StrictRequest):
     tenant_id: UUID
     succeeded: bool
     external_reference: str | None = Field(default=None, max_length=255)
+
+    @field_validator("external_reference", mode="before")
+    @classmethod
+    def _clean_external_reference(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        text = sanitize_label(str(value), max_length=255)
+        return text or None
+
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("metadata")
@@ -192,8 +212,8 @@ class RetryPlaybookActionRequest(_StrictRequest):
 class UpdateVulnerabilityRequest(_StrictRequest):
     tenant_id: UUID
     asset_id: UUID | None = None
-    title: str | None = Field(default=None, min_length=1, max_length=255)
-    description: str | None = Field(default=None, max_length=4096)
+    title: OptionalTitle255 = None
+    description: OptionalDescription4k = None
     status: Literal["triage", "open", "in_progress", "resolved", "false_positive"] | None = None
     severity: Literal["low", "medium", "high", "critical"] | None = None
     impact: int | None = Field(default=None, ge=1, le=5)

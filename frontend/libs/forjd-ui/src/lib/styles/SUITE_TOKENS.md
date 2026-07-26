@@ -11,14 +11,14 @@ Everything downstream must consume **only** these variables. No hard-coded produ
 
 ## Strategy (intentional)
 
-| Choice        | Decision                                                                   |
-| ------------- | -------------------------------------------------------------------------- |
-| Default       | **Dark-first** void austerity (`#0a0a0a`)                                  |
-| Light         | **Opt-in only:** `<html data-theme="light">` — same roles, lightness shift |
-| Primary       | Electric `#2176ff` (DEML command)                                          |
-| Gold          | Institutional `#d4af37` (FORJD) — chrome / prestige                        |
-| Brand artwork | `--suite-brand-navy` / `--suite-brand-blue` — logos only                   |
-| Type          | Self-hosted **Inter** + system mono stack                                  |
+| Choice        | Decision                                                                                                 |
+| ------------- | -------------------------------------------------------------------------------------------------------- |
+| Default       | **Dark-first** void austerity (`#0a0a0a`)                                                                |
+| Light         | **Opt-in only:** `<html data-theme="light">` — same roles, lightness shift                               |
+| Primary       | Electric command — fill `#1565f0` (AA white-on-fill); brand hue `#2176ff` on charts (`--suite-series-1`) |
+| Gold          | Institutional `#d4af37` (FORJD) — chrome / prestige; text via `--suite-gold-text`                        |
+| Brand artwork | `--suite-brand-navy` / `--suite-brand-blue` — logos only                                                 |
+| Type          | Self-hosted **Inter** + system mono stack                                                                |
 
 Inspirations (SpaceX / Palantir / OpenAI / Lockheed / Sequoia) guide density and restraint — **not** new hues.
 
@@ -46,29 +46,32 @@ All three resolve to the same computed values via `var()`.
 
 ## Role cheat sheet (Role A)
 
-| Need                       | Token                                                                                   |
-| -------------------------- | --------------------------------------------------------------------------------------- |
-| Page background            | `--suite-bg`                                                                            |
-| Subtle page / inset        | `--suite-bg-subtle` / `--suite-surface-inset`                                           |
-| Card / panel               | `--suite-surface`                                                                       |
-| Nested well                | `--suite-surface-2`                                                                     |
-| Raised control             | `--suite-surface-elevated`                                                              |
-| Body text                  | `--suite-ink`                                                                           |
-| Secondary text             | `--suite-ink-muted`                                                                     |
-| Border                     | `--suite-border` / `--suite-border-strong`                                              |
-| CTA / link                 | `--suite-primary` (+ hover / active / soft)                                             |
-| Institutional accent       | `--suite-gold`                                                                          |
-| Danger / success / warning | `--suite-danger` / `--suite-success` / `--suite-warning`                                |
-| Focus ring                 | `--suite-ring` + `--suite-ring-width`                                                   |
-| Sans / mono                | `--suite-font-sans` / `--suite-font-mono`                                               |
-| Type scale                 | `--suite-text-2xs` … `--suite-text-display`                                             |
-| Spacing                    | `--suite-space-0-5` … `--suite-space-12` (8px grid)                                     |
-| Touch / control            | `--suite-touch` (44px) / `--suite-control-height` (40px)                                |
-| Radius                     | `--suite-radius*` · control `--suite-radius-control` · surface `--suite-radius-surface` |
-| Elevation                  | `--suite-shadow-xs` … `--suite-shadow-hover`                                            |
-| Motion                     | `--suite-duration*` · `--suite-ease` · `--suite-transition`                             |
-| Stacking                   | `--suite-z-dropdown` … `--suite-z-toast`                                                |
-| Content width              | `--suite-content-max` (1260px) · `--suite-page-gutter`                                  |
+| Need                       | Token                                                                                                                                                                                                                                         |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Page background            | `--suite-bg`                                                                                                                                                                                                                                  |
+| Subtle page / inset        | `--suite-bg-subtle` / `--suite-surface-inset`                                                                                                                                                                                                 |
+| Card / panel               | `--suite-surface`                                                                                                                                                                                                                             |
+| Nested well                | `--suite-surface-2`                                                                                                                                                                                                                           |
+| Raised control             | `--suite-surface-elevated`                                                                                                                                                                                                                    |
+| Body text                  | `--suite-ink`                                                                                                                                                                                                                                 |
+| Secondary text             | `--suite-ink-muted`                                                                                                                                                                                                                           |
+| Border                     | `--suite-border` / `--suite-border-strong`                                                                                                                                                                                                    |
+| CTA / link                 | `--suite-primary` (+ hover / active / soft)                                                                                                                                                                                                   |
+| Institutional accent       | `--suite-gold`                                                                                                                                                                                                                                |
+| Danger / success / warning | Fills: `--suite-danger` / `--suite-success` / `--suite-warning`. **Foreground on soft surfaces:** `--suite-*-text` (AA)                                                                                                                       |
+| Focus ring                 | `--suite-ring` + `--suite-ring-width`                                                                                                                                                                                                         |
+| Sans / mono                | `--suite-font-sans` / `--suite-font-mono`                                                                                                                                                                                                     |
+| Type scale                 | `--suite-text-2xs` … `--suite-text-display`, plus `--suite-text-headline` / `-quiet` / `-title*` / `-lead*`                                                                                                                                   |
+| Spacing                    | `--suite-space-0-5` … `--suite-space-12` (8px grid; THEME numbered scale)                                                                                                                                                                     |
+| Touch / control            | `--suite-touch` · `--suite-control-height*` · `--suite-control-px` / `-fs` / `-check` / `-focus-ring`                                                                                                                                         |
+| Radius                     | `--suite-radius*` · control `--suite-radius-control` · surface `--suite-radius-surface`                                                                                                                                                       |
+| Elevation                  | Recipes `--suite-elevation-1`…`4` / `-hover` / `-inset`; primitives `--suite-shadow-*` + `--suite-highlight`                                                                                                                                  |
+| Glass (overlays only)      | `--suite-glass` / `--suite-glass-strong` + `--suite-glass-blur` — never on resting cards                                                                                                                                                      |
+| Motion                     | `--suite-duration*` · `--suite-ease*` · `--suite-transition*` · `--suite-hover-lift` / `--suite-press-sink` / `--suite-active-scale` — under `prefers-reduced-motion: reduce`, durations → `0ms`, transitions → `none`, lifts/scale → `0`/`1` |
+| Rhythm                     | `--suite-section-gap` (stages) · `--suite-block-gap` (related) · `--suite-density-gap` / `--suite-cluster-gap` (tight)                                                                                                                        |
+| Stacking                   | `--suite-z-dropdown` … `--suite-z-toast`                                                                                                                                                                                                      |
+| Content width              | `--suite-content-max` (1260px) · `--suite-readable-max` (48rem) · `--suite-page-gutter`                                                                                                                                                       |
+| Breakpoints                | `--suite-bp-sm/md/sidebar/lg/xl/2xl` → `600 / 768 / 901 / 1024 / 1440 / 1920`                                                                                                                                                                 |
 
 ### Role B — charts
 
@@ -76,7 +79,10 @@ Use `--suite-series-1` … `--suite-series-8` (or `--viking-series-*`). Do not i
 
 ### Role C — PDF reports
 
-Out of product UI. Lives in FORJD `fjord-report-tokens.json` until explicitly promoted.
+Print/PDF only (not product UI CSS). Lives in FORJD `fjord-report-tokens.json`.
+**Promoted for suite chrome parity (2026-07-26):** report chrome uses suite
+primary `#2176ff` and institutional gold `#d4af37`; brand artwork blue `#0078ff`
+remains logos/mark-only. Product UI still consumes `suite-tokens.css` only.
 
 ---
 
@@ -89,8 +95,14 @@ Out of product UI. Lives in FORJD `fjord-report-tokens.json` until explicitly pr
   border-radius: var(--suite-radius-surface);
   padding: var(--suite-space-3);
   color: var(--suite-ink);
-  box-shadow: var(--suite-shadow-sm);
+  /* Resting: hairline only; use elevation-3+ for floating chrome */
+  box-shadow: var(--suite-elevation-1);
   transition: var(--suite-transition);
+}
+
+.panel[data-elevated="true"] {
+  border-color: var(--suite-border-strong);
+  box-shadow: var(--suite-elevation-3);
 }
 
 .cta {
@@ -123,17 +135,29 @@ Out of product UI. Lives in FORJD `fjord-report-tokens.json` until explicitly pr
 
 ---
 
-## Theme toggle
+## Theme preference (light / dark / system)
+
+| Piece     | Contract                                                                |
+| --------- | ----------------------------------------------------------------------- |
+| Attribute | `<html data-theme="light\|dark">` — resolved appearance only            |
+| Storage   | `suite-theme` = `light` \| `dark` \| `system` (legacy `theme` migrated) |
+| Default   | `system` → `prefers-color-scheme`                                       |
+| Apply     | `VikingThemeService` / `FjThemeService` + FOUC `<head>` script          |
+| Control   | `viking-theme-toggle` / `forjd-theme-toggle` / `.suite-theme-toggle`    |
 
 ```html
-<!-- default dark (no attribute or data-theme="dark") -->
+<!-- FOUC: read suite-theme → resolve system → set data-theme before paint -->
 <html data-theme="dark">
-  <!-- opt-in light -->
-  <html data-theme="light"></html>
+  …
+  <viking-theme-toggle
+    [theme]="theme()"
+    [preference]="preference()"
+    (toggle)="toggle()"
+  />
 </html>
 ```
 
-Apps that support light (deml.app / marketing) may set `data-theme` from storage. FORJD product may dark-lock; still load the same token file.
+When preference is `system`, OS changes update `data-theme` live. Toggle persists an explicit light/dark choice; `cyclePreference()` / `useSystemPreference()` restore system.
 
 ---
 

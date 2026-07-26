@@ -354,53 +354,52 @@ async def rehome_status_page(
     if not tenant_exists:
         raise ValueError("target tenant not found")
 
-    async with pool.acquire() as conn:
-        async with conn.transaction():
+    async with pool.acquire() as conn, conn.transaction():
+        await conn.execute(
+            """
+            UPDATE status_services
+            SET tenant_id = $1::uuid
+            WHERE page_id = $2::uuid AND tenant_id = $3::uuid
+            """,
+            target,
+            page_id,
+            source_tenant,
+        )
+        await conn.execute(
+            """
+            UPDATE status_incidents
+            SET tenant_id = $1::uuid
+            WHERE page_id = $2::uuid AND tenant_id = $3::uuid
+            """,
+            target,
+            page_id,
+            source_tenant,
+        )
+        # Probe observations reference service_id + tenant_id; rebind when present.
+        with contextlib.suppress(asyncpg.UndefinedTableError):
             await conn.execute(
                 """
-                UPDATE status_services
+                UPDATE health_probe_observations AS h
                 SET tenant_id = $1::uuid
-                WHERE page_id = $2::uuid AND tenant_id = $3::uuid
+                FROM status_services AS s
+                WHERE h.service_id = s.id
+                  AND s.page_id = $2::uuid
+                  AND h.tenant_id = $3::uuid
                 """,
                 target,
                 page_id,
                 source_tenant,
             )
-            await conn.execute(
-                """
-                UPDATE status_incidents
-                SET tenant_id = $1::uuid
-                WHERE page_id = $2::uuid AND tenant_id = $3::uuid
-                """,
-                target,
-                page_id,
-                source_tenant,
-            )
-            # Probe observations reference service_id + tenant_id; rebind when present.
-            with contextlib.suppress(asyncpg.UndefinedTableError):
-                await conn.execute(
-                    """
-                    UPDATE health_probe_observations AS h
-                    SET tenant_id = $1::uuid
-                    FROM status_services AS s
-                    WHERE h.service_id = s.id
-                      AND s.page_id = $2::uuid
-                      AND h.tenant_id = $3::uuid
-                    """,
-                    target,
-                    page_id,
-                    source_tenant,
-                )
-            await conn.execute(
-                """
-                UPDATE status_pages
-                SET tenant_id = $1::uuid, updated_at = NOW()
-                WHERE id = $2::uuid AND tenant_id = $3::uuid
-                """,
-                target,
-                page_id,
-                source_tenant,
-            )
+        await conn.execute(
+            """
+            UPDATE status_pages
+            SET tenant_id = $1::uuid, updated_at = NOW()
+            WHERE id = $2::uuid AND tenant_id = $3::uuid
+            """,
+            target,
+            page_id,
+            source_tenant,
+        )
     return {
         "ok": True,
         "moved": True,

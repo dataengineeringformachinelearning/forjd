@@ -1,0 +1,225 @@
+/*!
+ * SUITE APIDOCS — owned Swagger UI + ReDoc chrome (DEML + FORJD)
+ * ----------------------------------------------------------------------------
+ * Load after suite-tokens + suite-components + suite-backend.
+ * Vendor assets are self-hosted (no jsDelivr). Tokens only — no raw product hex.
+ * Docs: SUITE_APIDOCS.md · Law: docs/SUITE_UI_UNIFICATION.md
+ */
+
+/* =============================================================================
+   ReDoc host
+   ============================================================================= */
+redoc {
+  display: block;
+}
+
+/* =============================================================================
+   Swagger UI — suite void skin (quiet method chips; no rainbow)
+   ============================================================================= */
+.swagger-ui {
+  color: var(--suite-ink);
+  font-family: var(--suite-font-sans);
+}
+
+.swagger-ui .topbar {
+  display: none;
+}
+
+.swagger-ui .info .title,
+.swagger-ui .info h1,
+.swagger-ui .info h2,
+.swagger-ui .info h3,
+.swagger-ui .info h4,
+.swagger-ui .info h5,
+.swagger-ui .opblock-tag,
+.swagger-ui .opblock .opblock-summary-description,
+.swagger-ui table thead tr th,
+.swagger-ui table thead tr td,
+.swagger-ui .parameter__name,
+.swagger-ui .parameter__type,
+.swagger-ui .response-col_status,
+.swagger-ui .response-col_links,
+.swagger-ui .responses-inner h4,
+.swagger-ui .responses-inner h5,
+.swagger-ui .opblock-description-wrapper p,
+.swagger-ui .opblock-title_normal p,
+.swagger-ui .model,
+.swagger-ui .model-title,
+.swagger-ui label,
+.swagger-ui .tab li,
+.swagger-ui section.models h4,
+.swagger-ui .scheme-container .schemes-title,
+.swagger-ui .dialog-ux .modal-ux-content p,
+.swagger-ui .dialog-ux .modal-ux-header h3,
+.swagger-ui .auth-container label,
+.swagger-ui .btn {
+  color: var(--suite-ink);
+}
+
+.swagger-ui .info .base-url,
+.swagger-ui .info li,
+.swagger-ui .info p,
+.swagger-ui .info a,
+.swagger-ui .parameter__in,
+.swagger-ui .prop-format,
+.swagger-ui .model .property.primitive {
+  color: var(--suite-ink-muted);
+}
+
+.swagger-ui .info a {
+  color: var(--suite-primary);
+}
+
+.swagger-ui .scheme-container {
+  background: var(--suite-surface);
+  box-shadow: none;
+  border-bottom: 1px solid var(--suite-border);
+}
+
+.swagger-ui .opblock-tag {
+  border-bottom: 1px solid var(--suite-border);
+}
+
+.swagger-ui .opblock {
+  background: var(--suite-surface);
+  border: 1px solid var(--suite-border);
+  border-radius: var(--suite-radius);
+  box-shadow: none;
+}
+
+.swagger-ui .opblock .opblock-section-header {
+  background: var(--suite-surface-2);
+  box-shadow: none;
+}
+
+.swagger-ui .opblock .opblock-section-header h4,
+.swagger-ui .opblock .opblock-section-header label {
+  color: var(--suite-ink);
+}
+
+/* Quiet method chips (suite contract — not multicolored rainbow) */
+.swagger-ui .opblock .opblock-summary-method {
+  background: var(--suite-surface-2);
+  color: var(--suite-ink);
+  border: 1px solid var(--suite-border-strong);
+  min-width: 4.5rem;
+  font-family: var(--suite-font-mono);
+  font-weight: var(--suite-weight-semibold);
+  letter-spacing: var(--suite-tracking-caps);
+}
+
+.swagger-ui .opblock.opblock-get,
+.swagger-ui .opblock.opblock-post,
+.swagger-ui .opblock.opblock-delete,
+.swagger-ui .opblock.opblock-put,
+.swagger-ui .opblock.opblock-patch {
+  border-color: var(--suite-border);
+  background: var(--suite-surface);
+}
+
+.swagger-ui .opblock .opblock-summary {
+  border-color: var(--suite-border);
+}
+
+.swagger-ui .btn {
+  border-color: var(--suite-border);
+  box-shadow: none;
+  transition: var(--suite-transition);
+}
+
+.swagger-ui .btn.authorize {
+  border-color: var(--suite-primary);
+  color: var(--suite-primary);
+}
+
+.swagger-ui .btn.authorize svg {
+  fill: var(--suite-primary);
+}
+
+.swagger-ui .btn.execute {
+  background: var(--suite-primary);
+  border-color: var(--suite-primary);
+  color: var(--suite-ink-on-primary);
+}
+
+.swagger-ui select,
+.swagger-ui input[type="text"],
+.swagger-ui input[type="password"],
+.swagger-ui input[type="email"],
+.swagger-ui textarea {
+  background: var(--suite-surface-2);
+  color: var(--suite-ink);
+  border: 1px solid var(--suite-border);
+  border-radius: var(--suite-radius-control);
+  font-family: var(--suite-font-sans);
+}
+
+.swagger-ui select:focus-visible,
+.swagger-ui input[type="text"]:focus-visible,
+.swagger-ui input[type="password"]:focus-visible,
+.swagger-ui input[type="email"]:focus-visible,
+.swagger-ui textarea:focus-visible {
+  outline: var(--suite-ring-width) solid var(--suite-ring);
+  outline-offset: var(--suite-ring-offset);
+}
+
+.swagger-ui .dialog-ux .modal-ux {
+  background: var(--suite-surface);
+  border: 1px solid var(--suite-border);
+  border-radius: var(--suite-radius-surface);
+  box-shadow: var(--suite-elevation-4);
+}
+
+.swagger-ui .dialog-ux .modal-ux-header {
+  border-bottom: 1px solid var(--suite-border);
+}
+
+.swagger-ui section.models {
+  border: 1px solid var(--suite-border);
+  border-radius: var(--suite-radius-surface);
+}
+
+.swagger-ui section.models.is-open h4 {
+  border-bottom: 1px solid var(--suite-border);
+}
+
+.swagger-ui section.models .model-container {
+  background: var(--suite-surface);
+}
+
+.swagger-ui .model-box {
+  background: var(--suite-surface-2);
+}
+
+.swagger-ui .copy-to-clipboard {
+  background: var(--suite-surface-2);
+}
+
+.swagger-ui .responses-inner {
+  color: var(--suite-ink-muted);
+}
+
+.swagger-ui .markdown p,
+.swagger-ui .markdown li,
+.swagger-ui .renderedMarkdown p {
+  color: var(--suite-ink-muted);
+}
+
+.swagger-ui .markdown code,
+.swagger-ui code {
+  color: var(--suite-success);
+  font-family: var(--suite-font-mono);
+}
+
+.swagger-ui svg:not(:root) {
+  fill: var(--suite-ink-muted);
+}
+
+.swagger-ui .expand-operation svg,
+.swagger-ui .expand-methods svg {
+  fill: var(--suite-ink-muted);
+}
+
+.swagger-ui .loading-container .loading::after {
+  color: var(--suite-ink-muted);
+}

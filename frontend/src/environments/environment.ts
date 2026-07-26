@@ -1,4 +1,8 @@
-/** Production / Vercel — UI at https://forjd.co */
+/**
+ * Production / Vercel — UI at https://forjd.co
+ * Inventory SoT: config/forjd.catalog.yaml (docs/CONFIGURATION.md).
+ * Prefer importing this module over scattering host/DSN literals.
+ */
 export const environment = {
   production: true,
   apiBaseUrl: 'https://backend.forjd.co',

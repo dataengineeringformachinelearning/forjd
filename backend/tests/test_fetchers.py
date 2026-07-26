@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
+from app.core.outbound_http import OutboundHttpError
 from app.services.fetchers.base import FetchResult
 from app.services.fetchers.crtsh import CrtShFetcher
 from app.services.fetchers.hibp import HibpExtractError, HibpFetcher
@@ -41,16 +42,10 @@ class CrtShFetcherTests(unittest.IsolatedAsyncioTestCase):
             {"name_value": "b.example.com"},
             {"name_value": "other.org"},
         ]
-        response = MagicMock()
-        response.raise_for_status = MagicMock()
-        response.json.return_value = raw_rows
-
-        client = AsyncMock()
-        client.get = AsyncMock(return_value=response)
-        client.__aenter__ = AsyncMock(return_value=client)
-        client.__aexit__ = AsyncMock(return_value=None)
-
-        with patch("app.services.fetchers.crtsh.httpx.AsyncClient", return_value=client):
+        with patch(
+            "app.services.fetchers.crtsh.request_json",
+            new=AsyncMock(return_value=(200, raw_rows)),
+        ):
             result = await CrtShFetcher().fetch({"domain": "example.com"})
 
         self.assertTrue(result.ok)
@@ -66,15 +61,10 @@ class HibpFetcherTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("invalid", (result.error or "").lower())
 
     async def test_404_is_ok_empty(self) -> None:
-        response = MagicMock()
-        response.status_code = 404
-
-        client = AsyncMock()
-        client.get = AsyncMock(return_value=response)
-        client.__aenter__ = AsyncMock(return_value=client)
-        client.__aexit__ = AsyncMock(return_value=None)
-
-        with patch("app.services.fetchers.hibp.httpx.AsyncClient", return_value=client):
+        with patch(
+            "app.services.fetchers.hibp.request_json",
+            new=AsyncMock(return_value=(404, None)),
+        ):
             result = await HibpFetcher().fetch({"email": "user@example.com"})
 
         self.assertTrue(result.ok)
@@ -83,15 +73,10 @@ class HibpFetcherTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.data.breaches, [])
 
     async def test_non_200_maps_to_http_error(self) -> None:
-        response = MagicMock()
-        response.status_code = 429
-
-        client = AsyncMock()
-        client.get = AsyncMock(return_value=response)
-        client.__aenter__ = AsyncMock(return_value=client)
-        client.__aexit__ = AsyncMock(return_value=None)
-
-        with patch("app.services.fetchers.hibp.httpx.AsyncClient", return_value=client):
+        with patch(
+            "app.services.fetchers.hibp.request_json",
+            new=AsyncMock(side_effect=OutboundHttpError("http_429", kind="http", status_code=429)),
+        ):
             result = await HibpFetcher().fetch({"email": "user@example.com"})
 
         self.assertFalse(result.ok)
@@ -102,3 +87,7 @@ class HibpFetcherTests(unittest.IsolatedAsyncioTestCase):
             raise HibpExtractError(503)
         self.assertEqual(ctx.exception.status_code, 503)
         self.assertEqual(str(ctx.exception), "http_503")
+
+
+if __name__ == "__main__":
+    unittest.main()

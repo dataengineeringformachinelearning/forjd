@@ -4,11 +4,37 @@ Universal secure streaming engine. Stability and E2EE over novelty.
 
 Scale guidance (leases, worker roles, what not to build): [`docs/SCALE.md`](docs/SCALE.md).
 
+Non-obvious decisions (ADRs): [`docs/adr/`](docs/adr/README.md).
+
 ## Suite UI (chrome)
 
 Visual identity is **suite-locked** with DEML Viking-UI: void-black surfaces, electric command `#2176ff`, institutional gold. FORJD `forjd-ui` is a thin `--fj-*` adapter — not a second design system. Contract: [`docs/SUITE_UI_UNIFICATION.md`](docs/SUITE_UI_UNIFICATION.md). Hosts: forjd.co and backend.forjd.co must match deml.app / marketing chrome (Storybook is local/Chromatic only).
 
 Connection map (probes, auth lanes, Fly admission): [`docs/CONNECTION_MAP.md`](docs/CONNECTION_MAP.md).
+
+Observability (logs, correlation, Rollbar/Sentry, never-log list): [`docs/OBSERVABILITY.md`](docs/OBSERVABILITY.md).
+
+Configuration inventory (env vars, feature flags, layers): [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) · [`config/forjd.catalog.yaml`](config/forjd.catalog.yaml).
+
+Landing offline is graceful shell-only (not an offline data plane): [`docs/adr/0009-graceful-offline-landing.md`](docs/adr/0009-graceful-offline-landing.md).
+
+Frontend state stays flat (scalars + derived computeds; index windows, not nested VMs): [`docs/adr/0010-normalize-flat-reactive-state.md`](docs/adr/0010-normalize-flat-reactive-state.md).
+
+Client fetches share loading / error / success phases via `createFetchHandle`: [`docs/adr/0011-consistent-fetch-states.md`](docs/adr/0011-consistent-fetch-states.md).
+
+Client caches use per-resource SWR (`createSwrCache`) with hard/soft invalidation and background revalidation: [`docs/adr/0012-swr-cache-invalidation.md`](docs/adr/0012-swr-cache-invalidation.md).
+
+Browser XSS / open-redirect hygiene (`safeHref`, CSP `frame-ancestors 'none'`): [`docs/adr/0013-client-side-attack-hardening.md`](docs/adr/0013-client-side-attack-hardening.md). CSRF remains header-auth (`AUTH.md`).
+
+UGC / third-party sanitization (`sanitize_text`, fetcher bounds, Sentry scrub): [`docs/adr/0014-sanitize-ugc-and-third-party.md`](docs/adr/0014-sanitize-ugc-and-third-party.md).
+
+Sole rate limiter + input validation + context output encoding: [`docs/adr/0015-rate-limit-validation-output-encoding.md`](docs/adr/0015-rate-limit-validation-output-encoding.md).
+
+Secure defaults (no session cookies, header parity, `credentials: 'omit'`, prod CORS/HTTPS): [`docs/adr/0016-secure-defaults-cookies-headers-api.md`](docs/adr/0016-secure-defaults-cookies-headers-api.md).
+
+Secrets / sensitive data scrubbing (logs + Sentry/Rollbar + browser console): [`docs/adr/0017-secrets-and-sensitive-data.md`](docs/adr/0017-secrets-and-sensitive-data.md).
+
+Defensive outbound HTTP (timeouts, no redirects, byte caps, JSON shape guards): [`docs/adr/0018-defensive-outbound-http.md`](docs/adr/0018-defensive-outbound-http.md).
 
 ## Principles
 
@@ -17,7 +43,7 @@ Connection map (probes, auth lanes, Fly admission): [`docs/CONNECTION_MAP.md`](d
 3. **Two explicit security lanes** — sealed evidence stays ciphertext-blind; a
    separate strict, selectively disclosed signal lane stores only normalized,
    PII-minimized fields needed for SIEM correlation and SOAR.
-4. **Config over forks** — YAML/JSON workflows under `backend/workflows/` select processors, detectors, and projections per use case.
+4. **Config over forks** — YAML/JSON workflows under `backend/workflows/` select processors, detectors, and projections per use case. Validate with `npm run validate:workflows` before deploy ([`docs/EXTENDING.md`](docs/EXTENDING.md), ADR-0028). No partner workflow write API.
 
 ## Layers
 
@@ -98,6 +124,9 @@ pipeline:
 
 Processors resolve via `app.workflows.processors.REGISTRY`. Detectors via
 `app.workflows.detectors.REGISTRY`. Add a vertical by dropping YAML — do not fork ingest.
+Start from `backend/workflows/examples/`; validate locally/CI; optional
+`WORKFLOWS_STRICT=1` fails closed at registry load. Partner control planes (e.g.
+DEML `/pipeline`) may compose/export YAML only — FORJD still owns deploy/reload.
 
 Partner wire ids map through config only:
 

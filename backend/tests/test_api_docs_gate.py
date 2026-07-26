@@ -11,7 +11,12 @@ class TestApiDocsGate(unittest.TestCase):
     def test_production_defaults_disable_api_docs(self) -> None:
         with patch.dict(
             os.environ,
-            {"ENVIRONMENT": "production", "DEBUG": "true"},
+            {
+                "ENVIRONMENT": "production",
+                "DEBUG": "true",
+                # Production CORS must include an https origin (ADR-0016).
+                "CORS_ORIGINS": '["https://forjd.co"]',
+            },
             clear=False,
         ):
             # Drop cached settings module state for a clean Settings() load.
@@ -30,6 +35,7 @@ class TestApiDocsGate(unittest.TestCase):
                 "ENVIRONMENT": "production",
                 "DEBUG": "false",
                 "ENABLE_API_DOCS": "true",
+                "CORS_ORIGINS": '["https://forjd.co"]',
             },
             clear=False,
         ):

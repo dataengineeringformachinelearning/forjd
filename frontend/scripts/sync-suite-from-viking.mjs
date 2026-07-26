@@ -6,21 +6,30 @@
  * Canonical: …/packages/viking-ui/src/tokens/ (+ styles/fonts/inter)
  * Usage: from frontend/ → npm run sync:suite
  *
+ * Override checkout: FORJD_DEML_ROOT or DEML_ROOT.
+ *
  * Backend: suite-fonts.css is rewritten so @font-face points at
  * /static/fonts/inter/* (API serves only /static, not /fonts).
  */
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const frontendDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const demlRoot = path.resolve(frontendDir, '../../dataengineeringformachinelearning');
-const demlTokensDir = path.join(demlRoot, 'packages/viking-ui/src/tokens');
-const demlFontsDir = path.join(demlRoot, 'packages/viking-ui/src/assets/fonts/inter');
-const outDir = path.join(frontendDir, 'libs/forjd-ui/src/lib/styles');
-const backendStatic = path.resolve(frontendDir, '../backend/static');
-const publicFonts = path.join(frontendDir, 'public/fonts/inter');
-const backendFonts = path.join(backendStatic, 'fonts/inter');
+import {
+  demlMissingHints,
+  failWithHints,
+  forjdSuiteDirs,
+  requireDir,
+  resolveDemlPaths,
+} from './suite-paths.mjs';
+
+const deml = resolveDemlPaths();
+const dirs = forjdSuiteDirs();
+
+requireDir(
+  deml.tokensDir,
+  'Cannot sync suite — DEML tokens directory not found.',
+  demlMissingHints(deml),
+);
 
 const files = [
   'suite-fonts.css',
@@ -29,53 +38,69 @@ const files = [
   'suite-landing.css',
   'suite-backend.css',
   'suite-docs.css',
+  'suite-apidocs.css',
   'SUITE_TOKENS.md',
   'SUITE_COMPONENTS.md',
   'SUITE_LANDING.md',
   'SUITE_BACKEND.md',
   'SUITE_DOCS.md',
+  'SUITE_APIDOCS.md',
+  'suite-role-a.json',
 ];
 
-for (const name of files) {
-  const src = path.join(demlTokensDir, name);
-  if (!existsSync(src)) {
-    console.error('Missing', src);
-    process.exit(1);
-  }
-  mkdirSync(outDir, { recursive: true });
-  const dest = path.join(outDir, name);
-  copyFileSync(src, dest);
-  console.log('Synced', path.basename(src), '→', dest);
+const missing = files.filter((name) => !existsSync(path.join(deml.tokensDir, name)));
+if (missing.length) {
+  failWithHints('DEML tokens directory is incomplete.', [
+    `Missing: ${missing.join(', ')}`,
+    `Looked in: ${deml.tokensDir}`,
+    'Pull latest DEML and rebuild Viking suite tokens if needed.',
+    'Then: cd frontend && npm run sync:suite',
+  ]);
 }
 
-mkdirSync(backendStatic, { recursive: true });
+mkdirSync(dirs.forjdUi, { recursive: true });
+for (const name of files) {
+  const src = path.join(deml.tokensDir, name);
+  const dest = path.join(dirs.forjdUi, name);
+  copyFileSync(src, dest);
+  console.log('Synced', name, '→', dest);
+}
+
+mkdirSync(dirs.backendStatic, { recursive: true });
 for (const name of [
   'suite-tokens.css',
   'suite-components.css',
   'suite-landing.css',
   'suite-backend.css',
+  'suite-apidocs.css',
 ]) {
-  copyFileSync(path.join(demlTokensDir, name), path.join(backendStatic, name));
-  console.log('Synced', name, '→', path.join(backendStatic, name));
+  copyFileSync(path.join(deml.tokensDir, name), path.join(dirs.backendStatic, name));
+  console.log('Synced', name, '→', path.join(dirs.backendStatic, name));
 }
 
 // Backend fonts: rewrite url("/fonts/inter/…") → /static/fonts/inter/… for API mount
-const fontsSrc = path.join(demlTokensDir, 'suite-fonts.css');
+const fontsSrc = path.join(deml.tokensDir, 'suite-fonts.css');
 const fontsBackend = readFileSync(fontsSrc, 'utf8').replace(
   /url\((["']?)\/fonts\/inter\//g,
   'url($1/static/fonts/inter/',
 );
-writeFileSync(path.join(backendStatic, 'suite-fonts.css'), fontsBackend);
-console.log('Synced suite-fonts.css (backend paths) →', path.join(backendStatic, 'suite-fonts.css'));
+writeFileSync(path.join(dirs.backendStatic, 'suite-fonts.css'), fontsBackend);
+console.log(
+  'Synced suite-fonts.css (backend paths) →',
+  path.join(dirs.backendStatic, 'suite-fonts.css'),
+);
 
-if (!existsSync(demlFontsDir)) {
-  console.error('Missing Inter source', demlFontsDir);
-  process.exit(1);
-}
-mkdirSync(publicFonts, { recursive: true });
-cpSync(demlFontsDir, publicFonts, { recursive: true });
-console.log('Synced Inter →', publicFonts);
+requireDir(deml.fontsDir, 'Cannot sync Inter fonts — DEML font directory not found.', [
+  ...demlMissingHints(deml),
+  `Expected fonts at: ${deml.fontsDir}`,
+]);
 
-mkdirSync(backendFonts, { recursive: true });
-cpSync(demlFontsDir, backendFonts, { recursive: true });
-console.log('Synced Inter →', backendFonts);
+mkdirSync(dirs.publicFonts, { recursive: true });
+cpSync(deml.fontsDir, dirs.publicFonts, { recursive: true });
+console.log('Synced Inter →', dirs.publicFonts);
+
+mkdirSync(dirs.backendFonts, { recursive: true });
+cpSync(deml.fontsDir, dirs.backendFonts, { recursive: true });
+console.log('Synced Inter →', dirs.backendFonts);
+
+console.log('\n✓ Suite sync complete. Verify with: npm run suite:purity\n');

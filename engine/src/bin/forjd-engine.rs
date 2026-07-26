@@ -214,6 +214,32 @@ async fn main() {
             .layer(SetResponseHeaderLayer::overriding(
                 header::CACHE_CONTROL,
                 HeaderValue::from_static("no-store"),
+            ))
+            // API-parity hardening (JSON process HTTP — no HTML shells).
+            .layer(SetResponseHeaderLayer::overriding(
+                header::CONTENT_SECURITY_POLICY,
+                HeaderValue::from_static(
+                    "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+                ),
+            ))
+            .layer(SetResponseHeaderLayer::overriding(
+                HeaderName::from_static("permissions-policy"),
+                HeaderValue::from_static(
+                    "geolocation=(), microphone=(), camera=(), payment=(), usb=(), bluetooth=(), interest-cohort=(), browsing-topics=()",
+                ),
+            ))
+            .layer(SetResponseHeaderLayer::overriding(
+                HeaderName::from_static("cross-origin-opener-policy"),
+                HeaderValue::from_static("same-origin"),
+            ))
+            .layer(SetResponseHeaderLayer::overriding(
+                HeaderName::from_static("cross-origin-resource-policy"),
+                HeaderValue::from_static("same-site"),
+            ))
+            // Engine is TLS-terminated at the edge in production; harmless on loopback.
+            .layer(SetResponseHeaderLayer::overriding(
+                header::STRICT_TRANSPORT_SECURITY,
+                HeaderValue::from_static("max-age=31536000; includeSubDomains; preload"),
             )),
     );
 

@@ -11,6 +11,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 
 from app.addons import ADDONS, addon_enabled, get_addon
+from app.core.text_fields import AddonSlug
 
 router = APIRouter(prefix="/addons", tags=["addons"])
 
@@ -46,5 +47,5 @@ async def list_addons() -> dict[str, Any]:
 
 
 @router.get("/{slug}")
-async def get_addon_detail(slug: str) -> dict[str, Any]:
+async def get_addon_detail(slug: AddonSlug) -> dict[str, Any]:
     return _serialize(slug)

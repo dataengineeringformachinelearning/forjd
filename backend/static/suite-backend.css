@@ -92,7 +92,7 @@
 }
 
 :is(.suite-backend-logo, .backend-splash-logo):hover {
-  transform: translateY(-1px);
+  transform: translateY(var(--suite-hover-lift));
   filter: drop-shadow(
     0 0 26px color-mix(in srgb, var(--suite-primary) 18%, transparent)
   );
@@ -225,7 +225,7 @@
   box-sizing: border-box;
 }
 
-/* Quiet method chips preference (when suite-apidocs not yet loaded) */
+/* Swagger opblock chrome — full skin lives in suite-apidocs.css */
 :is(body.backend-swagger, body.suite-backend-docs) .swagger-ui .opblock {
   border-radius: var(--suite-radius);
   box-shadow: none;

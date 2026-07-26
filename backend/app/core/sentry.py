@@ -29,12 +29,20 @@ def configure_sentry() -> bool:
         logger.warning("SENTRY_DSN set but sentry-sdk not installed (uv sync --group sentry)")
         return False
 
+    def _before_send(event: dict, hint: dict) -> dict | None:  # noqa: ARG001
+        # Deep scrub secrets/ciphertext — aligned with frontend scrub.ts (ADR-0017).
+        from app.core.sanitize import scrub_for_logs
+
+        scrubbed = scrub_for_logs(event)
+        return scrubbed if isinstance(scrubbed, dict) else event
+
     sentry_sdk.init(
         dsn=dsn,
         environment=(settings.SENTRY_ENVIRONMENT or settings.ENVIRONMENT).strip(),
         release=f"forjd@{settings.PROJECT_VERSION}",
         traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
         send_default_pii=False,
+        before_send=_before_send,
         integrations=[StarletteIntegration(), FastApiIntegration()],
     )
     logger.info("sentry enabled env=%s", settings.SENTRY_ENVIRONMENT or settings.ENVIRONMENT)

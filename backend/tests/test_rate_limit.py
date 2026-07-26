@@ -121,9 +121,24 @@ class TestIpRateLimit(unittest.IsolatedAsyncioTestCase):
                 SimpleNamespace(method="POST", url=SimpleNamespace(path="/api/v1/honeypots/hit"))
             )
         )
+        self.assertTrue(
+            _matches_public_rate_limit(
+                SimpleNamespace(method="GET", url=SimpleNamespace(path="/api/v1/addons"))
+            )
+        )
+        self.assertTrue(
+            _matches_public_rate_limit(
+                SimpleNamespace(method="GET", url=SimpleNamespace(path="/api/v1/addons/osv"))
+            )
+        )
         self.assertFalse(
             _matches_public_rate_limit(
                 SimpleNamespace(method="GET", url=SimpleNamespace(path="/api/v1/ingest"))
+            )
+        )
+        self.assertFalse(
+            _matches_public_rate_limit(
+                SimpleNamespace(method="GET", url=SimpleNamespace(path="/ready"))
             )
         )
 

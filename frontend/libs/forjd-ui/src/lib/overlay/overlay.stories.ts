@@ -1,14 +1,19 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import type { Meta, StoryObj } from '@storybook/angular-vite';
-import { FjButton } from '../button/button';
-import { FjDialog } from '../dialog/dialog';
-import { FjSheet } from '../sheet/sheet';
-import { FjToastHost, FjToastService } from '../toast/toast';
+
+import { FjErrorBoundary } from '../feedback/error-boundary/error-boundary';
+import { FjButton } from '../forms/button/button';
+import { FjShortcutHelpService } from '../chrome/shortcuts/shortcut-help.service';
+import { FjDialog } from './dialog/dialog';
+import { FjSearchPalette } from './search-palette/search-palette';
+import { FjSheet } from './sheet/sheet';
+import { FjShortcutHelp } from './shortcut-help/shortcut-help';
+import { FjToastHost, FjToastService } from './toast/toast';
 
 @Component({
-  selector: 'fj-overlay-demo',
+  selector: 'forjd-overlay-demo',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FjButton, FjDialog, FjSheet],
+  imports: [FjButton, FjDialog, FjSheet, FjErrorBoundary],
   template: `
     <div style="display:flex;gap:var(--suite-space-2);flex-wrap:wrap">
       <forjd-button type="button" (click)="dialogOpen.set(true)">Open dialog</forjd-button>
@@ -17,7 +22,9 @@ import { FjToastHost, FjToastService } from '../toast/toast';
       >
     </div>
     <forjd-dialog [(open)]="dialogOpen" title="Confirm">
-      <p>Suite dialog chrome — identical on DEML and FORJD.</p>
+      <forjd-error-boundary>
+        <p>Suite dialog chrome — identical on DEML and FORJD.</p>
+      </forjd-error-boundary>
       <div dialogActions>
         <forjd-button variant="ghost" type="button" (click)="dialogOpen.set(false)"
           >Cancel</forjd-button
@@ -36,20 +43,41 @@ class OverlayDemo {
 }
 
 @Component({
-  selector: 'fj-toast-demo',
+  selector: 'forjd-toast-demo',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FjButton, FjToastHost],
   template: `
     <forjd-toast-host />
-    <forjd-button type="button" (click)="ping()">Show toast</forjd-button>
+    <div style="display:flex;gap:var(--suite-space-2);flex-wrap:wrap">
+      <forjd-button type="button" (click)="success()">Success (low)</forjd-button>
+      <forjd-button variant="secondary" type="button" (click)="info()">Info</forjd-button>
+      <forjd-button variant="outline" type="button" (click)="warn()">Warning</forjd-button>
+      <forjd-button variant="danger" type="button" (click)="critical()">Critical</forjd-button>
+    </div>
   `,
 })
 class ToastDemo {
   private readonly toast = inject(FjToastService);
-  ping(): void {
-    this.toast.show('Sealed ingest accepted', {
-      description: 'Projection checkpoint advanced.',
-      tone: 'success',
+  success(): void {
+    this.toast.success('Sealed ingest accepted', {
+      description: 'Quiet confirmation — yields to higher priority.',
+    });
+  }
+  info(): void {
+    this.toast.show('Checkpoint advanced', {
+      description: 'Normal priority status.',
+      tone: 'info',
+    });
+  }
+  warn(): void {
+    this.toast.show('Ready probe degraded', {
+      description: 'High priority — outranks quiet successes.',
+      tone: 'warning',
+    });
+  }
+  critical(): void {
+    this.toast.critical('Tenant token rejected', {
+      description: 'Sticky until dismissed.',
     });
   }
 }
@@ -64,14 +92,99 @@ type Story = StoryObj;
 
 export const DialogAndSheet: Story = {
   render: () => ({
-    template: `<fj-overlay-demo />`,
+    template: `<forjd-overlay-demo />`,
     moduleMetadata: { imports: [OverlayDemo] },
   }),
 };
 
 export const Toast: Story = {
   render: () => ({
-    template: `<fj-toast-demo />`,
+    template: `<forjd-toast-demo />`,
     moduleMetadata: { imports: [ToastDemo] },
+  }),
+};
+
+@Component({
+  selector: 'forjd-search-palette-demo',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [FjButton, FjSearchPalette],
+  template: `
+    <forjd-button type="button" (click)="open.set(true)">Open search (⌘K)</forjd-button>
+    <forjd-search-palette
+      [(open)]="open"
+      [items]="items"
+      placeholder="Search documentation, API, and product…"
+    />
+  `,
+})
+class SearchPaletteDemo {
+  readonly open = signal(false);
+  readonly items = [
+    {
+      title: 'Swagger',
+      href: 'https://backend.forjd.co/docs',
+      group: 'API',
+      keywords: ['openapi'],
+      snippet: 'Interactive OpenAPI docs',
+    },
+    {
+      title: 'Sealed ingest',
+      href: '#',
+      group: 'Product',
+      keywords: ['e2ee', 'ciphertext'],
+      snippet: 'Ciphertext-only envelopes',
+    },
+  ];
+}
+
+export const SearchPalette: Story = {
+  render: () => ({
+    template: `<forjd-search-palette-demo />`,
+    moduleMetadata: { imports: [SearchPaletteDemo] },
+  }),
+};
+
+@Component({
+  selector: 'forjd-shortcut-help-demo',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [FjButton, FjShortcutHelp],
+  template: `
+    <forjd-button type="button" (click)="help.show()">Open shortcuts (?)</forjd-button>
+    <forjd-shortcut-help />
+  `,
+})
+class ShortcutHelpDemo {
+  readonly help = inject(FjShortcutHelpService);
+}
+
+export const ShortcutHelp: Story = {
+  render: () => ({
+    template: `<forjd-shortcut-help-demo />`,
+    moduleMetadata: { imports: [ShortcutHelpDemo] },
+  }),
+};
+
+@Component({
+  selector: 'forjd-sheet-left-demo',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [FjButton, FjSheet],
+  template: `
+    <forjd-button type="button" variant="outline" (click)="open.set(true)"
+      >Open left sheet</forjd-button
+    >
+    <forjd-sheet [(open)]="open" title="Filters" side="left">
+      <p>Left-side sheet for dense filter / inspector layouts.</p>
+    </forjd-sheet>
+  `,
+})
+class SheetLeftDemo {
+  readonly open = signal(false);
+}
+
+export const SheetLeft: Story = {
+  name: 'Sheet / left side',
+  render: () => ({
+    template: `<forjd-sheet-left-demo />`,
+    moduleMetadata: { imports: [SheetLeftDemo] },
   }),
 };
