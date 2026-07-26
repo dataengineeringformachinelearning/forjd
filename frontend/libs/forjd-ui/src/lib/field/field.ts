@@ -7,6 +7,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   host: {
     class: 'suite-field fj-field viking-field',
     '[class.viking-field-invalid]': '!!error()',
+    '[attr.data-invalid]': 'error() ? "true" : null',
   },
   template: `
     <label class="suite-field-label-wrap viking-field-label-wrap">

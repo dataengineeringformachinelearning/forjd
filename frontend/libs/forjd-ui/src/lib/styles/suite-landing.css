@@ -11,17 +11,18 @@
    Stage — void atmosphere (SpaceX power + Porsche precision + electric command)
    ============================================================================= */
 :is(.suite-landing, .fj-landing, .landing-container, .community-home) {
+  /* Restrained command atmosphere — no neon orbs; stepped light only. */
   --_suite-landing-glow: color-mix(
     in srgb,
-    var(--suite-primary) 26%,
+    var(--suite-primary) 14%,
     transparent
   );
   --_suite-landing-glow-mid: color-mix(
     in srgb,
-    var(--suite-primary) 12%,
+    var(--suite-primary) 7%,
     transparent
   );
-  --_suite-landing-gold: color-mix(in srgb, var(--suite-gold) 14%, transparent);
+  --_suite-landing-gold: color-mix(in srgb, var(--suite-gold) 8%, transparent);
   position: relative;
   isolation: isolate;
   min-height: 100%;
@@ -67,19 +68,19 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.18;
+  opacity: 0.1;
   background-image:
     linear-gradient(
-      color-mix(in srgb, var(--suite-border) 75%, transparent) 1px,
+      color-mix(in srgb, var(--suite-border) 60%, transparent) 1px,
       transparent 1px
     ),
     linear-gradient(
       90deg,
-      color-mix(in srgb, var(--suite-border) 75%, transparent) 1px,
+      color-mix(in srgb, var(--suite-border) 60%, transparent) 1px,
       transparent 1px
     );
-  background-size: 64px 64px;
-  mask-image: radial-gradient(ellipse at 30% 0%, black 0%, transparent 68%);
+  background-size: var(--suite-space-8) var(--suite-space-8);
+  mask-image: radial-gradient(ellipse at 30% 0%, black 0%, transparent 62%);
 }
 
 /* Children above atmosphere */
@@ -211,12 +212,12 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
 }
 
 :is(.badge-dot, .pulse-dot) {
-  width: 0.5rem;
-  height: 0.5rem;
+  width: var(--suite-space-0-5);
+  height: var(--suite-space-0-5);
   border-radius: var(--suite-radius-pill);
   background: var(--suite-success);
-  box-shadow: 0 0 0 0 color-mix(in srgb, var(--suite-success) 55%, transparent);
-  animation: suite-pulse 2s var(--suite-ease) infinite;
+  /* Static status mark — no glow pulse on base chrome. */
+  box-shadow: none;
   flex-shrink: 0;
 }
 
@@ -228,9 +229,7 @@ forjd-page-shell :is(.suite-landing, .fj-landing, .landing) {
   width: min(3.75rem, 16vw);
   height: auto;
   margin-bottom: var(--suite-space-1);
-  filter: drop-shadow(
-    0 0 22px color-mix(in srgb, var(--suite-primary) 32%, transparent)
-  );
+  filter: none;
 }
 
 /* Display brand wordmark */

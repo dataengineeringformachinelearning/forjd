@@ -523,6 +523,20 @@
   cursor: pointer;
 }
 
+/* Focus lands on the native input — surface the suite ring on the control. */
+:is(
+    .suite-checkbox,
+    .viking-checkbox,
+    .fj-checkbox,
+    .suite-radio,
+    .viking-radio,
+    .fj-radio
+  )
+  input:focus-visible {
+  outline: var(--suite-ring-width) solid var(--suite-ring);
+  outline-offset: var(--suite-ring-offset);
+}
+
 :is(
   .suite-checkbox,
   .viking-checkbox,
@@ -567,6 +581,18 @@
   position: relative;
   transition: var(--suite-transition);
   flex-shrink: 0;
+  box-shadow: var(--suite-highlight);
+}
+
+:is(.suite-switch, .viking-switch, .fj-switch):hover
+  :is(.suite-switch-track, .viking-switch-track, .fj-switch-track) {
+  border-color: var(--suite-border);
+  background: var(--suite-surface-elevated);
+}
+
+:is(.suite-switch, .viking-switch, .fj-switch):active
+  :is(.suite-switch-track, .viking-switch-track, .fj-switch-track) {
+  transform: scale(0.98);
 }
 
 :is(.suite-switch-track, .viking-switch-track, .fj-switch-track)::after {
