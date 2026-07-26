@@ -156,7 +156,7 @@ html[data-theme="dark"] {
   --suite-tracking-caps: 0.1em;
   --suite-tracking-brand: 0.14em;
 
-  /* --- Spacing (8px primary grid; 4px tight exception) --- */
+  /* --- Spacing (THEME.md: 8px primary grid; 4px tight exception) --- */
   --suite-space-unit: 8px;
   --suite-space-0: 0;
   --suite-space-px: 1px;
@@ -169,17 +169,19 @@ html[data-theme="dark"] {
   --suite-space-6: 48px;
   --suite-space-7: 56px;
   --suite-space-8: 64px;
-  --suite-space-10: 80px;
-  --suite-space-12: 96px;
+  --suite-space-9: 80px;
+  --suite-space-10: 96px;
+  --suite-space-11: 112px;
+  --suite-space-12: 128px;
 
   --suite-space-compact: 12px;
   --suite-page-gutter: clamp(1rem, 4vw, 1.5rem);
   --suite-section-gap: clamp(2.5rem, 6vw, 4rem);
   --suite-content-max: 78.75rem; /* 1260px */
-  --suite-readable-max: 42rem;
-  /* Mobile touch target (WCAG / SaaS) */
+  --suite-readable-max: 48rem;
+  /* Mobile touch target (WCAG AA / SaaS) */
   --suite-touch: 2.75rem; /* 44px */
-  /* Dense desktop control frame (Palantir-adjacent density) */
+  /* Dense desktop control frame; mobile interactive targets use --suite-touch */
   --suite-control-height: 2.5rem; /* 40px */
   --suite-control-height-sm: 2rem; /* 32px */
   --suite-control-height-lg: var(--suite-touch);
@@ -228,11 +230,13 @@ html[data-theme="dark"] {
     opacity var(--suite-duration-fast) var(--suite-ease),
     transform var(--suite-duration-fast) var(--suite-ease);
 
-  /* --- Breakpoints (documentation contract — use in media queries as needed) --- */
-  --suite-bp-sm: 640px;
+  /* --- Breakpoints (THEME.md mobile-first contract) --- */
+  --suite-bp-sm: 600px;
   --suite-bp-md: 768px;
+  --suite-bp-sidebar: 901px;
   --suite-bp-lg: 1024px;
-  --suite-bp-xl: 1280px;
+  --suite-bp-xl: 1440px;
+  --suite-bp-2xl: 1920px;
 
   /* =========================================================================
      Compatibility aliases — viking-ui + forjd-ui
@@ -308,7 +312,12 @@ html[data-theme="dark"] {
   --viking-space-6: var(--suite-space-6);
   --viking-space-7: var(--suite-space-7);
   --viking-space-8: var(--suite-space-8);
+  --viking-space-9: var(--suite-space-9);
+  --viking-space-10: var(--suite-space-10);
+  --viking-space-11: var(--suite-space-11);
+  --viking-space-12: var(--suite-space-12);
   --viking-space-compact-gap: var(--suite-space-compact);
+  --viking-touch-target-min: var(--suite-touch);
   --viking-radius-xs: var(--suite-radius-xs);
   --viking-radius-sm: var(--suite-radius-sm);
   --viking-radius: var(--suite-radius);
@@ -334,8 +343,10 @@ html[data-theme="dark"] {
   --viking-content-readable-max-width: var(--suite-readable-max);
   --viking-bp-sm: var(--suite-bp-sm);
   --viking-bp-md: var(--suite-bp-md);
+  --viking-bp-sidebar: var(--suite-bp-sidebar);
   --viking-bp-lg: var(--suite-bp-lg);
   --viking-bp-xl: var(--suite-bp-xl);
+  --viking-bp-2xl: var(--suite-bp-2xl);
   --viking-brand-navy: var(--suite-brand-navy);
   --viking-brand-blue: var(--suite-brand-blue);
   --viking-series-1: var(--suite-series-1);

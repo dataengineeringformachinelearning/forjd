@@ -18,6 +18,7 @@ export interface FjNavItem {
           class="suite-nav-link fj-nav-link viking-nav-link"
           [attr.href]="item.href"
           [attr.data-active]="item.active ? 'true' : null"
+          [attr.aria-current]="item.active ? 'page' : null"
           [attr.target]="item.external ? '_blank' : null"
           [attr.rel]="item.external ? 'noopener noreferrer' : null"
         >
