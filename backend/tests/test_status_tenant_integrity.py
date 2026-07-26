@@ -48,7 +48,7 @@ class TestStatusTenantIntegrityMigration(unittest.TestCase):
         versions = sorted(
             int(path.name.split("_", 1)[0]) for path in (ROOT / "sql").glob("[0-9][0-9][0-9]_*.sql")
         )
-        self.assertEqual(versions, list(range(3, 29)))
+        self.assertEqual(versions, list(range(3, 30)))
 
     def test_post_migration_verifier_requires_validated_constraints(self) -> None:
         verifier = (ROOT / "scripts/verify_supabase_post_migration.py").read_text()

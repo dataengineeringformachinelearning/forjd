@@ -31,6 +31,8 @@ router = APIRouter(tags=["domain"])
 
 # --- Request models ---
 class LighthouseScanRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
     tenant_id: UUID
     url: str = Field(..., min_length=8, max_length=2048)
 
@@ -57,6 +59,9 @@ class HibpRequest(BaseModel):
 
 
 class AhmiaRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    tenant_id: UUID
     keyword: str = Field(..., min_length=2, max_length=128)
 
 
@@ -101,8 +106,11 @@ class HoneypotCreateRequest(BaseModel):
 
 
 class HoneypotHitRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
     tenant_id: UUID
     path: str = Field(..., min_length=1, max_length=512)
+    # Accepted for backward compatibility but ignored — source IP is edge-derived.
     source_ip: str | None = Field(default=None, max_length=128)
     method: str = Field(default="GET", max_length=16)
     user_agent: str | None = Field(default=None, max_length=512)
@@ -183,9 +191,12 @@ async def lighthouse_scan(
     body: LighthouseScanRequest,
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
-    return await lighthouse_svc.scan_and_store(
-        _pool(request), user=user, tenant_id=body.tenant_id, url=body.url
-    )
+    try:
+        return await lighthouse_svc.scan_and_store(
+            _pool(request), user=user, tenant_id=body.tenant_id, url=body.url
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=intentional_detail(exc)) from exc
 
 
 @router.get("/lighthouse")
@@ -230,10 +241,16 @@ async def osint_hibp(
 
 @router.post("/osint/ahmia")
 async def osint_ahmia(
+    request: Request,
     body: AhmiaRequest,
     user: AuthUser = Depends(get_current_user),
 ) -> dict[str, Any]:
-    _ = user
+    await tenant_svc.require_tenant_access(
+        _pool(request),
+        principal=user,
+        tenant_id=body.tenant_id,
+        required_scopes=frozenset({"threat-intel:read"}),
+    )
     return await osint_svc.search_ahmia(body.keyword)
 
 
@@ -411,11 +428,20 @@ async def honeypot_hit(
     body: HoneypotHitRequest,
 ) -> dict[str, Any]:
     # Unauthenticated decoy hit — always ok to avoid honeypot/tenant enumeration.
+    # Source IP is edge-derived; never trust the client-supplied field.
+    from app.core.rate_limit import client_ip
+
+    edge_ip = client_ip(request)
+    try:
+        ipaddress.ip_address(edge_ip)
+        source_ip = edge_ip
+    except ValueError:
+        source_ip = None
     await honeypot_svc.log_interaction(
         _pool(request),
         tenant_id=body.tenant_id,
         path=body.path if body.path.startswith("/") else f"/{body.path}",
-        source_ip=body.source_ip,
+        source_ip=source_ip,
         method=body.method,
         user_agent=body.user_agent,
         payload=body.payload,
