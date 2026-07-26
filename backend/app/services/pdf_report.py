@@ -63,7 +63,6 @@ class PdfReportTheme:
     border: Color
     table_header: Color
     table_header_border: Color
-    accent: Color
     margin: float
     gap: float
     compact_gap: float
@@ -161,7 +160,6 @@ def load_pdf_report_theme() -> PdfReportTheme:
         border=_resolve_color(tokens, "color.navy.100"),
         table_header=_resolve_color(tokens, "color.navy.800"),
         table_header_border=_resolve_color(tokens, "color.navy.500"),
-        accent=_resolve_color(tokens, "semantic.light.accent"),
         margin=_resolve_points(tokens, "spacing.5"),
         gap=_resolve_points(tokens, "spacing.2"),
         compact_gap=_resolve_points(tokens, "spacing.1"),
