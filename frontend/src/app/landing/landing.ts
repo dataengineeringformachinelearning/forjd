@@ -38,8 +38,13 @@ export class Landing {
   protected readonly privacyUrl = 'https://dataengineeringformachinelearning.com/privacy/';
   protected readonly termsUrl = 'https://dataengineeringformachinelearning.com/terms/';
 
-  /** Shared continuity signal: FORJD `/ready` (ops + DEML soft-probe source). */
-  protected readonly apiReady = signal<'ok' | 'not_ready' | 'unreachable'>('ok');
+  /**
+   * Shared continuity signal: FORJD `/ready`.
+   * Starts unknown — never optimistic ok before the probe settles.
+   */
+  protected readonly apiReady = signal<'ok' | 'not_ready' | 'unreachable' | 'checking'>(
+    'checking',
+  );
 
   constructor() {
     afterNextRender(() => {
@@ -51,11 +56,14 @@ export class Landing {
   }
 
   private async probeApiReady(): Promise<void> {
+    const controller = new AbortController();
+    const timer = globalThis.setTimeout(() => controller.abort(), 2500);
     try {
       const response = await fetch(this.readyUrl, {
         method: 'GET',
         headers: { Accept: 'application/json' },
         credentials: 'omit',
+        signal: controller.signal,
       });
       if (!response.ok) {
         this.apiReady.set('not_ready');
@@ -72,6 +80,8 @@ export class Landing {
     } catch {
       this.apiReady.set('unreachable');
       console.warn('[landing] FORJD /ready unreachable');
+    } finally {
+      globalThis.clearTimeout(timer);
     }
   }
 

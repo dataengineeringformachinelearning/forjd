@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -146,14 +147,24 @@ async def summarize_values(values: list[float]) -> dict[str, Any]:
 
 
 async def remote_version() -> dict[str, Any] | None:
-    """Probe HTTP engine `/v1/version` when `ENGINE_URL` is set."""
+    """Probe HTTP engine `/v1/version` when `ENGINE_URL` is set.
+
+    Bounded retry (2 attempts) absorbs brief engine restarts without delaying
+    readiness callers that already wrap this in ``asyncio.wait_for``.
+    """
     if not _http_configured():
         return None
-    try:
-        return dict(await _http_json("GET", "/v1/version"))
-    except Exception as exc:
-        logger.warning("engine version probe failed: %s", exc)
-        return {"ok": False, "error": str(exc)}
+    last_error: Exception | None = None
+    for attempt in range(1, 3):
+        try:
+            return dict(await _http_json("GET", "/v1/version"))
+        except Exception as exc:
+            last_error = exc
+            if attempt < 2:
+                await asyncio.sleep(0.05 * attempt)
+                continue
+    logger.warning("engine version probe failed: %s", last_error)
+    return {"ok": False, "error": str(last_error) if last_error else "unknown"}
 
 
 # --- Sealed-metadata pipeline (sync; used from the Prefect hot path) ---
