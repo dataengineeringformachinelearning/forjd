@@ -67,8 +67,9 @@ primary_region = 'iad'
     timeout = '10s'
     grace_period = '90s'
     method = 'GET'
-    # Liveness for proxy admission. Dependency readiness stays on GET /ready.
-    path = '/health'
+    # Route admission requires dependency readiness (Postgres/Redis/workers).
+    # Process liveness remains on GET /health for operators and soft probes.
+    path = '/ready'
 
 [mounts]
   source = 'ml_models'
