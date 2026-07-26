@@ -1,4 +1,6 @@
 # FORJD
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fdataengineeringformachinelearning%2Fforjd.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fdataengineeringformachinelearning%2Fforjd?ref=badge_shield)
+
 
 Universal secure streaming engine for sealed partner ingest, YAML workflows, and durable projections.
 
@@ -191,3 +193,7 @@ supabase/          Edge Functions + Realtime notes
 ```
 
 More detail: [`backend/README.md`](backend/README.md) and [`AGENTS.md`](AGENTS.md). [`LOG.MD`](LOG.MD) is an engineering journal (historical); current architecture lives in `ARCHITECTURE.md` and `AGENTS.md`.
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fdataengineeringformachinelearning%2Fforjd.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fdataengineeringformachinelearning%2Fforjd?ref=badge_large)
