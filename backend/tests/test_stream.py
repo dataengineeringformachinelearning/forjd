@@ -6,14 +6,14 @@ import unittest
 from unittest.mock import patch
 
 from app.services import engine as engine_svc
-from app.services.stream import pathway_sealed_process
+from app.services.stream import sealed_process
 from app.workflows.models import WorkflowDefinition
 
 
 # --- Metadata anomaly (E2EE-safe; never needs ciphertext) ---
 class TestSealedStreamProcess(unittest.TestCase):
     def test_empty(self) -> None:
-        out = pathway_sealed_process([])
+        out = sealed_process([])
         self.assertTrue(out["ok"])
         self.assertEqual(out["count"], 0)
         self.assertEqual(out["results"], [])
@@ -29,7 +29,7 @@ class TestSealedStreamProcess(unittest.TestCase):
             "app.services.stream.engine_svc.run_sealed_pipeline_sync",
             return_value=None,
         ):
-            out = pathway_sealed_process(events)
+            out = sealed_process(events)
 
         self.assertTrue(out["ok"])
         self.assertEqual(out["engine"], "python-fallback")
@@ -82,7 +82,7 @@ class TestSealedStreamProcess(unittest.TestCase):
             },
             outputs={"tags": {"use_case": "test"}},
         )
-        out = pathway_sealed_process(events, workflow=wf)
+        out = sealed_process(events, workflow=wf)
         self.assertTrue(out["ok"])
         self.assertEqual(out["count"], 9)
         self.assertGreaterEqual(out["anomaly_count"], 1)
@@ -100,7 +100,7 @@ class TestSealedStreamProcess(unittest.TestCase):
             name="Rollup",
             pipeline={"processor": "sealed_metadata", "steps": ["rollup"]},
         )
-        out = pathway_sealed_process(
+        out = sealed_process(
             [
                 {
                     "event_id": "huge",
@@ -124,7 +124,7 @@ class TestSealedStreamProcess(unittest.TestCase):
                 "size_anomaly": {"zscore": 99.0, "max_cipher_len": 1000},
             },
         )
-        out = pathway_sealed_process(
+        out = sealed_process(
             [
                 {
                     "event_id": "huge",

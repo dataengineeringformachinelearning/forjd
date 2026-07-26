@@ -14,7 +14,7 @@ from app.workflows.models import WorkflowDefinition
 
 
 # --- Prefer Rust engine; deterministic Python fallback ---
-def pathway_sealed_process(
+def sealed_process(
     events: list[dict[str, Any]],
     *,
     workflow: WorkflowDefinition | None = None,
@@ -24,6 +24,8 @@ def pathway_sealed_process(
 
     Live path: called from Prefect on ingest (and projection ticks). Prefers the
     Rust sealed pipeline (PyO3 or ENGINE_URL). Soft-falls back to pure Python.
+
+    Note: historically named ``pathway_sealed_process``; Pathway is not used.
     """
     empty = {
         "ok": True,
@@ -90,6 +92,10 @@ def pathway_sealed_process(
         "workflow_id": workflow.id if workflow else None,
         "projection_name": projection_name,
     }
+
+
+# Compat alias — wire/result keys may still say "pathway"; the product is gone.
+pathway_sealed_process = sealed_process
 
 
 _ROUTING_KEYS = frozenset(
