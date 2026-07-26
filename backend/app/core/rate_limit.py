@@ -127,7 +127,7 @@ async def _enforce_sliding_window(request: Request, *, key: str, limit: int) -> 
         )
 
 
-def _client_ip(request: Request) -> str:
+def client_ip(request: Request) -> str:
     """Prefer edge-trusted IP headers; never log the raw value."""
     # Fly overwrites Fly-Client-IP; prefer it over client-spoofable XFF.
     for header in ("fly-client-ip", "x-real-ip"):
@@ -141,6 +141,10 @@ def _client_ip(request: Request) -> str:
     client = getattr(request, "client", None)
     host = getattr(client, "host", None) if client is not None else None
     return str(host) if host else "unknown"
+
+
+# Backward-compatible private alias for existing call sites/tests.
+_client_ip = client_ip
 
 
 def _request_limit(request: Request) -> tuple[str, int]:

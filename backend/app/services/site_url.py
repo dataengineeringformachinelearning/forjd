@@ -39,11 +39,13 @@ def resolved_public_addresses(
     return addresses
 
 
-def validate_public_site_url(url: str, verified_domain: str) -> str:
-    """Validate exact verified-origin ownership and reject SSRF-capable targets."""
-    parsed = urlparse(url)
-    if parsed.scheme not in {"http", "https"}:
-        raise ValueError("targets must use http or https")
+def validate_public_http_url(url: str, *, require_https: bool = True) -> str:
+    """Validate a public http(s) URL and reject SSRF-capable targets."""
+    parsed = urlparse(url.strip())
+    allowed = {"https"} if require_https else {"http", "https"}
+    if parsed.scheme not in allowed:
+        message = "targets must use https" if require_https else "targets must use http or https"
+        raise ValueError(message)
     if parsed.username or parsed.password:
         raise ValueError("targets cannot contain credentials")
     if not parsed.hostname:
@@ -52,14 +54,21 @@ def validate_public_site_url(url: str, verified_domain: str) -> str:
         raise ValueError("target port is not allowed")
 
     host = normalized_domain(parsed.hostname)
-    expected = normalized_domain(verified_domain)
-    if host != expected:
-        raise ValueError("target must match the verified domain")
-
     addresses = resolved_public_addresses(host)
     if any(not address.is_global for address in addresses):
         raise ValueError("target resolves to a non-public address")
     return parsed.geturl()
+
+
+def validate_public_site_url(url: str, verified_domain: str) -> str:
+    """Validate exact verified-origin ownership and reject SSRF-capable targets."""
+    validated = validate_public_http_url(url, require_https=False)
+    parsed = urlparse(validated)
+    host = normalized_domain(parsed.hostname or "")
+    expected = normalized_domain(verified_domain)
+    if host != expected:
+        raise ValueError("target must match the verified domain")
+    return validated
 
 
 def normalize_technology_name(raw: str) -> str:

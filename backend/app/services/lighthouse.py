@@ -14,6 +14,7 @@ import httpx
 from app.core.auth import AuthUser
 from app.core.config import settings
 from app.services import tenants as tenant_svc
+from app.services.site_url import validate_public_http_url
 
 logger = logging.getLogger("forjd.lighthouse")
 
@@ -43,8 +44,13 @@ async def ensure_lighthouse_schema(pool: asyncpg.Pool) -> None:
 
 # --- PageSpeed call ---
 async def scan_url(url: str, *, timeout: float = 45.0) -> dict[str, float] | None:
+    try:
+        safe_url = validate_public_http_url(url, require_https=True)
+    except ValueError as exc:
+        logger.warning("Lighthouse rejected unsafe url reason=%s", type(exc).__name__)
+        return None
     categories = ["performance", "accessibility", "best-practices", "seo"]
-    req_url = f"{PAGESPEED_API_URL}?url={quote(url, safe='')}&strategy=mobile"
+    req_url = f"{PAGESPEED_API_URL}?url={quote(safe_url, safe='')}&strategy=mobile"
     for cat in categories:
         req_url += f"&category={cat}"
     api_key = (settings.PAGESPEED_API_KEY or "").strip()
@@ -54,10 +60,10 @@ async def scan_url(url: str, *, timeout: float = 45.0) -> dict[str, float] | Non
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.get(req_url)
         if response.status_code == 429:
-            logger.warning("Lighthouse quota exceeded for %s", url)
+            logger.warning("Lighthouse quota exceeded")
             return None
         if response.status_code != 200:
-            logger.error("Lighthouse HTTP %s: %s", response.status_code, response.text[:300])
+            logger.error("Lighthouse HTTP %s", response.status_code)
             return None
         data = response.json()
         cats = (data.get("lighthouseResult") or {}).get("categories") or {}
@@ -86,7 +92,11 @@ async def scan_and_store(
         min_roles=frozenset({"owner", "admin", "member"}),
     )
     await ensure_lighthouse_schema(pool)
-    scores = await scan_url(url)
+    try:
+        safe_url = validate_public_http_url(url, require_https=True)
+    except ValueError as exc:
+        raise ValueError("url must be a public https target") from exc
+    scores = await scan_url(safe_url)
     if scores is None:
         return {"ok": False, "error": "scan_failed"}
     row = await pool.fetchrow(
@@ -99,7 +109,7 @@ async def scan_and_store(
                   best_practices, seo
         """,
         str(tenant_id),
-        url,
+        safe_url,
         scores["performance"],
         scores["accessibility"],
         scores["best_practices"],

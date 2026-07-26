@@ -138,6 +138,8 @@ async def check_hibp_breaches(
 
 # --- Ahmia / Tor (optional; requires SOCKS proxy) ---
 async def search_ahmia(keyword: str) -> dict[str, Any]:
+    from urllib.parse import quote
+
     proxy = (settings.TOR_PROXY_URL or "").strip()
     if not proxy:
         return {
@@ -145,8 +147,10 @@ async def search_ahmia(keyword: str) -> dict[str, Any]:
             "error": "TOR_PROXY_URL not configured",
             "provider": "ahmia",
         }
+    safe_keyword = quote(keyword.strip(), safe="")
     onion = (
-        f"http://juhanurmihxlp77nkq76byazcldy2hlmovfu2epvl5ankdibsot4csyd.onion/search/?q={keyword}"
+        "http://juhanurmihxlp77nkq76byazcldy2hlmovfu2epvl5ankdibsot4csyd.onion/"
+        f"search/?q={safe_keyword}"
     )
     try:
         async with httpx.AsyncClient(timeout=30.0, proxy=proxy) as client:
@@ -157,5 +161,6 @@ async def search_ahmia(keyword: str) -> dict[str, Any]:
             "provider": "ahmia",
         }
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Ahmia search failed: %s", exc)
-        return {"ok": False, "error": str(exc), "provider": "ahmia"}
+        # Never echo proxy/transport internals to API clients.
+        logger.warning("Ahmia search failed error_type=%s", type(exc).__name__)
+        return {"ok": False, "error": "search_failed", "provider": "ahmia"}

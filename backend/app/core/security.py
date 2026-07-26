@@ -104,20 +104,19 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
         if not request.url.path.startswith(settings.API_V1_STR):
             return await call_next(request)
 
-        # Prefer X-API-Key. Bearer JWTs, tenant service tokens (fjsvc_…), and the
-        # partner provision bootstrap token are left for route auth.
+        # Dual gate when configured: X-API-Key (or Bearer equal to API_KEY) is
+        # always required for mutating /api/v1 routes. Do not skip on JWT/fjsvc_
+        # shape — unauthenticated mutating routes (e.g. honeypot hits) would
+        # otherwise bypass the shared key with a forged Bearer token.
         provided = (request.headers.get("x-api-key") or "").strip()
-        auth = request.headers.get("authorization") or ""
-        if not provided and auth.lower().startswith("bearer "):
-            token = auth[7:].strip()
-            provision = (settings.FORJD_PROVISION_TOKEN or "").strip()
-            if (
-                token.count(".") == 2
-                or token.startswith("fjsvc_")
-                or (provision and hmac.compare_digest(token, provision))
-            ):
-                return await call_next(request)
-            provided = token
+        if not provided:
+            auth = request.headers.get("authorization") or ""
+            if auth.lower().startswith("bearer "):
+                token = auth[7:].strip()
+                # Only accept Bearer when it *is* the shared API key. Route auth
+                # still validates Supabase JWTs / fjsvc_ principals separately.
+                if token and hmac.compare_digest(token, expected):
+                    provided = token
 
         if not provided or not hmac.compare_digest(provided, expected):
             _log_auth_failure(kind="api_key", reason="reject")
