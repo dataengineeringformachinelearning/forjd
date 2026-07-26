@@ -21,6 +21,7 @@ import asyncpg
 
 from app.core.config import settings
 from app.core.worker_health import WorkerHealthRegistry
+from app.core.worker_lease import try_worker_lease
 from app.services import analytics as analytics_svc
 from app.services.ml import store as ml_store
 from app.services.ml import supabase_bridge as ml_sb
@@ -29,6 +30,7 @@ from app.services.ml.common import sklearn_available
 logger = logging.getLogger("forjd.analytics.worker")
 
 WORKER_NAME = "analytics-rollup"
+LEASE_NAME = "forjd:worker:analytics-rollup"
 # Look-back for fresh stream_results (covers previous-hour + current-hour ticks).
 ACTIVE_WINDOW_HOURS = 2
 # Keep rolling tenants that were recently active so overview 24h windows do not
@@ -108,14 +110,19 @@ async def _refresh_ml_scores(pool: asyncpg.Pool, tenant_id: UUID) -> None:
 
 # --- One tick ---
 async def tick_analytics_rollups(pool: asyncpg.Pool) -> int:
-    tenants = await _active_tenants(pool)
-    for tenant_id in tenants:
-        await _rollup_tenant(pool, tenant_id)
-        try:
-            await _refresh_ml_scores(pool, tenant_id)
-        except Exception:  # noqa: BLE001 - ML refresh must never block rollups
-            logger.exception("ml refresh failed tenant=%s", str(tenant_id)[:8])
-    return len(tenants)
+    """Roll up active tenants. Multi-machine safe via advisory lease."""
+    async with try_worker_lease(pool, LEASE_NAME) as leased:
+        if not leased:
+            logger.debug("analytics rollup skipped — leased elsewhere")
+            return 0
+        tenants = await _active_tenants(pool)
+        for tenant_id in tenants:
+            await _rollup_tenant(pool, tenant_id)
+            try:
+                await _refresh_ml_scores(pool, tenant_id)
+            except Exception:  # noqa: BLE001 - ML refresh must never block rollups
+                logger.exception("ml refresh failed tenant=%s", str(tenant_id)[:8])
+        return len(tenants)
 
 
 # --- Supervised loop ---

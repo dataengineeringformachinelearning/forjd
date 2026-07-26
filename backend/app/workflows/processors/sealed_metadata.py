@@ -17,4 +17,4 @@ def process(
     events: list[dict[str, Any]],
     workflow: WorkflowDefinition,
 ) -> dict[str, Any]:
-    return stream.pathway_sealed_process(events, workflow=workflow)
+    return stream.sealed_process(events, workflow=workflow)

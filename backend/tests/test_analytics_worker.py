@@ -38,10 +38,31 @@ class TestActiveTenants(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await analytics_worker._active_tenants(pool), [])
 
 
+def _lease_acquired():
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def _lease(_pool, _name):
+        yield True
+
+    return _lease
+
+
+def _lease_busy():
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def _lease(_pool, _name):
+        yield False
+
+    return _lease
+
+
 class TestTick(unittest.IsolatedAsyncioTestCase):
     async def test_rollup_covers_previous_and_current_hour(self) -> None:
         pool = _pool_with_active_tenants([TENANT_ID])
         with (
+            patch.object(analytics_worker, "try_worker_lease", new=_lease_acquired()),
             patch.object(analytics_worker.analytics_svc, "aggregate_hour", new=AsyncMock()) as agg,
             patch.object(analytics_worker, "_refresh_ml_scores", new=AsyncMock()) as refresh,
         ):
@@ -57,6 +78,7 @@ class TestTick(unittest.IsolatedAsyncioTestCase):
     async def test_ml_refresh_failure_does_not_block_rollups(self) -> None:
         pool = _pool_with_active_tenants([TENANT_ID])
         with (
+            patch.object(analytics_worker, "try_worker_lease", new=_lease_acquired()),
             patch.object(analytics_worker.analytics_svc, "aggregate_hour", new=AsyncMock()) as agg,
             patch.object(
                 analytics_worker,
@@ -67,6 +89,16 @@ class TestTick(unittest.IsolatedAsyncioTestCase):
             count = await analytics_worker.tick_analytics_rollups(pool)
         self.assertEqual(count, 1)
         self.assertEqual(agg.await_count, 2)
+
+    async def test_skips_when_leased_elsewhere(self) -> None:
+        pool = _pool_with_active_tenants([TENANT_ID])
+        with (
+            patch.object(analytics_worker, "try_worker_lease", new=_lease_busy()),
+            patch.object(analytics_worker.analytics_svc, "aggregate_hour", new=AsyncMock()) as agg,
+        ):
+            count = await analytics_worker.tick_analytics_rollups(pool)
+        self.assertEqual(count, 0)
+        agg.assert_not_awaited()
 
 
 class TestMlRefreshGuards(unittest.IsolatedAsyncioTestCase):

@@ -23,11 +23,13 @@ import asyncpg
 
 from app.core.config import settings
 from app.core.worker_health import WorkerHealthRegistry
+from app.core.worker_lease import try_worker_lease
 from app.services.ml.lstm_autoencoder import torch_available
 
 logger = logging.getLogger("forjd.training.worker")
 
 WORKER_NAME = "ml-training"
+LEASE_NAME = "forjd:worker:ml-training"
 # Tenants with results inside this window keep their models fresh.
 ACTIVE_WINDOW_DAYS = 7
 # Minimum series length for seq_len 16 plus multiple next-observation labels.
@@ -202,28 +204,33 @@ def _publish_tenant_artifacts(tenant_id: UUID) -> int:
 
 # --- One tick ---
 async def tick_training(pool: asyncpg.Pool) -> int:
+    """Train due tenants. Multi-machine safe via advisory lease (avoids HF double-publish)."""
     if not torch_available():
         logger.debug("torch unavailable; training tick skipped")
         return 0
-    tenants = await _tenants_due_training(pool)
-    for tenant_id in tenants:
-        try:
-            await _train_tenant(pool, tenant_id)
-        except Exception:  # noqa: BLE001 - one tenant must not block the rest
-            logger.exception("training failed tenant=%s", str(tenant_id)[:8])
-            continue
-        if _hf_configured():
+    async with try_worker_lease(pool, LEASE_NAME) as leased:
+        if not leased:
+            logger.debug("training tick skipped — leased elsewhere")
+            return 0
+        tenants = await _tenants_due_training(pool)
+        for tenant_id in tenants:
             try:
-                count = await asyncio.to_thread(_publish_tenant_artifacts, tenant_id)
-                logger.info(
-                    "hf publish tenant=%s files=%s repo=%s",
-                    str(tenant_id)[:8],
-                    count,
-                    settings.HF_MODEL_REPO_ID,
-                )
-            except Exception:  # noqa: BLE001 - publish failures retry next tick
-                logger.exception("hf publish failed tenant=%s", str(tenant_id)[:8])
-    return len(tenants)
+                await _train_tenant(pool, tenant_id)
+            except Exception:  # noqa: BLE001 - one tenant must not block the rest
+                logger.exception("training failed tenant=%s", str(tenant_id)[:8])
+                continue
+            if _hf_configured():
+                try:
+                    count = await asyncio.to_thread(_publish_tenant_artifacts, tenant_id)
+                    logger.info(
+                        "hf publish tenant=%s files=%s repo=%s",
+                        str(tenant_id)[:8],
+                        count,
+                        settings.HF_MODEL_REPO_ID,
+                    )
+                except Exception:  # noqa: BLE001 - publish failures retry next tick
+                    logger.exception("hf publish failed tenant=%s", str(tenant_id)[:8])
+        return len(tenants)
 
 
 # --- Supervised loop ---
