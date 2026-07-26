@@ -100,7 +100,10 @@ class TestExportContract(unittest.TestCase):
         self.assertIn(b"score", exports._render_export(rows, "csv"))
         self.assertIn(b"0.75", exports._render_export(rows, "json"))
         self.assertTrue(exports._render_export(rows, "parquet").startswith(b"PAR1"))
-        self.assertTrue(exports._render_export(rows, "pdf").startswith(b"%PDF"))
+        pdf = exports._render_export(rows, "pdf", source_kind="analytics", filters={"days": 30})
+        self.assertTrue(pdf.startswith(b"%PDF"))
+        self.assertIn(b"Analytics Report", pdf)
+        self.assertIn(b"Last 30 days", pdf)
         with self.assertRaisesRegex(ValueError, "at most 1000"):
             exports._render_export([{"id": index} for index in range(1_001)], "pdf")
 

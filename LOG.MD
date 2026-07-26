@@ -3,6 +3,7 @@
 > **Engineering journal (historical).** Current architecture lives in `ARCHITECTURE.md` and `AGENTS.md`. Entries below may describe superseded experiments (console PoC, cutover diary, rejected stacks). Do not treat this file as the deploy contract.
 
 ## Log
+- 2026-07-26: Promoted Role C PDF report tokens to suite chrome (primary `#2176ff`, institutional gold `#d4af37`); export PDFs now render source-aware styled reports with metadata instead of a generic CSV-in-PDF dump. Brand artwork blue stays logos-only; `plotHeight` no longer references undefined `--fj-space-20/24`.
 - 2026-07-25: Retired public Storybook — deleted Vercel project `ui` (`ui.forjd.co`); removed `deploy:ui` / `vercel.ui.json`. forjd-ui + local Storybook/Chromatic kept; product host remains `forjd`.
 - 2026-07-25: Visual/Storybook fix — suite-fonts.css Inter SoT, zoneless Storybook preview (stops black spinner), vercel.ui.json builds Storybook; deml/marketing hero cleanup lives in DEML.
 - 2026-07-25: Minimize pass — dropped unused `@angular/animations`; SEO meta clarifies FORJD primary + DEML companion; docs/book/whitepaper stack wording aligned to Rust sealed hot path (Pathway retired).

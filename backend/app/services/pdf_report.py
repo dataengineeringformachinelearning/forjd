@@ -1,7 +1,8 @@
-"""Render searchable, token-driven FORJD operational reports as PDF bytes.
+"""Render searchable, suite-styled FORJD operational reports as PDF bytes.
 
-Hand-rolled PDF renderer; uses FJORD token mirror under
-``backend/static/fjord-report-tokens.json`` (no Django dependency).
+Hand-rolled PDF renderer; uses Role C token mirror under
+``backend/static/fjord-report-tokens.json`` (suite-aligned chrome — not a
+CSV dump wrapped in a PDF). Brand artwork blue stays logos-only.
 """
 
 from __future__ import annotations
@@ -46,10 +47,12 @@ PDF_TEXT_REPLACEMENTS: Final[dict[str, str]] = {
 
 @dataclass(frozen=True)
 class PdfReportTheme:
-    """Resolved FJORD token values expressed in PDF points and RGB channels."""
+    """Resolved suite Role C token values in PDF points and RGB channels."""
 
     brand_navy: Color
     brand_blue: Color
+    primary: Color
+    gold: Color
     page: Color
     surface: Color
     surface_alt: Color
@@ -60,7 +63,6 @@ class PdfReportTheme:
     border: Color
     table_header: Color
     table_header_border: Color
-    accent: Color
     margin: float
     gap: float
     compact_gap: float
@@ -132,7 +134,7 @@ def _resolve_points(tokens: TokenMap, path: str) -> float:
 
 @lru_cache(maxsize=1)
 def load_pdf_report_theme() -> PdfReportTheme:
-    """Load the FJORD token mirror used by the backend report renderer."""
+    """Load the suite-aligned Role C token mirror for the report renderer."""
     try:
         tokens = json.loads(TOKEN_FILE.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -146,6 +148,8 @@ def load_pdf_report_theme() -> PdfReportTheme:
     return PdfReportTheme(
         brand_navy=_resolve_color(tokens, "color.brand.navy"),
         brand_blue=_resolve_color(tokens, "color.brand.blue"),
+        primary=_resolve_color(tokens, "color.electric.500"),
+        gold=_resolve_color(tokens, "color.gold.500"),
         page=_resolve_color(tokens, "semantic.light.bg"),
         surface=_resolve_color(tokens, "semantic.light.surface"),
         surface_alt=_resolve_color(tokens, "semantic.light.surfaceAlt"),
@@ -156,7 +160,6 @@ def load_pdf_report_theme() -> PdfReportTheme:
         border=_resolve_color(tokens, "color.navy.100"),
         table_header=_resolve_color(tokens, "color.navy.800"),
         table_header_border=_resolve_color(tokens, "color.navy.500"),
-        accent=_resolve_color(tokens, "semantic.light.accent"),
         margin=_resolve_points(tokens, "spacing.5"),
         gap=_resolve_points(tokens, "spacing.2"),
         compact_gap=_resolve_points(tokens, "spacing.1"),
@@ -356,12 +359,13 @@ def _append_brand_mark(
 
 
 def _append_header_chrome(commands: list[str], *, theme: PdfReportTheme) -> None:
+    # Suite chrome: void navy header + electric primary rule (not brand artwork blue).
     header_y = PAGE_HEIGHT - theme.header_height
     commands.extend(
         [
             _color_command(theme.brand_navy),
             f"0 {_number(header_y)} {_number(PAGE_WIDTH)} {_number(theme.header_height)} re f",
-            _color_command(theme.brand_blue),
+            _color_command(theme.primary),
             f"0 {_number(header_y)} {_number(PAGE_WIDTH)} {_number(theme.grid_unit)} re f",
         ]
     )
@@ -430,7 +434,7 @@ def _append_summary(
             y=y + theme.summary_height - theme.compact_gap - theme.font_label,
             font="F2",
             size=theme.font_label,
-            color=theme.text_muted,
+            color=theme.gold,
             max_width=card_width - (theme.compact_gap * 2),
         )
         _append_text(
@@ -542,7 +546,7 @@ def _append_table(
         y=top - theme.font_label,
         font="F2",
         size=theme.font_label,
-        color=theme.accent,
+        color=theme.gold,
     )
     _append_text(
         commands,
@@ -644,7 +648,7 @@ def _append_empty_state(commands: list[str], *, top: float, theme: PdfReportThem
         y=top - theme.font_label,
         font="F2",
         size=theme.font_label,
-        color=theme.accent,
+        color=theme.gold,
     )
     _append_rounded_rect(
         commands,
@@ -851,7 +855,7 @@ def render_pdf_report(
     title: str,
     metadata: dict[str, str] | None = None,
 ) -> bytes:
-    """Create a landscape FORJD report with branded header, summary, table, and footer."""
+    """Create a landscape suite-styled FORJD report (header, summary, table, footer)."""
     theme = load_pdf_report_theme()
     generated_at = datetime.now(UTC)
     page_contents = _page_streams(

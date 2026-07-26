@@ -21,7 +21,7 @@
  * Roles (do not collapse):
  *   A — Product chrome (surfaces, ink, primary, institutional gold, status)
  *   B — Chart series palette (--suite-series-*) — may evolve independently of chrome
- *   C — PDF / print report tokens live outside this file (fjord-report-tokens.json)
+ *   C — PDF / print report tokens live outside this file (fjord-report-tokens.json; suite-aligned chrome)
  *
  * Provenance (existing hexes only — no new brand hues):
  *   Void surfaces ← forjd.co · Electric command ← DEML · Gold ← FORJD institutional
