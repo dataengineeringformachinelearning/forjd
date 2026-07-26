@@ -1,7 +1,16 @@
 # Production deploy — FORJD (Fly + Vercel)
 
-Final operator runbook for the FORJD platform. Partner BFF/UI steps live in each
-partner's own deploy runbook.
+Final operator runbook for the FORJD **data-plane** repo
+([`forjd`](https://github.com/dataengineeringformachinelearning/forjd)).
+Partner BFF/UI steps live in each partner's own deploy runbook
+(DEML: [`deml` PRODUCTION_DEPLOY](https://github.com/dataengineeringformachinelearning/deml/blob/main/docs/PRODUCTION_DEPLOY.md)).
+
+| Surface | GitHub | Host |
+|---------|--------|------|
+| Landing | this repo (`frontend/`) → Vercel `forjd` | `forjd.co` |
+| API | this repo → Fly `forjd-backend` (`fly.api.toml`) | `backend.forjd.co` |
+| Engine | this repo (`engine/`) → Fly `forjd-engine` | `forjd-engine.fly.dev` / private |
+| Cache | this repo (`infra/dragonfly/`) → Fly `forjd-dragonfly` | private |
 
 **Previously recorded live baseline (2026-07-18; rerun after this release):**
 
@@ -129,9 +138,12 @@ Private URL for API: `http://forjd-engine.internal:8080`.
 
 ## 4. Vercel — FORJD web (`forjd.co`)
 
+GitHub source: `dataengineeringformachinelearning/forjd`, root `frontend`.
+
 ```bash
 cd frontend
-npx vercel link --project forjd --yes   # adjust project name if different
+npx vercel link --project forjd --yes
+npx vercel git connect https://github.com/dataengineeringformachinelearning/forjd.git --yes
 # apiBaseUrl = https://backend.forjd.co (see frontend env / vercel.json)
 npx vercel deploy --prod --yes
 ```

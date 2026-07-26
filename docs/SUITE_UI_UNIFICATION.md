@@ -2,7 +2,7 @@
 
 **Status:** Law — FORJD chrome must match DEML / Viking-UI across the suite.
 **Canonical visual SoT:** DEML `packages/viking-ui` (`@dataengineeringformachinelearning/viking-ui`)
-**Full contract:** keep in lockstep with DEML [`docs/SUITE_UI_UNIFICATION.md`](https://github.com/dataengineeringformachinelearning/dataengineeringformachinelearning/blob/main/docs/SUITE_UI_UNIFICATION.md)
+**Full contract:** keep in lockstep with DEML [`docs/SUITE_UI_UNIFICATION.md`](https://github.com/dataengineeringformachinelearning/deml/blob/main/docs/SUITE_UI_UNIFICATION.md)
 **ADR (landing layers + adapter):** [`adr/0006-landing-layers-suite-adapter.md`](adr/0006-landing-layers-suite-adapter.md)
 
 ## FORJD hosts in scope

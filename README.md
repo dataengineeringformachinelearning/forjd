@@ -1,15 +1,23 @@
-# FORJD
+# FORJD — Data Plane
 
 Universal secure streaming engine for sealed partner ingest, YAML workflows, and durable projections.
 
+> **Repo map**
+>
+> | Repo | Role | Production |
+> |------|------|------------|
+> | **This repo (`forjd`)** | Data plane | Vercel `forjd` → [forjd.co](https://forjd.co) · Fly `forjd-backend` / `forjd-engine` / `forjd-dragonfly` |
+> | [`deml`](https://github.com/dataengineeringformachinelearning/deml) | Control plane | [deml.app](https://deml.app) / [backend.deml.app](https://backend.deml.app) |
+> | [`dataengineeringformachinelearning`](https://github.com/dataengineeringformachinelearning/dataengineeringformachinelearning) | Community / BOOK | [dataengineeringformachinelearning.com](https://dataengineeringformachinelearning.com) |
+
 > **Platform boundary:** FORJD is the exclusive sealed data plane (intake, workflows,
 > projections, analytics, replay, threat processing, ML). Partner apps such as
-> [DEML](https://github.com/dataengineeringformachinelearning/dataengineeringformachinelearning)
+> [DEML](https://github.com/dataengineeringformachinelearning/deml)
 > own identity, billing, consent, and product UI — they call FORJD with tenant-bound
 > opaque `fjsvc_` tokens and AES-256-GCM sealed envelopes (never end-user tokens).
 > Production: API/engine on **Fly** + **Supabase**; landing on **Vercel** (`forjd.co`).
 > Extend workflows/detectors: [`docs/EXTENDING.md`](docs/EXTENDING.md). Partner contract:
-> [DEML `docs/FORJD_INTEGRATION.md`](https://github.com/dataengineeringformachinelearning/dataengineeringformachinelearning/blob/main/docs/FORJD_INTEGRATION.md).
+> [DEML `docs/FORJD_INTEGRATION.md`](https://github.com/dataengineeringformachinelearning/deml/blob/main/docs/FORJD_INTEGRATION.md).
 
 **New developer?** → **[`docs/START_HERE.md`](docs/START_HERE.md)** — understand the system and run it locally in about 10 minutes.
 
@@ -151,7 +159,7 @@ docs/START_HERE.md First-run guide
 
 [`LOG.MD`](LOG.MD) is an engineering journal (historical). Current architecture: `ARCHITECTURE.md` + `AGENTS.md`.
 
-**Resources:** [GitHub](https://github.com/dataengineeringformachinelearning/forjd) · [DEML control plane](https://github.com/dataengineeringformachinelearning/dataengineeringformachinelearning)
+**Resources:** [GitHub](https://github.com/dataengineeringformachinelearning/forjd) · [DEML control plane](https://github.com/dataengineeringformachinelearning/deml) · [Community](https://github.com/dataengineeringformachinelearning/dataengineeringformachinelearning)
 
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fdataengineeringformachinelearning%2Fforjd.svg?type=large&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fdataengineeringformachinelearning%2Fforjd?ref=badge_large&issueType=license)
 
