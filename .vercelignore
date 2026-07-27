@@ -1,0 +1,12 @@
+# The Vercel project builds from /frontend. Keep CLI monorepo uploads scoped to
+# that source tree and omit local caches/build artifacts.
+/*
+!frontend
+!frontend/**
+frontend/.angular
+frontend/.vercel
+frontend/coverage
+frontend/dist
+frontend/node_modules
+frontend/playwright-report
+frontend/test-results

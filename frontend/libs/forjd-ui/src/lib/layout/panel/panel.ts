@@ -10,7 +10,8 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [NgTemplateOutlet],
   host: {
-    role: 'region',
+    '[attr.role]': 'variant() === "section" && title() ? "region" : null',
+    '[attr.aria-label]': 'variant() === "section" && title() ? title() : null',
     '[attr.data-variant]': 'variant()',
   },
   template: `

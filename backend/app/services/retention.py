@@ -121,6 +121,7 @@ async def run_retention_worker(
         settings.RETENTION_RESULTS_DAYS,
     )
     while not stop_event.is_set():
+        delay = interval
         try:
             await tick_retention(pool)
             if health is not None:
@@ -131,5 +132,6 @@ async def run_retention_worker(
             logger.exception("retention sweep failed")
             if health is not None:
                 health.failed(WORKER_NAME, exc)
+            delay = min(interval, 5.0)
         with contextlib.suppress(TimeoutError):
-            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+            await asyncio.wait_for(stop_event.wait(), timeout=delay)

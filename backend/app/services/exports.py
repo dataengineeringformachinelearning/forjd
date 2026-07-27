@@ -86,11 +86,13 @@ _REQUIRED_CONSTRAINTS = frozenset(
         "export_jobs_lease_shape",
     }
 )
+_SCHEMA_SUCCESS: dict[tuple[int, bool], asyncpg.Pool] = {}
+_SCHEMA_LOCKS: dict[tuple[int, bool], tuple[asyncpg.Pool, asyncio.Lock]] = {}
+_SCHEMA_ADVISORY_LOCK_KEY = "forjd:export-schema"
 
 
-async def ensure_export_schema(pool: asyncpg.Pool) -> None:
-    """Assert the production migration or create the complete local/dev shape."""
-    await tenant_svc.ensure_secure_schema(pool)
+async def _ensure_export_schema_uncached(pool: asyncpg.Pool) -> None:
+    """Assert or create the export-specific schema after tenant setup."""
     if not settings.SOFT_MIGRATE_SCHEMA:
         rows = await pool.fetch(
             """
@@ -139,7 +141,17 @@ async def ensure_export_schema(pool: asyncpg.Pool) -> None:
             )
         return
 
-    await pool.execute(
+    async with pool.acquire() as connection, connection.transaction():
+        await connection.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))",
+            _SCHEMA_ADVISORY_LOCK_KEY,
+        )
+        await _soft_migrate_export_schema(connection)
+
+
+async def _soft_migrate_export_schema(connection: asyncpg.Connection) -> None:
+    """Apply the complete local shape atomically while holding the schema lock."""
+    await connection.execute(
         """
         CREATE TABLE IF NOT EXISTS export_jobs (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -184,9 +196,9 @@ async def ensure_export_schema(pool: asyncpg.Pool) -> None:
         "ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ",
     )
     for addition in additions:
-        await pool.execute(f"ALTER TABLE export_jobs {addition}")
+        await connection.execute(f"ALTER TABLE export_jobs {addition}")
     # Drop legacy SQL/011 checks before writing newer durable states.
-    await pool.execute(
+    await connection.execute(
         """
         ALTER TABLE export_jobs DROP CONSTRAINT IF EXISTS export_jobs_status_check;
         ALTER TABLE export_jobs DROP CONSTRAINT IF EXISTS export_jobs_format_check;
@@ -196,7 +208,7 @@ async def ensure_export_schema(pool: asyncpg.Pool) -> None:
         ALTER TABLE export_jobs DROP CONSTRAINT IF EXISTS export_jobs_lease_shape;
         """
     )
-    await pool.execute(
+    await connection.execute(
         """
         UPDATE export_jobs
         SET idempotency_key = COALESCE(idempotency_key, 'legacy:' || id::text),
@@ -244,7 +256,7 @@ async def ensure_export_schema(pool: asyncpg.Pool) -> None:
             END
         """
     )
-    await pool.execute(
+    await connection.execute(
         """
         UPDATE export_jobs
         SET filters = filters || jsonb_build_object('legacy_source_kind', source_kind),
@@ -256,7 +268,7 @@ async def ensure_export_schema(pool: asyncpg.Pool) -> None:
         )
         """
     )
-    await pool.execute(
+    await connection.execute(
         """
         ALTER TABLE export_jobs ADD CONSTRAINT export_jobs_format_check
           CHECK (format IN ('csv', 'json', 'parquet', 'pdf'));
@@ -268,45 +280,85 @@ async def ensure_export_schema(pool: asyncpg.Pool) -> None:
           CHECK (source_kind IN (
             'stream_results', 'analytics', 'threat', 'lighthouse', 'vulnerabilities'
           ));
+        ALTER TABLE export_jobs ADD CONSTRAINT export_jobs_attempts_bounds CHECK (
+          attempts >= 0 AND max_attempts BETWEEN 1 AND 20 AND attempts <= max_attempts
+        ) NOT VALID;
+        ALTER TABLE export_jobs VALIDATE CONSTRAINT export_jobs_attempts_bounds;
+        ALTER TABLE export_jobs ADD CONSTRAINT export_jobs_artifact_metadata CHECK (
+          byte_size >= 0
+          AND (checksum_sha256 IS NULL OR checksum_sha256 ~ '^[0-9a-f]{64}$')
+        ) NOT VALID;
+        ALTER TABLE export_jobs VALIDATE CONSTRAINT export_jobs_artifact_metadata;
         ALTER TABLE export_jobs ADD CONSTRAINT export_jobs_lease_shape CHECK (
           (status = 'running' AND lease_owner IS NOT NULL AND lease_expires_at IS NOT NULL)
           OR (status <> 'running' AND lease_owner IS NULL AND lease_expires_at IS NULL)
         );
         """
     )
-    await pool.execute(
+    await connection.execute(
         """
         ALTER TABLE export_jobs ALTER COLUMN idempotency_key SET NOT NULL;
         ALTER TABLE export_jobs ALTER COLUMN request_fingerprint SET NOT NULL;
         """
     )
-    await pool.execute(
+    await connection.execute(
         """
         CREATE UNIQUE INDEX IF NOT EXISTS export_jobs_tenant_idempotency_idx
         ON export_jobs (tenant_id, idempotency_key)
         """
     )
-    await pool.execute(
+    await connection.execute(
         """
         CREATE INDEX IF NOT EXISTS export_jobs_worker_idx
         ON export_jobs (next_attempt_at, created_at, id)
         WHERE status IN ('queued', 'retry_scheduled')
         """
     )
-    await pool.execute(
+    await connection.execute(
         """
         CREATE INDEX IF NOT EXISTS export_jobs_expiry_idx
         ON export_jobs (expires_at, id)
         WHERE status = 'completed' AND object_key IS NOT NULL
         """
     )
-    await pool.execute(
+    await connection.execute(
         """
         CREATE INDEX IF NOT EXISTS export_jobs_artifact_cleanup_idx
         ON export_jobs (next_attempt_at, id)
         WHERE status = 'failed' AND object_key IS NOT NULL
         """
     )
+
+
+def reset_export_schema_cache(pool: asyncpg.Pool | None = None) -> None:
+    """Invalidate successful export schema checks for tests or pool replacement."""
+    if pool is None:
+        _SCHEMA_SUCCESS.clear()
+        _SCHEMA_LOCKS.clear()
+        return
+    pool_id = id(pool)
+    for key in [key for key in _SCHEMA_SUCCESS if key[0] == pool_id]:
+        _SCHEMA_SUCCESS.pop(key, None)
+    for key in [key for key in _SCHEMA_LOCKS if key[0] == pool_id]:
+        _SCHEMA_LOCKS.pop(key, None)
+
+
+async def ensure_export_schema(pool: asyncpg.Pool) -> None:
+    """Assert or create the export schema once per pool and migration mode."""
+    await tenant_svc.ensure_secure_schema(pool)
+    key = (id(pool), bool(settings.SOFT_MIGRATE_SCHEMA))
+    if _SCHEMA_SUCCESS.get(key) is pool:
+        return
+
+    lock_entry = _SCHEMA_LOCKS.get(key)
+    if lock_entry is None or lock_entry[0] is not pool:
+        lock_entry = (pool, asyncio.Lock())
+        _SCHEMA_LOCKS[key] = lock_entry
+    async with lock_entry[1]:
+        if _SCHEMA_SUCCESS.get(key) is pool:
+            return
+        await _ensure_export_schema_uncached(pool)
+        _SCHEMA_SUCCESS[key] = pool
 
 
 def _request_fingerprint(
@@ -883,7 +935,7 @@ async def _load_source_rows(
             SELECT id::text, tenant_id::text, bucket_start, bucket_size,
                    total_requests, avg_latency_ms, p99_latency_ms,
                    error_rate_percent, threats_detected, active_incidents,
-                   unique_visitors, created_at
+                   unique_visitors, metadata, created_at
             FROM aggregated_analytics
             WHERE tenant_id = $1::uuid
               AND bucket_start >= NOW() - ($2::text || ' days')::interval
@@ -943,6 +995,8 @@ async def _load_source_rows(
         )
     else:
         raise ValueError(f"unsupported source_kind: {source_kind}")
+    if source_kind == "analytics":
+        return [_analytics_exportable_row(row) for row in rows]
     return [_exportable_row(row) for row in rows]
 
 
@@ -1242,10 +1296,41 @@ def _json_object(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
-def _exportable_row(row: asyncpg.Record) -> dict[str, Any]:
+def _analytics_exportable_row(row: asyncpg.Record) -> dict[str, Any]:
+    shaped = dict(row)
+    metadata = _json_object(shaped.get("metadata"))
+
+    def _count(key: str) -> int:
+        try:
+            return max(int(metadata.get(key) or 0), 0)
+        except (TypeError, ValueError):
+            return 0
+
+    latency_samples = _count("latency_sample_count")
+    uptime_samples = _count("uptime_sample_count")
+    uptime_active = min(_count("uptime_active_count"), uptime_samples)
+    shaped["latency_sample_count"] = latency_samples
+    shaped["latency_data_available"] = latency_samples > 0
+    shaped["uptime_sample_count"] = uptime_samples
+    shaped["uptime_active_count"] = uptime_active
+    shaped["uptime_data_available"] = uptime_samples > 0
+    shaped["uptime_percent"] = (
+        round(100.0 * uptime_active / uptime_samples, 2) if uptime_samples > 0 else None
+    )
+    shaped["anomaly_rate_percent"] = metadata.get(
+        "anomaly_rate_percent",
+        shaped.get("error_rate_percent"),
+    )
+    if latency_samples == 0:
+        shaped["avg_latency_ms"] = None
+        shaped["p99_latency_ms"] = None
+    return _exportable_row(shaped)
+
+
+def _exportable_row(row: Any) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in dict(row).items():
-        if isinstance(value, (dict, list)):
+        if isinstance(value, dict | list):
             result[key] = json.dumps(value, sort_keys=True, separators=(",", ":"))
         elif hasattr(value, "isoformat"):
             result[key] = value.isoformat()

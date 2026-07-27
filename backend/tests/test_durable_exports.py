@@ -60,6 +60,45 @@ def _row(*, fingerprint: str, status: str = "queued") -> dict[str, object]:
 
 
 class TestExportContract(unittest.TestCase):
+    def test_analytics_export_distinguishes_missing_and_zero_probe_latency(self) -> None:
+        unmeasured = exports._analytics_exportable_row(
+            {
+                "avg_latency_ms": 321.0,
+                "p99_latency_ms": 654.0,
+                "error_rate_percent": 25.0,
+                "metadata": {
+                    "latency_sample_count": 0,
+                    "uptime_sample_count": 0,
+                    "anomaly_rate_percent": 25.0,
+                },
+            }
+        )
+        self.assertIsNone(unmeasured["avg_latency_ms"])
+        self.assertIsNone(unmeasured["p99_latency_ms"])
+        self.assertFalse(unmeasured["latency_data_available"])
+        self.assertFalse(unmeasured["uptime_data_available"])
+        self.assertIsNone(unmeasured["uptime_percent"])
+        self.assertEqual(unmeasured["anomaly_rate_percent"], 25.0)
+
+        measured_zero = exports._analytics_exportable_row(
+            {
+                "avg_latency_ms": 0.0,
+                "p99_latency_ms": 0.0,
+                "error_rate_percent": 0.0,
+                "metadata": {
+                    "latency_sample_count": 2,
+                    "uptime_sample_count": 2,
+                    "uptime_active_count": 2,
+                    "anomaly_rate_percent": 0.0,
+                },
+            }
+        )
+        self.assertEqual(measured_zero["avg_latency_ms"], 0.0)
+        self.assertEqual(measured_zero["p99_latency_ms"], 0.0)
+        self.assertTrue(measured_zero["latency_data_available"])
+        self.assertTrue(measured_zero["uptime_data_available"])
+        self.assertEqual(measured_zero["uptime_percent"], 100.0)
+
     def test_migration_drops_legacy_checks_before_state_transition(self) -> None:
         sql = (ROOT / "sql/023_durable_exports.sql").read_text()
         drop_position = sql.index("DROP CONSTRAINT IF EXISTS export_jobs_status_check")
@@ -145,13 +184,25 @@ class TestExportIdempotency(unittest.IsolatedAsyncioTestCase):
 
     async def test_soft_upgrade_drops_legacy_checks_before_requeue(self) -> None:
         pool = AsyncMock()
+        connection = AsyncMock()
+        acquire_context = AsyncMock()
+        acquire_context.__aenter__.return_value = connection
+        pool.acquire = MagicMock(return_value=acquire_context)
+        transaction_context = AsyncMock()
+        connection.transaction = MagicMock(return_value=transaction_context)
         with (
             patch.object(exports.tenant_svc, "ensure_secure_schema", new=AsyncMock()),
             patch.object(exports.settings, "SOFT_MIGRATE_SCHEMA", True),
         ):
             await exports.ensure_export_schema(pool)
 
-        queries = [str(item.args[0]) for item in pool.execute.await_args_list]
+        queries = [str(item.args[0]) for item in connection.execute.await_args_list]
+        self.assertIn("pg_advisory_xact_lock", queries[0])
+        self.assertEqual(
+            connection.execute.await_args_list[0].args[1],
+            exports._SCHEMA_ADVISORY_LOCK_KEY,
+        )
+        connection.transaction.assert_called_once_with()
         drop_position = next(
             index
             for index, query in enumerate(queries)
@@ -165,6 +216,36 @@ class TestExportIdempotency(unittest.IsolatedAsyncioTestCase):
         joined_queries = "\n".join(queries)
         for index_name in exports._REQUIRED_INDEXES:
             self.assertIn(index_name, joined_queries)
+        for constraint_name in exports._REQUIRED_CONSTRAINTS:
+            self.assertIn(f"ADD CONSTRAINT {constraint_name}", joined_queries)
+
+    async def test_concurrent_schema_initializers_share_one_upgrade(self) -> None:
+        pool = AsyncMock()
+        started = exports.asyncio.Event()
+        release = exports.asyncio.Event()
+
+        async def slow_upgrade(_pool: object) -> None:
+            started.set()
+            await release.wait()
+
+        exports.reset_export_schema_cache(pool)
+        self.addCleanup(exports.reset_export_schema_cache, pool)
+        upgrade = AsyncMock(side_effect=slow_upgrade)
+        with (
+            patch.object(exports.tenant_svc, "ensure_secure_schema", new=AsyncMock()),
+            patch.object(exports.settings, "SOFT_MIGRATE_SCHEMA", True),
+            patch.object(exports, "_ensure_export_schema_uncached", new=upgrade),
+        ):
+            first = exports.asyncio.create_task(exports.ensure_export_schema(pool))
+            await started.wait()
+            second = exports.asyncio.create_task(exports.ensure_export_schema(pool))
+            await exports.asyncio.sleep(0)
+
+            upgrade.assert_awaited_once_with(pool)
+            release.set()
+            await exports.asyncio.gather(first, second)
+
+        upgrade.assert_awaited_once_with(pool)
 
     async def test_worker_claims_each_serial_export_just_in_time(self) -> None:
         claimed_row = {

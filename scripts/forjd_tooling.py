@@ -20,7 +20,9 @@ New developers: docs/START_HERE.md · docs/EXTENDING.md
 from __future__ import annotations
 
 import argparse
+from functools import lru_cache
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -33,6 +35,42 @@ ENGINE = ROOT / "engine"
 
 
 # --- Process helpers ---
+def _rust_pin() -> str:
+    try:
+        content = (ENGINE / "rust-toolchain.toml").read_text(encoding="utf-8")
+    except OSError:
+        return "1.97.1"
+    match = re.search(r'^\s*channel\s*=\s*"([^"]+)"', content, re.MULTILINE)
+    return match.group(1) if match else "1.97.1"
+
+
+@lru_cache(maxsize=1)
+def _pinned_rust_env() -> dict[str, str]:
+    """Prefer the repo's rustup toolchain even when Homebrew shadows its proxies."""
+    rustup = shutil.which("rustup")
+    if not rustup:
+        return {}
+    paths: dict[str, str] = {}
+    for tool in ("cargo", "rustc"):
+        result = subprocess.run(
+            [rustup, "which", tool, "--toolchain", _rust_pin()],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        candidate = result.stdout.strip()
+        if result.returncode != 0 or not candidate or not Path(candidate).is_file():
+            return {}
+        paths[tool.upper()] = candidate
+    toolchain_bin = str(Path(paths["CARGO"]).parent)
+    return {
+        **paths,
+        "PATH": os.pathsep.join(
+            part for part in (toolchain_bin, os.environ.get("PATH", "")) if part
+        ),
+    }
+
+
 class ToolError(RuntimeError):
     """User-facing tooling failure with recovery hints."""
 
@@ -57,7 +95,11 @@ def _run(
 ) -> int:
     label = " ".join(cmd)
     print(f"\n→ {label}")
-    merged = {**os.environ, **(env or {})}
+    executable = Path(cmd[0]).name if cmd else ""
+    rust_env = (
+        _pinned_rust_env() if executable in {"cargo", "maturin", "uv", "uvx"} else {}
+    )
+    merged = {**os.environ, **rust_env, **(env or {})}
     result = subprocess.run(cmd, cwd=cwd or ROOT, env=merged, check=False)
     if check and result.returncode != 0:
         raise ToolError(
@@ -96,7 +138,9 @@ def _hints_for_command(cmd: list[str], cwd: Path | None) -> list[str]:
             ]
         )
     if "cargo" in joined:
-        hints.append("From engine/: rustup show && cargo test --features server,data-plane")
+        hints.append(
+            "From engine/: rustup show && cargo test --features server,data-plane"
+        )
     if cwd:
         hints.append(f"Working directory was: {cwd}")
     hints.append("See docs/DEV.md for common failures.")
@@ -128,8 +172,14 @@ def cmd_doctor(_: argparse.Namespace) -> None:
         ok = False
         if len(major_minor) >= 2:
             major, minor = int(major_minor[0]), int(major_minor[1])
-            ok = (major == 22 and minor >= 22) or (major == 24 and minor >= 15) or major >= 26
-        note("node", ok, f"{ver} ({node})" if ok else f"{ver} — need ^22.22.3 / ^24.15+")
+            ok = (
+                (major == 22 and minor >= 22)
+                or (major == 24 and minor >= 15)
+                or major >= 26
+            )
+        note(
+            "node", ok, f"{ver} ({node})" if ok else f"{ver} — need ^22.22.3 / ^24.15+"
+        )
     else:
         note("node", False, "Install Node 24 (see frontend/.nvmrc)")
 
@@ -142,55 +192,95 @@ def cmd_doctor(_: argparse.Namespace) -> None:
         # Match "rustc 1.97.x" only (avoid substring false positives).
         parts = ver.split()
         rust_ver = parts[1] if len(parts) >= 2 else ""
-        pin_ok = rust_ver.startswith("1.97.")
+        pin = _rust_pin()
+        pin_ok = rust_ver == pin
+        pinned_env = _pinned_rust_env()
+        pinned_rustc = pinned_env.get("RUSTC")
         note(
             "rustc",
-            True,
-            ver if pin_ok else f"{ver} — engine pin is 1.97 (rustup install 1.97)",
+            pin_ok or bool(pinned_rustc),
+            (
+                ver
+                if pin_ok
+                else (
+                    f"{pin} via rustup ({pinned_rustc}); PATH has {ver}, "
+                    "tooling will select the pin"
+                    if pinned_rustc
+                    else f"{ver} — engine pin is {pin} (rustup install {pin})"
+                )
+            ),
         )
     else:
-        note("rustc", False, "Install Rust via rustup (engine needs 1.97)")
+        note("rustc", False, f"Install Rust via rustup (engine needs {_rust_pin()})")
 
-    cargo = _which("cargo")
+    cargo = _pinned_rust_env().get("CARGO") or _which("cargo")
     note("cargo", bool(cargo), cargo or "Install via rustup")
 
     note(
         "backend/.env",
         (BACKEND / ".env").is_file(),
-        "present" if (BACKEND / ".env").is_file() else "cp backend/.env.example backend/.env",
+        "present"
+        if (BACKEND / ".env").is_file()
+        else "cp backend/.env.example backend/.env",
     )
     note(
         "frontend/node_modules",
         (FRONTEND / "node_modules" / "@angular" / "cli").is_dir(),
-        "ok" if (FRONTEND / "node_modules" / "@angular" / "cli").is_dir() else "cd frontend && npm install",
+        "ok"
+        if (FRONTEND / "node_modules" / "@angular" / "cli").is_dir()
+        else "cd frontend && npm install",
     )
     note(
         "suite-tokens.css",
         (FRONTEND / "libs/forjd-ui/src/lib/styles/suite-tokens.css").is_file(),
-        "ok" if (FRONTEND / "libs/forjd-ui/src/lib/styles/suite-tokens.css").is_file() else "cd frontend && npm run sync:suite",
+        "ok"
+        if (FRONTEND / "libs/forjd-ui/src/lib/styles/suite-tokens.css").is_file()
+        else "cd frontend && npm run sync:suite",
     )
 
-    deml = Path(
-        os.environ.get("FORJD_DEML_ROOT")
-        or os.environ.get("DEML_ROOT")
-        or (ROOT.parent / "dataengineeringformachinelearning")
+    configured_deml = os.environ.get("FORJD_DEML_ROOT") or os.environ.get("DEML_ROOT")
+    deml_candidates = (
+        [Path(configured_deml)]
+        if configured_deml
+        else [ROOT.parent / "deml", ROOT.parent / "dataengineeringformachinelearning"]
+    )
+    deml = next(
+        (
+            candidate
+            for candidate in deml_candidates
+            if (candidate / "packages/viking-ui/src/tokens").is_dir()
+        ),
+        deml_candidates[0],
     )
     note(
         "DEML sibling",
         (deml / "packages/viking-ui/src/tokens").is_dir(),
-        str(deml) if (deml / "packages/viking-ui/src/tokens").is_dir() else f"optional — set FORJD_DEML_ROOT (looked at {deml})",
+        str(deml)
+        if (deml / "packages/viking-ui/src/tokens").is_dir()
+        else f"optional — set FORJD_DEML_ROOT (looked at {deml})",
     )
 
     docker = _which("docker")
     if docker:
-        dock_ok = subprocess.run(
-            ["docker", "info"],
-            check=False,
-            capture_output=True,
-        ).returncode == 0
-        note("docker", dock_ok, "daemon up" if dock_ok else "install/start Docker Desktop")
+        dock_ok = (
+            subprocess.run(
+                ["docker", "info"],
+                check=False,
+                capture_output=True,
+            ).returncode
+            == 0
+        )
+        note(
+            "docker",
+            dock_ok,
+            "daemon up" if dock_ok else "install/start Docker Desktop",
+        )
     else:
-        note("docker", False, "optional for local-db — https://docs.docker.com/get-docker/")
+        note(
+            "docker",
+            False,
+            "optional for local-db — https://docs.docker.com/get-docker/",
+        )
 
     workflows_dir = BACKEND / "workflows"
     yaml_count = (
@@ -210,12 +300,18 @@ def cmd_doctor(_: argparse.Namespace) -> None:
     for label, mark, detail in rows:
         print(f"  {label:<{width}}  [{mark}]  {detail}")
 
-    hard_fail = any(mark == "MISSING" and label in {"uv", "node", "cargo"} for label, mark, _ in rows)
+    hard_fail = any(
+        mark == "MISSING" and label in {"uv", "node", "rustc", "cargo"}
+        for label, mark, _ in rows
+    )
     print()
     if hard_fail:
         _print_fail(
             "Doctor found blocking gaps.",
-            ["Install missing tools, then re-run: python scripts/forjd_tooling.py doctor", "See docs/DEV.md"],
+            [
+                "Install missing tools, then re-run: python scripts/forjd_tooling.py doctor",
+                "See docs/DEV.md",
+            ],
         )
         raise SystemExit(1)
     print("✓ Doctor finished — fix any MISSING rows before quality/dev.\n")
@@ -362,6 +458,7 @@ def cmd_api(_: argparse.Namespace) -> None:
     print("Starting API with reload (DEBUG from settings / uvicorn --reload)…")
     print("  http://127.0.0.1:8000/health  ·  /ready  ·  /api/v1/capabilities\n")
     # Prefer explicit reload for DX even when DEBUG is false in .env.
+    os.environ.update(_pinned_rust_env())
     os.execvp(
         "uv",
         [
@@ -450,8 +547,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Install git pre-commit hooks (ruff, prettier, typecheck)",
     ).set_defaults(func=cmd_install_hooks)
 
-    sub.add_parser("api", help="Run FastAPI with reload on :8000").set_defaults(func=cmd_api)
-    sub.add_parser("web", help="Run Angular landing on :4200").set_defaults(func=cmd_web)
+    sub.add_parser("api", help="Run FastAPI with reload on :8000").set_defaults(
+        func=cmd_api
+    )
+    sub.add_parser("web", help="Run Angular landing on :4200").set_defaults(
+        func=cmd_web
+    )
     return parser
 
 
@@ -466,7 +567,10 @@ def main(argv: list[str] | None = None) -> int:
     except FileNotFoundError as exc:
         _print_fail(
             f"Executable not found: {exc.filename or exc}",
-            ["Install the missing tool", "Re-run: python scripts/forjd_tooling.py doctor"],
+            [
+                "Install the missing tool",
+                "Re-run: python scripts/forjd_tooling.py doctor",
+            ],
         )
         return 1
     except KeyboardInterrupt:

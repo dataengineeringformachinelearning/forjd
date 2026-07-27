@@ -6,7 +6,7 @@ import asyncio
 import unittest
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from app import main
 from app.core.worker_health import WorkerHealthRegistry
@@ -22,6 +22,51 @@ from app.services import (
 
 
 class TestWorkerSupervision(unittest.IsolatedAsyncioTestCase):
+    async def test_concurrent_first_readiness_shares_runtime_setup(self) -> None:
+        pool = MagicMock()
+        connection = AsyncMock()
+        acquire_context = AsyncMock()
+        acquire_context.__aenter__.return_value = connection
+        pool.acquire.return_value = acquire_context
+        app = SimpleNamespace(
+            state=SimpleNamespace(
+                runtime_readiness_lock=asyncio.Lock(),
+                runtime_readiness_task=None,
+            )
+        )
+        setup_started = asyncio.Event()
+        release_setup = asyncio.Event()
+
+        async def slow_prepare(*_args: object) -> None:
+            setup_started.set()
+            await release_setup.wait()
+
+        prepare = AsyncMock(side_effect=slow_prepare)
+        contracts = AsyncMock()
+        workers = AsyncMock()
+        with (
+            patch.object(main.settings, "REQUIRE_RLS", False),
+            patch.object(main, "_prepare_pool", new=prepare),
+            patch.object(main, "_verify_worker_contracts", new=contracts),
+            patch.object(main, "_ensure_background_workers", new=workers),
+        ):
+            first = asyncio.create_task(main._runtime_readiness_checks(app, pool))
+            await setup_started.wait()
+            second = asyncio.create_task(main._runtime_readiness_checks(app, pool))
+            await asyncio.sleep(0)
+            release_setup.set()
+            first_result, second_result = await asyncio.gather(first, second)
+
+        self.assertEqual(first_result, second_result)
+        self.assertTrue(first_result["postgres"])
+        self.assertTrue(first_result["runtime_setup"])
+        self.assertTrue(first_result["worker_contracts"])
+        connection.fetchval.assert_awaited_once_with("SELECT 1")
+        prepare.assert_awaited_once_with(app, pool)
+        contracts.assert_awaited_once_with(app, pool)
+        workers.assert_awaited_once_with(app, pool)
+        self.assertIsNone(app.state.runtime_readiness_task)
+
     async def test_readiness_verifies_each_durable_worker_contract(self) -> None:
         pool = object()
         app = SimpleNamespace(

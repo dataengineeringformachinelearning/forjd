@@ -1,7 +1,8 @@
 """Suite-themed Swagger UI page served at ``GET /docs``.
 
-Self-hosts swagger-ui-dist under ``/static/vendor/`` and skins via
-``suite-apidocs.css`` — no jsDelivr, no inline style blocks.
+Self-hosts swagger-ui-dist under ``/static/vendor/`` and skins via the
+shared suite contract plus FORJD-specific overrides — no jsDelivr or
+inline style blocks.
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ _DOCS_HTML = """\
 <link rel="stylesheet" href="/static/suite-components.css" />
 <link rel="stylesheet" href="/static/suite-backend.css" />
 <link rel="stylesheet" href="/static/suite-apidocs.css" />
+<link rel="stylesheet" href="/static/forjd-apidocs.css" />
 </head>
 <body class="suite-backend-docs backend-swagger">
   <header class="suite-backend-topbar backend-docs-topbar fj-topbar">
@@ -44,7 +46,10 @@ _DOCS_HTML = """\
       <a href="/ready">ready</a>
     </nav>
   </header>
-  <div id="swagger-ui"></div>
+  <main aria-label="FORJD interactive API documentation">
+    <h1 class="suite-sr-only">{project} interactive API documentation</h1>
+    <div id="swagger-ui"></div>
+  </main>
   <script src="/static/vendor/swagger-ui-dist/swagger-ui-bundle.js"></script>
   <script src="/static/docs-swagger-init.js" data-openapi-url="{openapi_url}"></script>
 </body>

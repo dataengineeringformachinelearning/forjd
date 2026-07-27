@@ -6,6 +6,7 @@ import unittest
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from app.core.worker_health import WorkerHealthRegistry
 from app.services import training_worker
 
 TENANT_ID = uuid.uuid4()
@@ -14,6 +15,10 @@ TENANT_ID = uuid.uuid4()
 def _pool(rows: list[dict[str, str]] | None = None) -> MagicMock:
     pool = MagicMock()
     pool.fetch = AsyncMock(return_value=rows or [])
+    conn = MagicMock()
+    conn.fetchval = AsyncMock(return_value=True)
+    pool.acquire = AsyncMock(return_value=conn)
+    pool.release = AsyncMock()
     return pool
 
 
@@ -256,6 +261,43 @@ class TestTenantHash(unittest.TestCase):
         self.assertEqual(len(hashed), 16)
         self.assertNotIn(str(TENANT_ID)[:8], hashed)
         self.assertEqual(hashed, training_worker._tenant_hash(TENANT_ID))
+
+
+class TestWorkerLoop(unittest.IsolatedAsyncioTestCase):
+    async def test_transient_failure_retries_quickly_then_restores_cadence(self) -> None:
+        pool = MagicMock()
+        stop_event = training_worker.asyncio.Event()
+        health = WorkerHealthRegistry()
+        waits: list[float] = []
+
+        async def wait_for(waitable, *, timeout: float):
+            waits.append(timeout)
+            if len(waits) == 1:
+                waitable.close()
+                raise TimeoutError
+            stop_event.set()
+            await waitable
+
+        with (
+            patch.object(
+                training_worker,
+                "tick_training",
+                new=AsyncMock(side_effect=[RuntimeError("database busy"), 0]),
+            ) as tick,
+            patch.object(training_worker.asyncio, "wait_for", new=wait_for),
+        ):
+            await training_worker.run_training_worker(
+                pool,
+                stop_event,
+                interval_seconds=3600.0,
+                health=health,
+            )
+
+        self.assertEqual(tick.await_count, 2)
+        self.assertEqual(waits, [5.0, 3600.0])
+        healthy, detail = health.status(training_worker.WORKER_NAME)
+        self.assertTrue(healthy)
+        self.assertEqual(detail["consecutive_failures"], 0)
 
 
 if __name__ == "__main__":

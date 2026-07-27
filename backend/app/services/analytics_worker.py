@@ -1,11 +1,11 @@
 """Continuous analytics rollup + ML score refresh worker.
 
-Each tick finds tenants with fresh ``stream_results`` and (a) upserts current +
-previous hour rollups into ``aggregated_analytics`` so the overview / CES /
-temporal forecast stay live, and (b) refreshes classical-anomaly ``ml_scores``
-so threat reports have model output without a manual /ml call. Metadata only —
-the worker never touches sealed ciphertext. (Supersedes the former DEML-local
-aggregation loop.)
+Each tick finds tenants with fresh ``stream_results`` or endpoint probe
+observations and (a) upserts current + previous hour rollups into
+``aggregated_analytics`` so the overview / CES / temporal forecast stay live,
+and (b) refreshes classical-anomaly ``ml_scores`` so threat reports have model
+output without a manual /ml call. Metadata only — the worker never touches
+sealed ciphertext. (Supersedes the former DEML-local aggregation loop.)
 """
 
 from __future__ import annotations
@@ -31,10 +31,12 @@ logger = logging.getLogger("forjd.analytics.worker")
 
 WORKER_NAME = "analytics-rollup"
 LEASE_NAME = "forjd:worker:analytics-rollup"
-# Look-back for fresh stream_results (covers previous-hour + current-hour ticks).
+# Look-back for fresh stream results or endpoint probes (covers previous-hour +
+# current-hour ticks, including newly monitored tenants with no sealed events).
 ACTIVE_WINDOW_HOURS = 2
-# Keep rolling tenants that were recently active so overview 24h windows do not
-# go blank after a quiet day (exports / prior rollups count as recent activity).
+# Export activity keeps an explicitly requested tenant warm for bounded catch-up.
+# Generated analytics rows are intentionally excluded: including them makes the
+# worker refresh its own activity predicate forever.
 RECENT_TENANT_WINDOW_HOURS = 168
 # Minimum rows before a classical fit is meaningful.
 MIN_ML_SAMPLES = 8
@@ -48,8 +50,8 @@ async def _active_tenants(pool: asyncpg.Pool) -> list[UUID]:
           SELECT tenant_id FROM stream_results
           WHERE created_at >= NOW() - make_interval(hours => $1)
           UNION
-          SELECT tenant_id FROM aggregated_analytics
-          WHERE bucket_start >= NOW() - make_interval(hours => $2)
+          SELECT tenant_id FROM health_probe_observations
+          WHERE observed_at >= NOW() - make_interval(hours => $1)
           UNION
           SELECT tenant_id FROM export_jobs
           WHERE created_at >= NOW() - make_interval(hours => $2)
@@ -116,13 +118,23 @@ async def tick_analytics_rollups(pool: asyncpg.Pool) -> int:
             logger.debug("analytics rollup skipped — leased elsewhere")
             return 0
         tenants = await _active_tenants(pool)
+        completed = 0
+        failed = 0
         for tenant_id in tenants:
-            await _rollup_tenant(pool, tenant_id)
+            try:
+                await _rollup_tenant(pool, tenant_id)
+            except Exception:  # noqa: BLE001 - isolate one tenant from the batch
+                failed += 1
+                logger.exception("analytics rollup failed tenant=%s", str(tenant_id)[:8])
+                continue
+            completed += 1
             try:
                 await _refresh_ml_scores(pool, tenant_id)
             except Exception:  # noqa: BLE001 - ML refresh must never block rollups
                 logger.exception("ml refresh failed tenant=%s", str(tenant_id)[:8])
-        return len(tenants)
+        if failed and completed == 0:
+            raise RuntimeError(f"analytics rollup failed for all {failed} active tenants")
+        return completed
 
 
 # --- Supervised loop ---
@@ -136,6 +148,7 @@ async def run_analytics_worker(
     interval = interval_seconds or settings.ANALYTICS_ROLLUP_INTERVAL_SECONDS
     logger.info("analytics rollup worker started interval=%ss", interval)
     while not stop_event.is_set():
+        delay = interval
         try:
             with worker_tick(logger, WORKER_NAME, level=logging.DEBUG) as tick:
                 tick["tenants"] = await tick_analytics_rollups(pool)
@@ -146,5 +159,8 @@ async def run_analytics_worker(
         except Exception as exc:  # noqa: BLE001 - supervised retry loop
             if health is not None:
                 health.failed(WORKER_NAME, exc)
+            # A transient first-tick failure must not hold readiness closed for
+            # the full production rollup cadence.
+            delay = min(interval, 5.0)
         with contextlib.suppress(TimeoutError):
-            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+            await asyncio.wait_for(stop_event.wait(), timeout=delay)

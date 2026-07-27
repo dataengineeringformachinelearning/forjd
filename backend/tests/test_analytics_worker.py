@@ -7,6 +7,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from app.core.worker_health import WorkerHealthRegistry
 from app.services import analytics_worker
 
 TENANT_ID = uuid.uuid4()
@@ -24,7 +25,7 @@ class TestActiveTenants(unittest.IsolatedAsyncioTestCase):
         pool = _pool_with_active_tenants([TENANT_ID])
         tenants = await analytics_worker._active_tenants(pool)
         self.assertEqual(tenants, [TENANT_ID])
-        # Fresh stream_results window + longer recent-activity window.
+        # Fresh stream/probe window + longer recent-activity window.
         self.assertEqual(
             pool.fetch.await_args.args[1:],
             (
@@ -32,6 +33,16 @@ class TestActiveTenants(unittest.IsolatedAsyncioTestCase):
                 analytics_worker.RECENT_TENANT_WINDOW_HOURS,
             ),
         )
+
+    async def test_includes_recent_health_probe_tenants(self) -> None:
+        pool = _pool_with_active_tenants([TENANT_ID])
+
+        self.assertEqual(await analytics_worker._active_tenants(pool), [TENANT_ID])
+
+        query = pool.fetch.await_args.args[0]
+        self.assertIn("SELECT tenant_id FROM health_probe_observations", query)
+        self.assertIn("observed_at >= NOW() - make_interval(hours => $1)", query)
+        self.assertNotIn("SELECT tenant_id FROM aggregated_analytics", query)
 
     async def test_empty_when_no_recent_activity(self) -> None:
         pool = _pool_with_active_tenants([])
@@ -89,6 +100,24 @@ class TestTick(unittest.IsolatedAsyncioTestCase):
             count = await analytics_worker.tick_analytics_rollups(pool)
         self.assertEqual(count, 1)
         self.assertEqual(agg.await_count, 2)
+
+    async def test_rollup_failure_isolated_to_one_tenant(self) -> None:
+        second_tenant = uuid.uuid4()
+        pool = _pool_with_active_tenants([TENANT_ID, second_tenant])
+        with (
+            patch.object(analytics_worker, "try_worker_lease", new=_lease_acquired()),
+            patch.object(
+                analytics_worker,
+                "_rollup_tenant",
+                new=AsyncMock(side_effect=[RuntimeError("bad tenant"), None]),
+            ) as rollup,
+            patch.object(analytics_worker, "_refresh_ml_scores", new=AsyncMock()) as refresh,
+        ):
+            count = await analytics_worker.tick_analytics_rollups(pool)
+
+        self.assertEqual(count, 1)
+        self.assertEqual(rollup.await_count, 2)
+        refresh.assert_awaited_once_with(pool, second_tenant)
 
     async def test_skips_when_leased_elsewhere(self) -> None:
         pool = _pool_with_active_tenants([TENANT_ID])
@@ -163,6 +192,43 @@ class TestMlRefreshGuards(unittest.IsolatedAsyncioTestCase):
         score.assert_called_once()
         pfit.assert_awaited_once()
         pscore.assert_awaited_once()
+
+
+class TestWorkerLoop(unittest.IsolatedAsyncioTestCase):
+    async def test_transient_failure_retries_quickly_then_restores_cadence(self) -> None:
+        pool = MagicMock()
+        stop_event = analytics_worker.asyncio.Event()
+        health = WorkerHealthRegistry()
+        waits: list[float] = []
+
+        async def wait_for(waitable, *, timeout: float):
+            waits.append(timeout)
+            if len(waits) == 1:
+                waitable.close()
+                raise TimeoutError
+            stop_event.set()
+            await waitable
+
+        with (
+            patch.object(
+                analytics_worker,
+                "tick_analytics_rollups",
+                new=AsyncMock(side_effect=[RuntimeError("database busy"), 0]),
+            ) as tick,
+            patch.object(analytics_worker.asyncio, "wait_for", new=wait_for),
+        ):
+            await analytics_worker.run_analytics_worker(
+                pool,
+                stop_event,
+                interval_seconds=300.0,
+                health=health,
+            )
+
+        self.assertEqual(tick.await_count, 2)
+        self.assertEqual(waits, [5.0, 300.0])
+        healthy, detail = health.status(analytics_worker.WORKER_NAME)
+        self.assertTrue(healthy)
+        self.assertEqual(detail["consecutive_failures"], 0)
 
 
 if __name__ == "__main__":

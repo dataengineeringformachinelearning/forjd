@@ -34,9 +34,17 @@ describe('Landing critical paths (integration)', () => {
     expect(el.querySelector('forjd-preferences')).toBeNull();
     expect(el.querySelector('.landing__capabilities')).toBeNull();
     expect(el.textContent).toContain('How partners integrate');
-    expect(el.querySelectorAll('forjd-panel.landing__feature').length).toBe(4);
+    const integrationCards = [...el.querySelectorAll<HTMLElement>('forjd-panel.landing__feature')];
+    expect(integrationCards).toHaveLength(4);
+    expect(integrationCards.every((card) => !card.hasAttribute('role'))).toBe(true);
     expect(
       el.querySelectorAll('[aria-label="Primary"] forjd-button, [aria-label="Primary"] a').length,
     ).toBeGreaterThanOrEqual(2);
+    const labelledSections = [...el.querySelectorAll('forjd-section[aria-labelledby]')];
+    expect(labelledSections).toHaveLength(2);
+    for (const section of labelledSections) {
+      expect(section.getAttribute('role')).toBe('region');
+      expect(el.querySelector(`#${section.getAttribute('aria-labelledby')}`)).not.toBeNull();
+    }
   });
 });

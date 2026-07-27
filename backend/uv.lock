@@ -465,6 +465,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "forjd-engine" },
     { name = "httpx" },
+    { name = "numpy" },
     { name = "polars" },
     { name = "prefect", extra = ["redis"] },
     { name = "pydantic-settings" },
@@ -485,7 +486,6 @@ etl = [
 ]
 ml = [
     { name = "huggingface-hub" },
-    { name = "numpy" },
     { name = "scikit-learn" },
     { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
     { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
@@ -510,6 +510,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.139.0" },
     { name = "forjd-engine", editable = "../engine" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "numpy", specifier = ">=2.0.0" },
     { name = "polars", specifier = ">=1.42.1" },
     { name = "prefect", extras = ["redis"], specifier = ">=3.7.8" },
     { name = "pydantic-settings", specifier = ">=2.14.2" },
@@ -528,7 +529,6 @@ dev = [
 etl = [{ name = "psycopg", extras = ["binary"], specifier = ">=3.2.0" }]
 ml = [
     { name = "huggingface-hub", specifier = ">=1.0.0" },
-    { name = "numpy", specifier = ">=2.0.0" },
     { name = "scikit-learn", specifier = ">=1.5.0" },
     { name = "torch", specifier = ">=2.6.0", index = "https://download.pytorch.org/whl/cpu" },
 ]

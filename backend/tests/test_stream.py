@@ -58,6 +58,36 @@ class TestSealedStreamProcess(unittest.TestCase):
         self.assertEqual(out["engine"], "forjd-engine")
         self.assertEqual(out["by_tenant"]["tenant"]["bytes"], 12)
 
+    def test_rust_pyo3_pipeline_preserves_routing_metadata(self) -> None:
+        out = engine_svc.run_sealed_pipeline_sync(
+            [
+                {
+                    "event_id": "e",
+                    "tenant_id": "tenant",
+                    "cipher_len": 12,
+                    "metadata": {
+                        "region": "iad",
+                        "component": "analytics.overview",
+                        "label": "2xx",
+                        "source": "deml-widget",
+                    },
+                }
+            ],
+            steps=["size_anomaly"],
+            projection_name="sealed.test",
+            workflow_id="test",
+        )
+
+        self.assertIsNotNone(out)
+        assert out is not None
+        self.assertTrue(out["ok"])
+        self.assertEqual(out["engine"], "forjd-engine")
+        metadata = out["results"][0]["metadata"]
+        self.assertEqual(metadata["region"], "iad")
+        self.assertEqual(metadata["component"], "analytics.overview")
+        self.assertEqual(metadata["label"], "2xx")
+        self.assertEqual(metadata["source"], "deml-widget")
+
     def test_rollup_and_outlier(self) -> None:
         tid = "11111111-1111-1111-1111-111111111111"
         events = [

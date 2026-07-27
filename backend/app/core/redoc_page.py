@@ -5,6 +5,8 @@ Self-hosts redoc under ``/static/vendor/`` — no jsDelivr CDN.
 
 from __future__ import annotations
 
+from html import escape
+
 from app.core.config import settings
 
 # --- ReDoc shell (suite-backend topbar + suite-apidocs) ---
@@ -24,6 +26,7 @@ _REDOC_HTML = """<!doctype html>
 <link rel="stylesheet" href="/static/suite-components.css" />
 <link rel="stylesheet" href="/static/suite-backend.css" />
 <link rel="stylesheet" href="/static/suite-apidocs.css" />
+<link rel="stylesheet" href="/static/forjd-apidocs.css" />
 </head>
 <body class="suite-backend-docs backend-redoc">
   <header class="suite-backend-topbar backend-docs-topbar fj-topbar">
@@ -36,12 +39,20 @@ _REDOC_HTML = """<!doctype html>
       <a href="/ready">ready</a>
     </nav>
   </header>
-  <redoc spec-url="/openapi.json"></redoc>
+  <main id="redoc-container" aria-label="FORJD API reference"></main>
   <script src="/static/vendor/redoc/redoc.standalone.js"></script>
+  <script
+    src="/static/redoc-init.js"
+    data-openapi-url="/openapi.json"
+    data-csp-nonce="{nonce}"
+  ></script>
 </body>
 </html>"""
 
 
-def render_redoc() -> str:
+def render_redoc(*, nonce: str | None = None) -> str:
     """Return the suite-themed ReDoc HTML."""
-    return _REDOC_HTML.format(project=settings.PROJECT_NAME.upper())
+    return _REDOC_HTML.format(
+        project=settings.PROJECT_NAME.upper(),
+        nonce=escape(nonce or "", quote=True),
+    )

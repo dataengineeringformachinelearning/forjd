@@ -103,12 +103,13 @@ uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000 --reload-dir a
 
 ## Suite sync (DEML)
 
-Canonical tokens live in the DEML sibling. Default path:
+Canonical tokens live in the DEML sibling. Tooling auto-detects the current
+`../deml` checkout name and the legacy monorepo name:
 
-`../dataengineeringformachinelearning/packages/viking-ui/src/tokens`
+`../deml/packages/viking-ui/src/tokens`
 
 ```bash
-export FORJD_DEML_ROOT=/absolute/path/to/dataengineeringformachinelearning
+export FORJD_DEML_ROOT=/absolute/path/to/deml
 cd frontend && npm run sync:suite && npm run suite:purity
 ```
 

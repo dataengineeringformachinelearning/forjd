@@ -3577,6 +3577,9 @@ span:is(
   display: inline-flex;
   align-items: center;
   gap: var(--suite-space-1);
+  width: fit-content;
+  max-width: 100%;
+  flex: 0 0 auto;
   min-height: var(--suite-control-height-sm);
   padding: 0 var(--suite-space-2);
   border: 1px solid var(--suite-border);
