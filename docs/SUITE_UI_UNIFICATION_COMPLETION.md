@@ -7,7 +7,7 @@
 | **Date** | 2026-07-25 |
 | **Status** | Draft (revision 5 — G1 API docs self-host + suite-apidocs closed on FORJD + DEML; Pass 7 interaction identity partial; 2026-07-26) |
 | **Supersedes (operationally)** | Passes 1–6 "done" claims where exploration finds residual divergence; Pass 6 = foundation complete, **not** identity complete |
-| **Canonical SoT** | DEML `packages/viking-ui` (`@dataengineeringformachinelearning/viking-ui@9.7.3`) |
+| **Canonical SoT** | DEML `packages/viking-ui` (`@dataengineeringformachinelearning/viking-ui@10.0.0`) |
 | **Related law** | DEML `docs/SUITE_UI_UNIFICATION.md`, FORJD `docs/SUITE_UI_UNIFICATION.md`, `THEME.md` |
 
 ---
@@ -41,7 +41,7 @@ This document is the **completion and enforcement design** (Pass 7). It does not
 | Chrome CSS | `suite-components.css`, `suite-landing.css`, `suite-backend.css`, `suite-docs.css` | Same vendor set (forjd-ui styles + backend static for subset) | Strong when synced |
 | Fonts | Inter via bundled `viking-ui.css` + `backend/static/fonts/inter` (relative `fonts/inter/`) | Frontend angular.json loads `suite-fonts.css`; backend has CSS file but **does not link it**; no `/fonts` mount; sync does not copy font binaries to backend | Partial |
 | Angular product | deml.app nearly composition-only; `viking-app.css` | forjd.co **landing-only** composition | Strong for live chrome |
-| Adapter library | `@dataengineeringformachinelearning/viking-ui@9.7.3` (~100+ lib modules) | `forjd-ui@0.1.0` ~23 public adapters + `.suite-*` classes | Core primitives for Storybook; unused gaps do not affect live hosts today |
+| Adapter library | `@dataengineeringformachinelearning/viking-ui@10.0.0` (~100+ lib modules) | `forjd-ui@0.1.0` ~23 public adapters + `.suite-*` classes | Core primitives for Storybook; unused gaps do not affect live hosts today |
 | Purity **script** | `npm run suite:purity` → `scripts/check-suite-purity.mjs` | No native gate; sibling compare only if DEML checkout present | Script exists DEML-only |
 | Purity **CI** | **Not wired.** `viking-ui-pr-gates.yml` runs `node scripts/enforce-theme.js` only — not `suite:purity`. `quality-gates.yml` / `ci-tests.yml` do not invoke it | `frontend-ci.yml` = test + build only | **Neither repo CI-fails on suite purity today** |
 | Visual regression | Chromatic runs with **`--exit-zero-on-changes`** (does not block merge) | Local `chromatic` script + `exitZeroOnChanges: true`; **no** `.github/workflows` Chromatic job | Publishes diffs; **not** a merge gate |

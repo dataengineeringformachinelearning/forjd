@@ -92,14 +92,14 @@ html {
   outline-offset: var(--suite-ring-offset);
 }
 
-/* Landmark that receives skip-link focus should not paint a persistent ring */
-:is(#main-content, [data-suite-main], .suite-main):focus {
-  outline: none;
-}
-
+/*
+ * Landmark that receives skip-link / SPA route focus must not paint a page-sized
+ * ring. Scripted .focus() often matches :focus-visible in Chromium — suppress both.
+ * Interactive children keep their own :focus-visible rings.
+ */
+:is(#main-content, [data-suite-main], .suite-main):focus,
 :is(#main-content, [data-suite-main], .suite-main):focus-visible {
-  outline: var(--suite-ring-width) solid var(--suite-ring);
-  outline-offset: var(--suite-ring-offset);
+  outline: none;
 }
 
 /* Shared ring token helper */
