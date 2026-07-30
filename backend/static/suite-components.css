@@ -2481,10 +2481,12 @@ span:is(
   .fj-onboarding-description
 ) {
   margin: 0;
+  flex: 1 1 100%;
   font-size: var(--suite-text-sm);
   color: var(--suite-ink-muted);
   line-height: var(--suite-leading-normal, 1.5);
-  max-width: 42rem;
+  max-width: var(--viking-content-readable-max-width, 48rem);
+  overflow-wrap: break-word;
 }
 
 :is(
@@ -2505,7 +2507,7 @@ span:is(
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--suite-space-1);
+  gap: var(--suite-space-2);
 }
 
 :is(.suite-onboarding-item, .viking-onboarding-item, .fj-onboarding-item) {
@@ -2513,7 +2515,7 @@ span:is(
   flex-wrap: wrap;
   align-items: center;
   gap: var(--suite-space-2);
-  padding: var(--suite-space-2);
+  padding: var(--suite-space-2) var(--suite-space-3);
   border: 1px solid var(--suite-border-subtle);
   border-radius: var(--suite-radius);
   background: var(--suite-bg);
@@ -2547,7 +2549,7 @@ span:is(
 :is(.suite-onboarding-body, .viking-onboarding-body, .fj-onboarding-body) {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: var(--suite-space-0-5);
   min-width: 0;
 }
 
@@ -3386,7 +3388,21 @@ span:is(
   display: flex;
   gap: var(--suite-space-2);
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  padding-bottom: var(--suite-space-2);
+}
+
+:is(
+    .suite-pipeline-flow,
+    .viking-pipeline-flow,
+    .fj-pipeline-flow
+  )
+  :is(
+    .suite-pipeline-flow__step,
+    .viking-pipeline-flow__step,
+    .fj-pipeline-flow__step
+  ):last-child {
+  padding-bottom: 0;
 }
 
 @media (min-width: 768px) {
@@ -3401,7 +3417,9 @@ span:is(
       .fj-pipeline-flow__step
     ) {
     flex-direction: column;
-    gap: var(--suite-space-1);
+    gap: var(--suite-space-2);
+    padding-bottom: 0;
+    min-width: 0;
   }
 }
 
@@ -3487,9 +3505,10 @@ span:is(
   .viking-pipeline-flow__connector,
   .fj-pipeline-flow__connector
 ) {
-  flex: 1;
+  flex: 1 1 auto;
   width: 2px;
-  min-height: var(--suite-space-2);
+  min-height: var(--suite-space-3);
+  align-self: stretch;
   background: var(--suite-border);
 }
 
@@ -3507,7 +3526,8 @@ span:is(
     width: auto;
     height: 2px;
     min-height: 0;
-    min-width: var(--suite-space-2);
+    min-width: var(--suite-space-4);
+    align-self: center;
   }
 }
 

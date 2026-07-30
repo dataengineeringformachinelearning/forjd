@@ -1,8 +1,7 @@
 """Suite-themed Swagger UI page served at ``GET /docs``.
 
 Self-hosts swagger-ui-dist under ``/static/vendor/`` and skins via the
-shared suite contract plus FORJD-specific overrides — no jsDelivr or
-inline style blocks.
+shared suite contract — no jsDelivr or inline style blocks.
 """
 
 from __future__ import annotations
@@ -35,9 +34,7 @@ _DOCS_HTML = """\
 </head>
 <body class="suite-backend-docs backend-swagger">
   <header class="suite-backend-topbar backend-docs-topbar fj-topbar">
-    <a href="https://forjd.co/">
-      <span class="suite-backend-brand backend-docs-brand fj-brand">{project}</span>
-    </a>
+    <a class="suite-backend-brand backend-docs-brand fj-brand" href="https://forjd.co/">{project}</a>
     <nav aria-label="API documentation">
       <a href="https://forjd.co/">product</a>
       <a href="/redoc">redoc</a>

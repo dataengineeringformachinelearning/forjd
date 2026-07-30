@@ -30,7 +30,7 @@ _REDOC_HTML = """<!doctype html>
 </head>
 <body class="suite-backend-docs backend-redoc">
   <header class="suite-backend-topbar backend-docs-topbar fj-topbar">
-    <a href="https://forjd.co/"><span class="suite-backend-brand backend-docs-brand fj-brand">{project}</span></a>
+    <a class="suite-backend-brand backend-docs-brand fj-brand" href="https://forjd.co/">{project}</a>
     <nav aria-label="API documentation">
       <a href="https://forjd.co/">product</a>
       <a href="/docs">swagger</a>
