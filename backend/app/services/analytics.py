@@ -141,7 +141,58 @@ async def _routing_distributions(
     }
 
 
-# --- Hourly rollup from stream_results ---
+async def _probe_stats(
+    pool: asyncpg.Pool,
+    *,
+    tenant_id: UUID,
+    start: datetime,
+    end: datetime,
+) -> dict[str, float | int]:
+    """Return measured endpoint health for one tenant/time window.
+
+    The aggregate schema keeps non-null numeric columns for compatibility. A
+    sample count therefore accompanies the zero sentinel so API consumers can
+    distinguish measured zero values from "no probe observations".
+    """
+    try:
+        row = await pool.fetchrow(
+            """
+            SELECT COUNT(*)::int AS sample_count,
+                   COUNT(*) FILTER (WHERE is_active)::int AS active_count,
+                   COALESCE(AVG(response_time_ms), 0)::float8 AS avg_latency_ms,
+                   COALESCE(
+                     percentile_cont(0.99) WITHIN GROUP (ORDER BY response_time_ms),
+                     0
+                   )::float8 AS p99_latency_ms
+            FROM health_probe_observations
+            WHERE tenant_id = $1::uuid
+              AND observed_at >= $2 AND observed_at < $3
+            """,
+            str(tenant_id),
+            start,
+            end,
+        )
+    except asyncpg.UndefinedTableError:
+        row = None
+
+    sample_count = max(int(row["sample_count"] or 0), 0) if row is not None else 0
+    if sample_count == 0:
+        return {
+            "sample_count": 0,
+            "active_count": 0,
+            "avg_latency_ms": 0.0,
+            "p99_latency_ms": 0.0,
+        }
+    active_count = min(max(int(row["active_count"] or 0), 0), sample_count)
+    return {
+        "sample_count": sample_count,
+        "active_count": active_count,
+        "avg_latency_ms": max(float(row["avg_latency_ms"] or 0), 0.0),
+        "p99_latency_ms": max(float(row["p99_latency_ms"] or 0), 0.0),
+    }
+
+
+# --- Hourly rollup from stream results + endpoint probes ---
 async def aggregate_hour(
     pool: asyncpg.Pool,
     *,
@@ -156,7 +207,6 @@ async def aggregate_hour(
         """
         SELECT
           COUNT(*)::bigint AS total_requests,
-          COALESCE(AVG(score), 0)::float AS avg_score,
           COUNT(*) FILTER (WHERE is_anomaly)::int AS anomaly_count
         FROM stream_results
         WHERE tenant_id = $1::uuid
@@ -166,6 +216,7 @@ async def aggregate_hour(
         start,
         end,
     )
+    probes = await _probe_stats(pool, tenant_id=tenant_id, start=start, end=end)
     threats = await pool.fetchval(
         """
         SELECT COUNT(*)::int FROM threat_intelligence
@@ -190,26 +241,23 @@ async def aggregate_hour(
     distributions = await _routing_distributions(pool, tenant_id=tenant_id, start=start, end=end)
     total = int(stats["total_requests"] or 0)
     anomalies = int(stats["anomaly_count"] or 0)
-    error_rate = (anomalies / total * 100.0) if total else 0.0
-    # Approximate p99 from anomaly scores ordered
-    scores = await pool.fetch(
-        """
-        SELECT score FROM stream_results
-        WHERE tenant_id = $1::uuid AND created_at >= $2 AND created_at < $3
-          AND score IS NOT NULL
-        ORDER BY score ASC
-        """,
-        str(tenant_id),
-        start,
-        end,
-    )
-    p99 = 0.0
-    if scores:
-        idx = percentile_index(len(scores), 0.99)
-        p99 = float(scores[min(idx, len(scores) - 1)]["score"] or 0) * 1000.0
+    anomaly_rate = (anomalies / total * 100.0) if total else 0.0
+    probe_samples = int(probes["sample_count"])
+    probe_active = int(probes["active_count"])
+    uptime = (probe_active / probe_samples * 100.0) if probe_samples else None
 
     bucket_metadata = {
         "source": "stream_results",
+        "latency_source": "health_probe_observations",
+        "latency_sample_count": probe_samples,
+        "latency_data_available": probe_samples > 0,
+        "uptime_source": "health_probe_observations",
+        "uptime_sample_count": probe_samples,
+        "uptime_active_count": probe_active,
+        "uptime_percent": uptime,
+        "uptime_data_available": probe_samples > 0,
+        "anomaly_count": anomalies,
+        "anomaly_rate_percent": anomaly_rate,
         "origin_distribution": distributions["origin_distribution"],
         "endpoint_counts": distributions["endpoint_counts"],
         "http_statuses": distributions["http_statuses"],
@@ -241,15 +289,26 @@ async def aggregate_hour(
         str(tenant_id),
         start,
         total,
-        float(stats["avg_score"] or 0) * 1000.0,
-        p99,
-        error_rate,
+        probes["avg_latency_ms"],
+        probes["p99_latency_ms"],
+        anomaly_rate,
         int(threats or 0),
         int(incidents or 0),
         int(distributions["unique_visitors"] or 0),
         json.dumps(bucket_metadata),
     )
-    return {"ok": True, "bucket": dict(row)}
+    bucket = dict(row)
+    bucket["metadata"] = bucket_metadata
+    bucket["latency_data_available"] = probe_samples > 0
+    bucket["uptime_data_available"] = probe_samples > 0
+    bucket["uptime_pct"] = uptime
+    bucket["anomaly_rate_percent"] = anomaly_rate
+    # Database latency columns stay NOT NULL for schema compatibility, but
+    # direct aggregate callers must not see their zero sentinels as data.
+    bucket["avg_latency_ms"] = float(probes["avg_latency_ms"]) if probe_samples > 0 else None
+    bucket["p99_latency_ms"] = float(probes["p99_latency_ms"]) if probe_samples > 0 else None
+    bucket["error_rate_percent"] = anomaly_rate
+    return {"ok": True, "bucket": bucket}
 
 
 # --- Overview series helpers ---
@@ -258,6 +317,89 @@ def _bucket_label(bucket_start: Any) -> str:
         return bucket_start.strftime("%H:%M")
     text = str(bucket_start or "")
     return text[11:16] if len(text) >= 16 else text
+
+
+def _rollup_metadata(row: Any) -> dict[str, Any]:
+    try:
+        metadata = row["metadata"]
+    except (KeyError, TypeError):
+        return {}
+    if isinstance(metadata, str):
+        try:
+            metadata = json.loads(metadata)
+        except json.JSONDecodeError:
+            return {}
+    return metadata if isinstance(metadata, dict) else {}
+
+
+def _rollup_latency_sample_count(row: Any) -> int:
+    metadata = _rollup_metadata(row)
+    if metadata.get("latency_source") != "health_probe_observations":
+        # Legacy buckets used anomaly score as latency and are intentionally
+        # treated as unmeasured until the hourly worker rewrites them.
+        return 0
+    try:
+        return max(int(metadata.get("latency_sample_count") or 0), 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _rollup_uptime_counts(row: Any) -> tuple[int, int]:
+    metadata = _rollup_metadata(row)
+    if metadata.get("uptime_source") != "health_probe_observations":
+        # Legacy error_rate_percent represented anomaly rate, not endpoint
+        # availability, so it cannot be used as an uptime observation.
+        return 0, 0
+    try:
+        total = max(int(metadata.get("uptime_sample_count") or 0), 0)
+        active = min(max(int(metadata.get("uptime_active_count") or 0), 0), total)
+    except (TypeError, ValueError):
+        return 0, 0
+    return active, total
+
+
+def _rollup_anomaly_rate(row: Any) -> float:
+    metadata = _rollup_metadata(row)
+    if "anomaly_rate_percent" in metadata:
+        try:
+            return min(max(float(metadata["anomaly_rate_percent"] or 0), 0.0), 100.0)
+        except (TypeError, ValueError):
+            return 0.0
+    # Before probe-backed uptime, error_rate_percent was the anomaly rate.
+    try:
+        return min(max(float(row["error_rate_percent"] or 0), 0.0), 100.0)
+    except (KeyError, TypeError, ValueError):
+        return 0.0
+
+
+def _weighted_anomaly_rate(rows: list[Any]) -> float:
+    weighted_anomalies = 0.0
+    total_requests = 0
+    for row in rows:
+        try:
+            requests = max(int(row["total_requests"] or 0), 0)
+        except (KeyError, TypeError, ValueError):
+            requests = 0
+        if requests <= 0:
+            continue
+        metadata = _rollup_metadata(row)
+        if "anomaly_count" in metadata:
+            try:
+                anomaly_count = min(
+                    max(float(metadata["anomaly_count"] or 0), 0.0),
+                    float(requests),
+                )
+            except (TypeError, ValueError):
+                anomaly_count = 0.0
+        else:
+            anomaly_count = requests * _rollup_anomaly_rate(row) / 100.0
+        weighted_anomalies += anomaly_count
+        total_requests += requests
+    if total_requests > 0:
+        return min(100.0, 100.0 * weighted_anomalies / total_requests)
+    if not rows:
+        return 0.0
+    return sum(_rollup_anomaly_rate(row) for row in rows) / len(rows)
 
 
 def _spiking_temporal_forecast(rollups: list[Any]) -> float | None:
@@ -275,7 +417,7 @@ def _spiking_temporal_forecast(rollups: list[Any]) -> float | None:
         if not rows:
             return 0.0
         threats = sum(int(r["threats_detected"] or 0) for r in rows) / len(rows)
-        errors = sum(float(r["error_rate_percent"] or 0) for r in rows) / len(rows)
+        errors = _weighted_anomaly_rate(rows)
         return threats * 10.0 + errors
 
     older_p = _pressure(older)
@@ -335,7 +477,8 @@ async def overview(
     await ensure_analytics_schema(pool)
     temporal = await _latest_temporal_signal(pool, tenant_id=tenant_id)
     predicted_sla = await _latest_predicted_sla(pool, tenant_id=tenant_id)
-    since = datetime.now(UTC) - timedelta(hours=24)
+    window_end = datetime.now(UTC)
+    since = window_end - timedelta(hours=24)
     rollups = await pool.fetch(
         """
         SELECT bucket_start, total_requests, avg_latency_ms, p99_latency_ms,
@@ -348,6 +491,7 @@ async def overview(
         str(tenant_id),
         since,
     )
+    probe_window = await _probe_stats(pool, tenant_id=tenant_id, start=since, end=window_end)
     # --- Stale-window fallback ---
     # Rollups only tick for tenants with fresh stream_results. When the 24h
     # window is empty, surface the most recent buckets so partner dashboards
@@ -381,9 +525,15 @@ async def overview(
     threats = sum(int(r["threats_detected"] or 0) for r in rollups)
     incidents = sum(int(r["active_incidents"] or 0) for r in rollups)
     visitors = sum(int(r["unique_visitors"] or 0) for r in rollups)
-    p99 = max((float(r["p99_latency_ms"] or 0) for r in rollups), default=0.0)
+    probe_samples = int(probe_window["sample_count"])
+    probe_active = int(probe_window["active_count"])
+    p99 = float(probe_window["p99_latency_ms"]) if probe_samples > 0 else None
+    latency_data_available = probe_samples > 0
+    uptime = round(100.0 * probe_active / probe_samples, 2) if probe_samples > 0 else None
+    uptime_data_available = probe_samples > 0
 
-    # No rollups ⇒ unknown availability (never invent 100% uptime / healthy CES).
+    # No rollups can still have fresh probe health before the worker's first
+    # five-minute tick. Surface that measured health without inventing series.
     if not rollups:
         empty_benchmark = {
             "current_scope": {
@@ -406,6 +556,20 @@ async def overview(
             empty_benchmark["current_scope"] = ml_store.benchmark_from_training_runs(runs)
         except Exception:  # noqa: BLE001
             pass
+        empty_ces: dict[str, float | None]
+        if uptime is None:
+            empty_ces = {
+                "ces_threat": None,
+                "ces_sla": None,
+                "ces_stability": None,
+                "ces_level": None,
+            }
+        else:
+            empty_ces = ces_composite(
+                uptime_pct=uptime,
+                incidents=0,
+                p99_ms=p99 or 0.0,
+            )
         return {
             "ok": True,
             "window_hours": 24,
@@ -413,16 +577,15 @@ async def overview(
             "threats_detected": 0,
             "active_incidents": 0,
             "unique_visitors": 0,
-            "p99_latency_ms": 0.0,
-            "uptime_pct": None,
-            "status": "unknown",
-            "data_available": False,
+            "p99_latency_ms": p99,
+            "latency_data_available": latency_data_available,
+            "uptime_pct": uptime,
+            "uptime_data_available": uptime_data_available,
+            "status": uptime_status(uptime / 100.0) if uptime is not None else "unknown",
+            "data_available": probe_samples > 0,
             "benchmarking": empty_benchmark,
             "ces": {
-                "ces_threat": 0.0,
-                "ces_sla": 0.0,
-                "ces_stability": 0.0,
-                "ces_level": 0.0,
+                **empty_ces,
                 **temporal,
                 "predicted_sla": predicted_sla,
                 "average_sla": predicted_sla,
@@ -438,9 +601,19 @@ async def overview(
             "endpoint_counts": [],
         }
 
-    err_sum = sum(float(r["error_rate_percent"] or 0) for r in rollups)
-    uptime = max(0.0, 100.0 - (err_sum / len(rollups)))
-    ces = ces_composite(uptime_pct=uptime, incidents=incidents, p99_ms=p99)
+    if uptime is None:
+        ces: dict[str, float | None] = {
+            "ces_threat": min(100.0, incidents * 20.0),
+            "ces_sla": None,
+            "ces_stability": None,
+            "ces_level": None,
+        }
+    else:
+        ces = ces_composite(
+            uptime_pct=uptime,
+            incidents=incidents,
+            p99_ms=p99 or 0.0,
+        )
 
     # --- Chronological series for partner dashboards (oldest → newest) ---
     chronological = list(reversed(rollups))
@@ -449,16 +622,32 @@ async def overview(
     threat_series: list[dict[str, Any]] = []
     for row in chronological:
         label = _bucket_label(row["bucket_start"])
-        bucket_uptime = max(0.0, 100.0 - float(row["error_rate_percent"] or 0))
+        latency_sample_count = _rollup_latency_sample_count(row)
+        bucket_active, bucket_samples = _rollup_uptime_counts(row)
+        bucket_uptime = (
+            round(100.0 * bucket_active / bucket_samples, 2) if bucket_samples > 0 else None
+        )
         time_series.append(
             {
                 "label": label,
                 "time": label,
-                "latency": float(row["p99_latency_ms"] or 0),
+                "latency": (
+                    float(row["p99_latency_ms"] or 0) if latency_sample_count > 0 else None
+                ),
+                "latency_data_available": latency_sample_count > 0,
+                "latency_sample_count": latency_sample_count,
                 "requests": int(row["total_requests"] or 0),
             }
         )
-        uptime_series.append({"label": label, "time": label, "uptime": bucket_uptime})
+        uptime_series.append(
+            {
+                "label": label,
+                "time": label,
+                "uptime": bucket_uptime,
+                "uptime_data_available": bucket_samples > 0,
+                "uptime_sample_count": bucket_samples,
+            }
+        )
         threat_series.append(
             {
                 "label": label,
@@ -476,13 +665,8 @@ async def overview(
     status_counts: dict[str, int] = {}
     endpoint_counts: dict[str, int] = {}
     for row in rollups:
-        meta = row["metadata"]
-        if isinstance(meta, str):
-            try:
-                meta = json.loads(meta)
-            except json.JSONDecodeError:
-                meta = {}
-        if not isinstance(meta, dict):
+        meta = _rollup_metadata(row)
+        if not meta:
             continue
         for item in meta.get("origin_distribution") or []:
             if not isinstance(item, dict):
@@ -537,8 +721,12 @@ async def overview(
         "active_incidents": incidents,
         "unique_visitors": visitors,
         "p99_latency_ms": p99,
+        "latency_data_available": latency_data_available,
         "uptime_pct": uptime,
-        "status": uptime_status(uptime / 100.0),
+        "uptime_data_available": uptime_data_available,
+        "status": uptime_status(uptime / 100.0) if uptime is not None else "unknown",
+        # This reflects availability of the overall analytics rollup. Latency
+        # availability is independent and exposed by latency_data_available.
         "data_available": True,
         "benchmarking": benchmarking,
         "ces": {

@@ -7,6 +7,7 @@ docs/adr/0016-secure-defaults-cookies-headers-api.md
 from __future__ import annotations
 
 import hmac
+import secrets
 from collections.abc import Awaitable, Callable
 
 from fastapi import Request, Response
@@ -58,10 +59,31 @@ _HTML_SHELL_CSP = (
     "https://*.googletagmanager.com https://*.clarity.ms https://*.bing.com"
 )
 _HTML_SHELL_PATHS = frozenset({"/", "/docs", "/redoc"})
+_REDOC_NONCE_STATE_KEY = "redoc_csp_nonce"
+# The vendored ReDoc bundle injects perfect-scrollbar's static stylesheet before
+# Redoc.init can apply its nonce. Admit that exact, immutable stylesheet without
+# weakening the rest of the ReDoc policy to unsafe-inline.
+_REDOC_SCROLLBAR_STYLE_HASH = "'sha256-QMIg+bpjm3JdElJ388KYke01izlUW0UoNOeKjpMxdgc='"
+# styled-components creates an empty bootstrap style before it applies the
+# configured nonce. This hash admits only that empty block.
+_REDOC_EMPTY_STYLE_HASH = "'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='"
 
 
-def _csp_for_path(path: str) -> str:
+def _csp_for_path(path: str, *, redoc_nonce: str | None = None) -> str:
     if path in _HTML_SHELL_PATHS:
+        if path == "/redoc" and redoc_nonce:
+            redoc_csp = _HTML_SHELL_CSP.replace(
+                "style-src 'self'",
+                "style-src 'self' "
+                f"'nonce-{redoc_nonce}' "
+                f"{_REDOC_SCROLLBAR_STYLE_HASH} "
+                f"{_REDOC_EMPTY_STYLE_HASH}",
+            )
+            redoc_csp = redoc_csp.replace(
+                "img-src 'self' data:",
+                "img-src 'self' data: https://cdn.redoc.ly",
+            )
+            return f"{redoc_csp}; worker-src 'self' blob:"
         return _HTML_SHELL_CSP
     return _API_CSP
 
@@ -86,6 +108,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
+        redoc_nonce = None
+        if request.url.path == "/redoc":
+            redoc_nonce = secrets.token_urlsafe(24)
+            setattr(request.state, _REDOC_NONCE_STATE_KEY, redoc_nonce)
         response = await call_next(request)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
@@ -95,7 +121,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "geolocation=(), microphone=(), camera=(), payment=(), usb=(), "
             "bluetooth=(), interest-cohort=(), browsing-topics=()",
         )
-        response.headers.setdefault("Content-Security-Policy", _csp_for_path(request.url.path))
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            _csp_for_path(request.url.path, redoc_nonce=redoc_nonce),
+        )
         response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
         response.headers.setdefault("Cross-Origin-Resource-Policy", "same-site")
         response.headers.setdefault("Cache-Control", "no-store")

@@ -25,16 +25,23 @@ export function failWithHints(title, hints) {
 }
 
 /**
- * Resolve DEML checkout: FORJD_DEML_ROOT / DEML_ROOT, else sibling clone.
+ * Resolve DEML checkout: FORJD_DEML_ROOT / DEML_ROOT, then current and legacy
+ * sibling checkout names.
  * @returns {{ root: string, tokensDir: string, fontsDir: string, fromEnv: boolean }}
  */
 export function resolveDemlPaths() {
   const fromEnv = Boolean(process.env.FORJD_DEML_ROOT || process.env.DEML_ROOT);
-  const root = path.resolve(
-    process.env.FORJD_DEML_ROOT ||
-      process.env.DEML_ROOT ||
-      path.join(forjdRoot, '..', 'dataengineeringformachinelearning'),
-  );
+  const configured = process.env.FORJD_DEML_ROOT || process.env.DEML_ROOT;
+  const candidates = configured
+    ? [path.resolve(configured)]
+    : [
+        path.resolve(forjdRoot, '..', 'deml'),
+        path.resolve(forjdRoot, '..', 'dataengineeringformachinelearning'),
+      ];
+  const root =
+    candidates.find((candidate) =>
+      existsSync(path.join(candidate, 'packages/viking-ui/src/tokens')),
+    ) ?? candidates[0];
   return {
     root,
     tokensDir: path.join(root, 'packages/viking-ui/src/tokens'),
@@ -47,9 +54,9 @@ export function demlMissingHints(deml) {
   const hints = [
     `Expected DEML at: ${deml.root}`,
     'Clone DEML beside FORJD:',
-    '  cd .. && git clone <deml-remote> dataengineeringformachinelearning',
+    '  cd .. && git clone <deml-remote> deml',
     'Or point at an existing checkout:',
-    '  export FORJD_DEML_ROOT=/absolute/path/to/dataengineeringformachinelearning',
+    '  export FORJD_DEML_ROOT=/absolute/path/to/deml',
     'Then: cd frontend && npm run sync:suite',
   ];
   if (deml.fromEnv) {

@@ -32,7 +32,7 @@ import { createUidFactory } from '../../core/a11y/uid';
         class="suite-disclosure-trigger fj-disclosure-trigger viking-disclosure-trigger"
         [id]="triggerId"
         [attr.aria-expanded]="open()"
-        [attr.aria-controls]="panelId"
+        [attr.aria-controls]="panelId()"
         (click)="toggle()"
       >
         <span class="suite-disclosure-copy fj-disclosure-copy viking-disclosure-copy">
@@ -59,7 +59,7 @@ import { createUidFactory } from '../../core/a11y/uid';
       @if (open()) {
         <div
           class="suite-disclosure-panel fj-disclosure-panel viking-disclosure-panel"
-          [id]="panelId"
+          [id]="panelId()"
           role="region"
           [attr.aria-labelledby]="triggerId"
         >

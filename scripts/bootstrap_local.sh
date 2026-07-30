@@ -63,8 +63,18 @@ ok "Node v$NODE_VER"
 
 if [[ "$FRONTEND_ONLY" -eq 0 ]]; then
   RUST_VER="$(rustc --version 2>/dev/null || true)"
-  if [[ "$RUST_VER" != *"1.97."* ]]; then
-    warn "rustc is not 1.97.x ($RUST_VER) — maturin may fail; run: rustup install 1.97"
+  RUST_PIN="$(sed -n 's/^channel = "\\([^"]*\\)"/\\1/p' engine/rust-toolchain.toml | head -n 1)"
+  RUST_PIN="${RUST_PIN:-1.97.1}"
+  if [[ "$RUST_VER" != "rustc $RUST_PIN "* ]]; then
+    command -v rustup >/dev/null || die "rustc is not $RUST_PIN and rustup is unavailable"
+    PINNED_RUSTC="$(rustup which rustc --toolchain "$RUST_PIN" 2>/dev/null)" ||
+      die "Install the pinned toolchain: rustup install $RUST_PIN"
+    PINNED_CARGO="$(rustup which cargo --toolchain "$RUST_PIN" 2>/dev/null)" ||
+      die "Install the pinned toolchain: rustup install $RUST_PIN"
+    export RUSTC="$PINNED_RUSTC"
+    export CARGO="$PINNED_CARGO"
+    export PATH="$(dirname "$PINNED_CARGO"):$PATH"
+    ok "Using pinned rustc $RUST_PIN via rustup (PATH had $RUST_VER)"
   else
     ok "$RUST_VER"
   fi

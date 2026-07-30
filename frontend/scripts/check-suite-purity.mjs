@@ -83,6 +83,7 @@ const vendorRequired = [
   'backend/static/vendor/redoc/redoc.standalone.js',
   'backend/static/docs-swagger-init.js',
   'backend/static/suite-apidocs.css',
+  'backend/static/forjd-apidocs.css',
 ];
 for (const rel of vendorRequired) {
   if (!existsSync(path.join(dirs.forjdRoot, rel))) {

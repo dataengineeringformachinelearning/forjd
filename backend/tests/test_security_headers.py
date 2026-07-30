@@ -73,6 +73,18 @@ class TestSecurityHeadersMiddleware(unittest.IsolatedAsyncioTestCase):
             self.assertIn("style-src 'self'", csp)
             self.assertIn("script-src", csp)
             self.assertIn("connect-src 'self'", csp)
+            if path == "/redoc":
+                self.assertRegex(csp, r"style-src 'self' 'nonce-[A-Za-z0-9_-]+'")
+                self.assertIn(
+                    "'sha256-QMIg+bpjm3JdElJ388KYke01izlUW0UoNOeKjpMxdgc='",
+                    csp,
+                )
+                self.assertIn(
+                    "'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='",
+                    csp,
+                )
+                self.assertIn("https://cdn.redoc.ly", csp)
+                self.assertIn("worker-src 'self' blob:", csp)
 
 
 class TestHttpsRedirectMiddleware(unittest.IsolatedAsyncioTestCase):

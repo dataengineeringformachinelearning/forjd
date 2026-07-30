@@ -204,6 +204,61 @@ async def _verify_worker_contracts(app: FastAPI, pool: Any) -> None:
         verified_pools[pool_identity] = pool
 
 
+async def _runtime_readiness_checks_once(app: FastAPI, pool: Any) -> dict[str, bool]:
+    """Probe and prepare one concrete runtime for a readiness request."""
+    checks = {
+        "postgres": False,
+        "runtime_setup": False,
+        "worker_contracts": False,
+    }
+    try:
+        async with pool.acquire() as conn:
+            await conn.fetchval("SELECT 1")
+        checks["postgres"] = True
+    except Exception:
+        return checks
+
+    if settings.REQUIRE_RLS:
+        try:
+            from app.services import tenants as tenant_svc
+
+            await tenant_svc.assert_secure_schema(pool)
+            checks["schema_rls"] = True
+        except Exception:
+            checks["schema_rls"] = False
+
+    try:
+        await _prepare_pool(app, pool)
+        await _verify_worker_contracts(app, pool)
+        checks["worker_contracts"] = True
+        await _ensure_background_workers(app, pool)
+        checks["runtime_setup"] = True
+    except Exception:
+        logger.exception("runtime setup failed during readiness")
+    return checks
+
+
+async def _runtime_readiness_checks(app: FastAPI, pool: Any) -> dict[str, bool]:
+    """Coalesce overlapping first-readiness setup onto one shared task."""
+    lock: asyncio.Lock = app.state.runtime_readiness_lock
+    async with lock:
+        task: asyncio.Task[dict[str, bool]] | None = app.state.runtime_readiness_task
+        if task is None or task.done():
+            task = asyncio.create_task(
+                _runtime_readiness_checks_once(app, pool),
+                name="forjd-runtime-readiness",
+            )
+            app.state.runtime_readiness_task = task
+
+    try:
+        return await asyncio.shield(task)
+    finally:
+        if task.done():
+            async with lock:
+                if app.state.runtime_readiness_task is task:
+                    app.state.runtime_readiness_task = None
+
+
 def _worker_health(app: FastAPI) -> tuple[bool, dict[str, dict[str, Any]]]:
     expected = {"ingest-processing", "soar-retries", "exports"}
     if settings.PROJECTION_TICK_SECONDS > 0:
@@ -242,6 +297,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # /ready reports whether Postgres + Redis are actually reachable.
     app.state.dependency_lock = asyncio.Lock()
     app.state.worker_lock = asyncio.Lock()
+    app.state.runtime_readiness_lock = asyncio.Lock()
+    app.state.runtime_readiness_task: asyncio.Task[dict[str, bool]] | None = None
     app.state.worker_stop = asyncio.Event()
     app.state.worker_tasks: dict[str, asyncio.Task[None]] = {}
     app.state.worker_health = WorkerHealthRegistry()
@@ -276,11 +333,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     pool = getattr(app.state, "db_pool", None)
     if pool is not None:
+        from app.services import exports as export_svc
         from app.services import tenants as tenant_svc
 
         # Schema readiness is cached per concrete pool; discard that entry
         # before the pool can be closed and its object id reused.
         tenant_svc.reset_secure_schema_cache(pool)
+        export_svc.reset_export_schema_cache(pool)
         await pool.close()
 
     try:
@@ -361,11 +420,11 @@ async def docs() -> HTMLResponse:
 
 
 @app.get("/redoc", response_class=HTMLResponse, include_in_schema=False)
-async def redoc() -> HTMLResponse:
+async def redoc(request: Request) -> HTMLResponse:
     """ReDoc reference, restyled with the FJORD palette."""
     if not settings.ENABLE_API_DOCS:
         raise HTTPException(status_code=404, detail="Not Found")
-    return HTMLResponse(content=render_redoc())
+    return HTMLResponse(content=render_redoc(nonce=getattr(request.state, "redoc_csp_nonce", None)))
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse, include_in_schema=False)
@@ -420,31 +479,7 @@ async def readiness(request: Request) -> JSONResponse:
                 pool = await create_db_pool()
                 request.app.state.db_pool = pool
     if pool is not None:
-        try:
-            async with pool.acquire() as conn:
-                await conn.fetchval("SELECT 1")
-            checks["postgres"] = True
-        except Exception:
-            checks["postgres"] = False
-
-        if checks["postgres"] and settings.REQUIRE_RLS:
-            try:
-                from app.services import tenants as tenant_svc
-
-                await tenant_svc.assert_secure_schema(pool)
-                checks["schema_rls"] = True
-            except Exception:
-                checks["schema_rls"] = False
-
-        if checks["postgres"]:
-            try:
-                await _prepare_pool(request.app, pool)
-                await _verify_worker_contracts(request.app, pool)
-                checks["worker_contracts"] = True
-                await _ensure_background_workers(request.app, pool)
-                checks["runtime_setup"] = True
-            except Exception:
-                logger.exception("runtime setup failed during readiness")
+        checks.update(await _runtime_readiness_checks(request.app, pool))
 
     worker_ok, worker_detail = _worker_health(request.app)
     checks["workers"] = worker_ok

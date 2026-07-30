@@ -21,6 +21,43 @@ const FORBIDDEN_KEYS: &[&str] = &[
     "password",
 ];
 
+/// Public routing tags that may cross the ciphertext boundary.
+const ROUTING_KEYS: &[&str] = &[
+    "source",
+    "channel",
+    "region",
+    "env",
+    "environment",
+    "product",
+    "component",
+    "namespace",
+    "device_id",
+    "series_id",
+    "label",
+    "labels",
+    "tags",
+];
+
+const LIST_ROUTING_KEYS: &[&str] = &["labels", "tags"];
+const FORBIDDEN_ROUTING_FRAGMENTS: &[&str] = &[
+    "password",
+    "secret",
+    "token",
+    "plaintext",
+    "private",
+    "cipher",
+    "payload",
+    "ssn",
+    "credit",
+    "answer",
+    "lesson",
+    "email",
+];
+const MAX_ROUTING_KEYS: usize = 32;
+const MAX_ROUTING_LIST_ITEMS: usize = 32;
+const MAX_ROUTING_TAG_LEN: usize = 128;
+const MAX_ROUTING_METADATA_BYTES: usize = 4096;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SealedPipelineRequest {
     pub events: Vec<Value>,
@@ -53,6 +90,7 @@ pub struct SealedMeta {
     pub content_type: String,
     pub event_type: String,
     pub workflow_id: String,
+    pub metadata: Map<String, Value>,
 }
 
 // --- Sanitize: strip anything that looks like ciphertext ---
@@ -80,9 +118,78 @@ pub fn sanitize_events(events: &[Value]) -> Result<Vec<SealedMeta>, String> {
             content_type: str_field(obj, "content_type"),
             event_type: str_field(obj, "event_type"),
             workflow_id: str_field(obj, "workflow_id"),
+            metadata: sanitize_routing_metadata(obj.get("metadata"))?,
         });
     }
     Ok(out)
+}
+
+fn sanitize_routing_metadata(raw: Option<&Value>) -> Result<Map<String, Value>, String> {
+    let Some(raw) = raw else {
+        return Ok(Map::new());
+    };
+    let metadata = raw
+        .as_object()
+        .ok_or_else(|| "metadata must be a JSON object".to_string())?;
+    if raw.to_string().len() > MAX_ROUTING_METADATA_BYTES {
+        return Err(format!(
+            "metadata exceeds max serialized size of {MAX_ROUTING_METADATA_BYTES} bytes"
+        ));
+    }
+    if metadata.len() > MAX_ROUTING_KEYS {
+        return Err(format!(
+            "metadata exceeds max key count of {MAX_ROUTING_KEYS}"
+        ));
+    }
+
+    let mut sanitized = Map::new();
+    for (key, value) in metadata {
+        if !ROUTING_KEYS.contains(&key.as_str()) {
+            continue;
+        }
+        if LIST_ROUTING_KEYS.contains(&key.as_str()) {
+            let items = value
+                .as_array()
+                .ok_or_else(|| format!("metadata.{key} must be an array of routing tags"))?;
+            if items.is_empty() || items.len() > MAX_ROUTING_LIST_ITEMS {
+                return Err(format!(
+                    "metadata.{key} must contain 1..={MAX_ROUTING_LIST_ITEMS} routing tags"
+                ));
+            }
+            for item in items {
+                let tag = item
+                    .as_str()
+                    .ok_or_else(|| format!("metadata.{key} values must be strings"))?;
+                validate_routing_tag(key, tag)?;
+            }
+        } else {
+            let tag = value
+                .as_str()
+                .ok_or_else(|| format!("metadata.{key} must be a routing-tag string"))?;
+            validate_routing_tag(key, tag)?;
+        }
+        sanitized.insert(key.clone(), value.clone());
+    }
+    Ok(sanitized)
+}
+
+fn validate_routing_tag(key: &str, tag: &str) -> Result<(), String> {
+    let valid_shape = !tag.is_empty()
+        && tag.len() <= MAX_ROUTING_TAG_LEN
+        && tag.as_bytes()[0].is_ascii_alphanumeric()
+        && tag.bytes().all(|byte| {
+            byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b':' | b'/' | b'-')
+        });
+    let lowered = tag.to_ascii_lowercase();
+    let looks_sensitive = FORBIDDEN_ROUTING_FRAGMENTS
+        .iter()
+        .any(|fragment| lowered.contains(fragment));
+    if !valid_shape || looks_sensitive {
+        return Err(format!(
+            "metadata.{key} contains an invalid or sensitive routing tag"
+        ));
+    }
+    Ok(())
 }
 
 fn str_field(obj: &Map<String, Value>, key: &str) -> String {
@@ -187,6 +294,7 @@ pub fn size_anomaly(events: &[SealedMeta], zscore: f64, max_cipher_len: i64) -> 
                 "is_anomaly": is_anom,
                 "detector": "size_anomaly",
                 "reason": reason,
+                "metadata": e.metadata,
             })
         })
         .collect()
@@ -218,6 +326,7 @@ pub fn rate_anomaly(events: &[SealedMeta], max_events: i64) -> Vec<Value> {
                 "is_anomaly": is_anom,
                 "detector": "rate_anomaly",
                 "reason": if is_anom { "batch_rate" } else { "ok" },
+                "metadata": e.metadata,
             })
         })
         .collect()
@@ -353,6 +462,14 @@ fn to_stream_result_rows(
         } else {
             json!(eid)
         };
+        let mut row_meta = base_meta.clone();
+        if let Some(metadata) = a.get("metadata").and_then(Value::as_object) {
+            for (key, value) in metadata {
+                if ROUTING_KEYS.contains(&key.as_str()) {
+                    row_meta.insert(key.clone(), value.clone());
+                }
+            }
+        }
         rows.push(json!({
             "tenant_id": a.get("tenant_id"),
             "telemetry_event_id": eid_val,
@@ -374,7 +491,7 @@ fn to_stream_result_rows(
                 "detector": a.get("detector"),
                 "reason": a.get("reason"),
             },
-            "metadata": base_meta.clone(),
+            "metadata": row_meta,
             "workflow_id": tags.get("workflow_id"),
         }));
     }
@@ -402,6 +519,7 @@ mod tests {
                 content_type: "".into(),
                 event_type: "".into(),
                 workflow_id: "".into(),
+                metadata: Map::new(),
             },
             SealedMeta {
                 event_id: "2".into(),
@@ -411,6 +529,7 @@ mod tests {
                 content_type: "".into(),
                 event_type: "".into(),
                 workflow_id: "".into(),
+                metadata: Map::new(),
             },
         ];
         let out = size_anomaly(&events, 99.0, 1000);
@@ -428,6 +547,7 @@ mod tests {
                 content_type: "".into(),
                 event_type: "".into(),
                 workflow_id: "".into(),
+                metadata: Map::new(),
             })
             .collect();
         let out = rate_anomaly(&events, 3);
@@ -453,5 +573,59 @@ mod tests {
         assert_eq!(out["engine"], "forjd-engine");
         assert_eq!(out["count"], 1);
         assert!(!out["results"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn pipeline_preserves_only_safe_routing_metadata() {
+        let req = SealedPipelineRequest {
+            events: vec![json!({
+                "event_id": "e1",
+                "tenant_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                "key_id": "sess",
+                "cipher_len": 128,
+                "metadata": {
+                    "region": "iad",
+                    "component": "analytics.overview",
+                    "label": "2xx",
+                    "source": "deml-widget",
+                    "unknown": "must-not-survive",
+                },
+            })],
+            steps: vec!["size_anomaly".into()],
+            params: Map::new(),
+            tags: Map::new(),
+            projection_name: "sealed.default".into(),
+            workflow_id: Some("default_sealed".into()),
+        };
+        let out = run_sealed_pipeline(req).unwrap();
+        let metadata = out["results"][0]["metadata"].as_object().unwrap();
+        assert_eq!(metadata["region"], "iad");
+        assert_eq!(metadata["component"], "analytics.overview");
+        assert_eq!(metadata["label"], "2xx");
+        assert_eq!(metadata["source"], "deml-widget");
+        assert!(!metadata.contains_key("unknown"));
+    }
+
+    #[test]
+    fn rejects_sensitive_routing_values() {
+        let events = vec![json!({
+            "tenant_id": "t",
+            "metadata": {"source": "secret-token"},
+        })];
+        assert!(sanitize_events(&events).is_err());
+    }
+
+    #[test]
+    fn rejects_oversized_routing_metadata() {
+        let tag = "a".repeat(MAX_ROUTING_TAG_LEN);
+        let events = vec![json!({
+            "tenant_id": "t",
+            "metadata": {
+                "labels": vec![tag.clone(); MAX_ROUTING_LIST_ITEMS],
+                "tags": vec![tag; MAX_ROUTING_LIST_ITEMS],
+            },
+        })];
+        let error = sanitize_events(&events).unwrap_err();
+        assert!(error.contains("metadata exceeds max serialized size"));
     }
 }

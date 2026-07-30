@@ -214,14 +214,23 @@
   outline-offset: var(--suite-ring-offset);
 }
 
-/* Docs content well — calm vertical rhythm */
-:is(body.suite-backend-docs, body.backend-swagger, body.backend-redoc)
-  #swagger-ui,
-:is(body.suite-backend-docs, body.backend-swagger, body.backend-redoc) redoc {
+/* Docs content well — Swagger centered; ReDoc full-bleed twin columns */
+:is(body.suite-backend-docs, body.backend-swagger) #swagger-ui,
+:is(body.suite-backend-docs, body.backend-swagger) main:has(#swagger-ui) {
   display: block;
   max-width: var(--suite-content-max);
   margin-inline: auto;
   padding: var(--suite-space-4) var(--suite-page-gutter) var(--suite-space-8);
+  box-sizing: border-box;
+}
+
+:is(body.suite-backend-docs, body.backend-redoc) #redoc-container,
+:is(body.suite-backend-docs, body.backend-redoc) redoc {
+  display: block;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
 }
 

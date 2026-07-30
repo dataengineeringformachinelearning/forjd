@@ -248,6 +248,7 @@ async def run_training_worker(
         _hf_configured(),
     )
     while not stop_event.is_set():
+        delay = interval
         try:
             trained = await tick_training(pool)
             if health is not None:
@@ -260,5 +261,8 @@ async def run_training_worker(
             logger.exception("training tick failed")
             if health is not None:
                 health.failed(WORKER_NAME, exc)
+            # Retry transient dependency failures promptly while preserving
+            # the normal long-running training cadence after a successful tick.
+            delay = min(interval, 5.0)
         with contextlib.suppress(TimeoutError):
-            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+            await asyncio.wait_for(stop_event.wait(), timeout=delay)

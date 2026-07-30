@@ -16,6 +16,7 @@ from app.services.status import (
     _page_dict,
     _public_page_dict,
     _resolve_probe_url,
+    _uptime_from_day_stats,
     _uptime_from_history,
     public_slug_candidates,
     public_slug_prefix,
@@ -116,6 +117,14 @@ class TestUptimeHistoryHelpers(unittest.TestCase):
         history = _fill_uptime_history({}, days=5, today=date(2026, 7, 20))
         self.assertIsNone(_uptime_from_history(history))
 
+    def test_uptime_from_day_stats_is_sample_weighted(self) -> None:
+        stats = {
+            date(2026, 7, 19): (1, 1),
+            date(2026, 7, 20): (0, 999),
+        }
+        self.assertEqual(_uptime_from_day_stats(stats), 0.1)
+        self.assertIsNone(_uptime_from_day_stats({}))
+
     def test_merge_day_stats_filters_service(self) -> None:
         rows = [
             {"service_id": "a", "day": date(2026, 7, 20), "active": 2, "total": 2},
@@ -141,6 +150,27 @@ class TestUptimeHistoryHelpers(unittest.TestCase):
 
 
 class TestStatusTelemetryTruthfulness(unittest.IsolatedAsyncioTestCase):
+    async def test_probe_latency_query_is_raw_combined_24h_percentile(self) -> None:
+        pool = MagicMock()
+        pool.fetch = AsyncMock(return_value=[])
+        before = datetime.now(UTC)
+
+        await status_svc._probe_latency_24h(
+            pool,
+            tenant_id="11111111-1111-1111-1111-111111111111",
+            service_ids=["22222222-2222-2222-2222-222222222222"],
+        )
+
+        query, tenant_id, service_ids, since = pool.fetch.await_args.args
+        self.assertIn("percentile_cont(0.99)", query)
+        self.assertIn("GROUP BY GROUPING SETS ((service_id), ())", query)
+        self.assertIn("observed_at >= $3", query)
+        self.assertEqual(tenant_id, "11111111-1111-1111-1111-111111111111")
+        self.assertEqual(service_ids, ["22222222-2222-2222-2222-222222222222"])
+        age_hours = (before - since).total_seconds() / 3600
+        self.assertGreaterEqual(age_hours, 23.99)
+        self.assertLess(age_hours, 24.01)
+
     async def test_unprobed_service_does_not_inherit_healthy_page_metrics(self) -> None:
         today = datetime.now(UTC).date()
         probe_rows = [
@@ -160,6 +190,24 @@ class TestStatusTelemetryTruthfulness(unittest.IsolatedAsyncioTestCase):
             ),
             patch.object(
                 status_svc,
+                "_probe_latency_24h",
+                new=AsyncMock(
+                    return_value=[
+                        {
+                            "service_id": "healthy-service",
+                            "sample_count": 10,
+                            "p99_ms": 99.0,
+                        },
+                        {
+                            "service_id": None,
+                            "sample_count": 10,
+                            "p99_ms": 5.0,
+                        },
+                    ]
+                ),
+            ),
+            patch.object(
+                status_svc,
                 "_analytics_kpis_24h",
                 new=AsyncMock(return_value={"total_requests": 100, "p99_latency": 99.0}),
             ),
@@ -171,7 +219,9 @@ class TestStatusTelemetryTruthfulness(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertEqual(telemetry["overall_uptime"], 100.0)
+        self.assertEqual(telemetry["p99_latency"], 5.0)
         self.assertEqual(telemetry["service_sla"]["healthy-service"], 100.0)
+        self.assertEqual(telemetry["service_latency"]["healthy-service"], 99.0)
         self.assertIsNone(telemetry["service_sla"]["unprobed-service"])
         self.assertIsNone(telemetry["service_latency"]["unprobed-service"])
         self.assertTrue(
@@ -180,6 +230,35 @@ class TestStatusTelemetryTruthfulness(unittest.IsolatedAsyncioTestCase):
                 for point in telemetry["service_history"]["unprobed-service"]
             )
         )
+
+    async def test_page_health_is_unreported_without_real_probe_samples(self) -> None:
+        with (
+            patch.object(
+                status_svc,
+                "_probe_day_rollups",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch.object(
+                status_svc,
+                "_probe_latency_24h",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch.object(
+                status_svc,
+                "_analytics_kpis_24h",
+                new=AsyncMock(return_value={"total_requests": 100, "p99_latency": 99.0}),
+            ),
+        ):
+            telemetry = await status_svc._public_page_telemetry(
+                MagicMock(),
+                tenant_id="11111111-1111-1111-1111-111111111111",
+                service_ids=["unprobed-service"],
+            )
+
+        self.assertIsNone(telemetry["p99_latency"])
+        self.assertIsNone(telemetry["overall_uptime"])
+        self.assertTrue(all(point["status"] == "no_data" for point in telemetry["page_history"]))
+        self.assertEqual(telemetry["total_requests"], 100)
 
     async def test_hydrate_uses_page_tenant_not_caller_tenant(self) -> None:
         """KPIs must bind to the page's tenant_id (DEML vs joealongi isolation)."""
@@ -280,40 +359,18 @@ class TestStatusTelemetryTruthfulness(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("tenant_id", joe)
         self.assertEqual(joe_bff["tenant_id"], "22222222-2222-2222-2222-222222222222")
 
-    def test_predicted_sla_falls_back_to_probe_outlook(self) -> None:
-        telemetry = {
-            "overall_uptime": 99.5,
-            "page_history": [
-                {"date": "2026-07-01", "status": "up", "uptime": 100.0},
-                {"date": "2026-07-02", "status": "partial", "uptime": 90.0},
-                {"date": "2026-07-03", "status": "no_data", "uptime": None},
-            ],
-            "p99_latency": 10.0,
-            "total_requests": 1,
-        }
-        intelligence = {"predicted_sla": None}
+    def test_predicted_sla_requires_a_real_model_forecast(self) -> None:
+        self.assertIsNone(status_svc._predicted_sla({"predicted_sla": None}))
         self.assertEqual(
-            status_svc._predicted_sla_or_outlook(telemetry, intelligence),
-            95.0,
-        )
-        self.assertEqual(
-            status_svc._predicted_sla_or_outlook(
-                telemetry,
-                {"predicted_sla": 97.25},
-            ),
+            status_svc._predicted_sla({"predicted_sla": 97.25}),
             97.25,
         )
-        self.assertEqual(
-            status_svc._predicted_sla_or_outlook(
-                {"overall_uptime": 98.1, "page_history": []},
-                {"predicted_sla": None},
-            ),
-            98.1,
-        )
+        self.assertEqual(status_svc._predicted_sla({"predicted_sla": 101.0}), 100.0)
+        self.assertIsNone(status_svc._predicted_sla({"predicted_sla": "not-a-number"}))
 
     async def test_public_intelligence_uses_norse_and_classical_families_only(self) -> None:
         pool = MagicMock()
-        pool.fetch = AsyncMock(return_value=[{"threats_detected": 2, "error_rate_percent": 0.0}])
+        pool.fetch = AsyncMock(return_value=[{"threats_detected": 2}])
         temporal = {
             "spiking_temporal_forecast": 37.5,
             "temporal_status": "ready",

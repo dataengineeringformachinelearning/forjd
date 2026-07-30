@@ -20,7 +20,7 @@ primary_region = 'iad'
   ENVIRONMENT = 'production'
   DEBUG = 'false'
   # Public OpenAPI discovery off in production (set true only for temporary debug).
-  ENABLE_API_DOCS = 'false'
+  ENABLE_API_DOCS = 'true'
   HOST = '0.0.0.0'
   PORT = '8000'
   # Engine over Fly 6PN (token via secrets)
@@ -30,6 +30,9 @@ primary_region = 'iad'
   PREFECT_API_URL = ''
   # Durable projection catch-up. DB leases make concurrent API machines safe.
   PROJECTION_TICK_SECONDS = '5'
+  # Supabase's session pool is capped at 15 clients across consumers.
+  DB_POOL_MIN = '1'
+  DB_POOL_MAX = '5'
   # Supervised workers (in-process). Set any interval to 0 to disable that worker.
   ANALYTICS_ROLLUP_INTERVAL_SECONDS = '300'
   ANALYTICS_ML_REFRESH_SECONDS = '3600'
@@ -70,6 +73,9 @@ primary_region = 'iad'
     # Route admission requires dependency readiness (Postgres/Redis/workers).
     # Process liveness remains on GET /health for operators and soft probes.
     path = '/ready'
+
+    [http_service.checks.headers]
+      X-Forwarded-Proto = 'https'
 
 [mounts]
   source = 'ml_models'

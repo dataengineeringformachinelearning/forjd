@@ -910,11 +910,8 @@ def _overall_status(statuses: list[str]) -> str:
 
 
 # --- Public KPI / intelligence shaping ---
-def _predicted_sla_or_outlook(
-    telemetry: dict[str, Any],
-    intelligence: dict[str, Any],
-) -> float | None:
-    """Prefer SLA training_run; else probe-history outlook so the gauge is never blank."""
+def _predicted_sla(intelligence: dict[str, Any]) -> float | None:
+    """Return only a genuine SLA model forecast, never current probe uptime."""
     predicted = intelligence.get("predicted_sla")
     if predicted is not None:
         try:
@@ -924,16 +921,7 @@ def _predicted_sla_or_outlook(
         else:
             if math.isfinite(value):
                 return round(max(0.0, min(100.0, value)), 2)
-    # Torch SLA fit may lag; use recent probe SLA as the 30-day outlook.
-    outlook = _uptime_from_history(list(telemetry.get("page_history") or []))
-    if outlook is None and telemetry.get("overall_uptime") is not None:
-        try:
-            outlook = float(telemetry["overall_uptime"])
-        except (TypeError, ValueError):
-            return None
-    if outlook is None:
-        return None
-    return round(max(0.0, min(100.0, float(outlook))), 2)
+    return None
 
 
 def _kpi_fields(
@@ -952,7 +940,7 @@ def _kpi_fields(
         "temporal_backend": intelligence["temporal_backend"],
         "temporal_sample_count": intelligence["temporal_sample_count"],
         "temporal_scored_at": intelligence["temporal_scored_at"],
-        "predicted_sla": _predicted_sla_or_outlook(telemetry, intelligence),
+        "predicted_sla": _predicted_sla(intelligence),
         "threat_anomaly_score": intelligence["threat_anomaly_score"],
         "threat_suspicious_ratio": intelligence["threat_suspicious_ratio"],
         "uses_norse": intelligence["uses_norse"],
@@ -973,7 +961,7 @@ async def _public_page_intelligence(
     try:
         rollups = await pool.fetch(
             """
-            SELECT threats_detected, error_rate_percent
+            SELECT threats_detected
             FROM aggregated_analytics
             WHERE tenant_id = $1::uuid AND bucket_start >= $2
             ORDER BY bucket_start DESC
@@ -1077,6 +1065,14 @@ def _uptime_from_history(history: list[dict[str, Any]]) -> float | None:
     return round(sum(samples) / len(samples), 2)
 
 
+def _uptime_from_day_stats(day_stats: dict[date, tuple[int, int]]) -> float | None:
+    active = sum(max(int(day_active), 0) for day_active, _day_total in day_stats.values())
+    total = sum(max(int(day_total), 0) for _day_active, day_total in day_stats.values())
+    if total <= 0:
+        return None
+    return round(100.0 * min(active, total) / total, 2)
+
+
 def _merge_day_stats(
     rows: list[Any],
     *,
@@ -1112,17 +1108,42 @@ async def _probe_day_rollups(
         SELECT service_id::text AS service_id,
                (observed_at AT TIME ZONE 'UTC')::date AS day,
                COUNT(*)::int AS total,
-               COUNT(*) FILTER (WHERE is_active)::int AS active,
-               COALESCE(
-                 percentile_cont(0.99) WITHIN GROUP (ORDER BY response_time_ms),
-                 0
-               )::float8 AS p99_ms
+               COUNT(*) FILTER (WHERE is_active)::int AS active
         FROM health_probe_observations
         WHERE tenant_id = $1::uuid
           AND service_id = ANY($2::uuid[])
           AND observed_at >= $3
         GROUP BY 1, 2
         ORDER BY 2 ASC
+        """,
+        tenant_id,
+        service_ids,
+        since,
+    )
+
+
+async def _probe_latency_24h(
+    pool: asyncpg.Pool,
+    *,
+    tenant_id: str,
+    service_ids: list[str],
+) -> list[asyncpg.Record]:
+    """Return true 24-hour p99 values for the page and each service."""
+    if not service_ids:
+        return []
+    since = datetime.now(UTC) - timedelta(hours=_ANALYTICS_WINDOW_HOURS)
+    return await pool.fetch(
+        """
+        SELECT service_id::text AS service_id,
+               COUNT(*)::int AS sample_count,
+               percentile_cont(0.99) WITHIN GROUP (
+                 ORDER BY response_time_ms
+               )::float8 AS p99_ms
+        FROM health_probe_observations
+        WHERE tenant_id = $1::uuid
+          AND service_id = ANY($2::uuid[])
+          AND observed_at >= $3
+        GROUP BY GROUPING SETS ((service_id), ())
         """,
         tenant_id,
         service_ids,
@@ -1159,45 +1180,6 @@ async def _analytics_kpis_24h(
     }
 
 
-async def _analytics_day_stats(
-    pool: asyncpg.Pool,
-    *,
-    tenant_id: str,
-    days: int = _HISTORY_DAYS,
-) -> dict[date, tuple[int, int]]:
-    """Map analytics error-rate rollups into probe-shaped (active, total) day stats."""
-    since = datetime.now(UTC) - timedelta(days=days)
-    try:
-        rows = await pool.fetch(
-            """
-            SELECT (bucket_start AT TIME ZONE 'UTC')::date AS day,
-                   COALESCE(SUM(total_requests), 0)::int AS total_requests,
-                   COALESCE(AVG(error_rate_percent), 0)::float8 AS error_rate_percent
-            FROM aggregated_analytics
-            WHERE tenant_id = $1::uuid AND bucket_start >= $2
-            GROUP BY 1
-            ORDER BY 1 ASC
-            """,
-            tenant_id,
-            since,
-        )
-    except asyncpg.UndefinedTableError:
-        return {}
-    except Exception:
-        logger.exception("status: analytics day rollup failed for public page")
-        return {}
-    merged: dict[date, tuple[int, int]] = {}
-    for row in rows:
-        day = row["day"]
-        if isinstance(day, datetime):
-            day = day.date()
-        total = max(int(row["total_requests"] or 0), 1)
-        err = min(max(float(row["error_rate_percent"] or 0), 0.0), 100.0)
-        active = int(round(total * (100.0 - err) / 100.0))
-        merged[day] = (active, total)
-    return merged
-
-
 async def _public_page_telemetry(
     pool: asyncpg.Pool,
     *,
@@ -1206,45 +1188,58 @@ async def _public_page_telemetry(
 ) -> dict[str, Any]:
     empty_history = _fill_uptime_history({})
     probe_rows = await _probe_day_rollups(pool, tenant_id=tenant_id, service_ids=service_ids)
+    latency_rows = await _probe_latency_24h(
+        pool,
+        tenant_id=tenant_id,
+        service_ids=service_ids,
+    )
     probe_page_stats = _merge_day_stats(probe_rows)
     page_history = _fill_uptime_history(probe_page_stats)
-    # If probes have not accumulated yet, fall back to tenant analytics days.
-    if _uptime_from_history(page_history) is None:
-        analytics_days = await _analytics_day_stats(pool, tenant_id=tenant_id)
-        if analytics_days:
-            page_history = _fill_uptime_history(analytics_days)
+    overall_uptime = _uptime_from_day_stats(probe_page_stats)
 
     service_history: dict[str, list[dict[str, Any]]] = {}
     service_sla: dict[str, float | None] = {}
     service_latency: dict[str, float | None] = {}
     for sid in service_ids:
-        history = _fill_uptime_history(_merge_day_stats(probe_rows, service_id=sid))
+        service_stats = _merge_day_stats(probe_rows, service_id=sid)
+        history = _fill_uptime_history(service_stats)
         service_history[sid] = history
-        service_sla[sid] = _uptime_from_history(history)
-        # Latest observed day p99 for that service (if any).
-        latest_p99: float | None = None
-        latest_day: date | None = None
-        for row in probe_rows:
-            if str(row["service_id"]) != sid:
-                continue
-            day = row["day"]
-            if isinstance(day, datetime):
-                day = day.date()
-            if latest_day is None or day > latest_day:
-                latest_day = day
-                latest_p99 = float(row["p99_ms"] or 0)
-        service_latency[sid] = round(latest_p99, 2) if latest_p99 is not None else None
+        service_sla[sid] = _uptime_from_day_stats(service_stats)
+        latency_row = next(
+            (
+                row
+                for row in latency_rows
+                if row["service_id"] is not None and str(row["service_id"]) == sid
+            ),
+            None,
+        )
+        service_latency[sid] = (
+            round(float(latency_row["p99_ms"]), 2)
+            if latency_row is not None
+            and int(latency_row["sample_count"] or 0) > 0
+            and latency_row["p99_ms"] is not None
+            else None
+        )
 
     analytics = await _analytics_kpis_24h(pool, tenant_id=tenant_id)
-    probe_p99s = [float(row["p99_ms"] or 0) for row in probe_rows if row["p99_ms"] is not None]
-    p99_latency = analytics["p99_latency"]
-    if p99_latency is None and probe_p99s:
-        p99_latency = round(max(probe_p99s), 2)
+    page_latency_row = next(
+        (row for row in latency_rows if row["service_id"] is None),
+        None,
+    )
+    # Public endpoint health comes only from direct probe observations. Report
+    # no latency or uptime until at least one actual probe has run.
+    p99_latency = (
+        round(float(page_latency_row["p99_ms"]), 2)
+        if page_latency_row is not None
+        and int(page_latency_row["sample_count"] or 0) > 0
+        and page_latency_row["p99_ms"] is not None
+        else None
+    )
 
     return {
         "empty_history": empty_history,
         "page_history": page_history,
-        "overall_uptime": _uptime_from_history(page_history),
+        "overall_uptime": overall_uptime,
         "service_history": service_history,
         "service_sla": service_sla,
         "service_latency": service_latency,

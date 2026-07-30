@@ -25,8 +25,10 @@ vendor swagger-ui.css → viking-ui.css → suite-apidocs.css
 1. **Self-host** swagger-ui-dist and redoc under `backend/static/vendor/` (pinned `VERSION` files).
 2. **No jsDelivr** for swagger/redoc in HTML templates (CSP may still allow jsDelivr for Algolia / published widgets).
 3. **Token-only** colors in `suite-apidocs.css`.
-4. Refresh vendors: `bash scripts/vendor_apidocs.sh` in each repo after bumping pins.
-5. After editing SoT CSS, copy to DEML `backend/static/suite-apidocs.css` and run FORJD `npm run sync:suite`.
+4. **Quiet method chips** on Swagger and ReDoc (no HTTP rainbow). ReDoc theme via shared `redoc-init.js`.
+5. **One skin:** do not ship a second product-local swagger SCSS skin; `swagger-ui.scss` is a stub.
+6. Refresh vendors: `bash scripts/vendor_apidocs.sh` in each repo after bumping pins.
+7. After editing SoT CSS: `python scripts/sync_design_system.py` (DEML) and FORJD `npm run sync:suite`.
 
 ## Verify
 
