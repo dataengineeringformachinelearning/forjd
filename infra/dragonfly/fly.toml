@@ -32,4 +32,5 @@ primary_region = 'iad'
 
 [[vm]]
   size = 'shared-cpu-1x'
-  memory = '1gb'
+  # 1gb OOMed under rate-limit ZSET load (2026-07-31); keep headroom for streams + limiter.
+  memory = '2gb'
