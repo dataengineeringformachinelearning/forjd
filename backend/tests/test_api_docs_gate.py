@@ -15,7 +15,7 @@ class TestApiDocsGate(unittest.TestCase):
                 "ENVIRONMENT": "production",
                 "DEBUG": "true",
                 # Production CORS must include an https origin (ADR-0016).
-                "CORS_ORIGINS": '["https://forjd.co"]',
+                "CORS_ORIGINS": '["https://deml.app"]',
             },
             clear=False,
         ):
@@ -35,7 +35,7 @@ class TestApiDocsGate(unittest.TestCase):
                 "ENVIRONMENT": "production",
                 "DEBUG": "false",
                 "ENABLE_API_DOCS": "true",
-                "CORS_ORIGINS": '["https://forjd.co"]',
+                "CORS_ORIGINS": '["https://deml.app"]',
             },
             clear=False,
         ):

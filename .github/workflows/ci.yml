@@ -1,4 +1,4 @@
-# FORJD CI — FastAPI + Rust engine + Angular landing / forjd-ui.
+# FORJD CI — FastAPI + Rust engine (API-only; no product frontend).
 
 name: CI
 
@@ -89,48 +89,3 @@ jobs:
 
       - name: Tests
         run: cargo test --no-default-features --features server,data-plane
-
-  frontend:
-    name: Frontend tests and build
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Format (Prettier)
-        run: npm run format:check
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Suite purity (forjd-ui ↔ backend/static)
-        run: npm run suite:purity
-
-      - name: Unit tests (app)
-        run: npx ng test frontend --no-watch
-
-      - name: Unit tests (forjd-ui)
-        run: npx ng test forjd-ui --no-watch
-
-      - name: Production build
-        run: npm run build
-
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: E2E critical paths
-        run: npm run test:e2e
-        env:
-          CI: true

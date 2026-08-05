@@ -2,34 +2,24 @@
 
 ## Status
 
-Accepted — 2026-07-26
+**Superseded** — 2026-08-04
 
-## Context
+The Angular product landing (`frontend/`, forjd-ui, forjd.co) was removed. FORJD is
+API-only at backend.forjd.co. Visual chrome for HTML shells uses deml-ui (warm ash).
+Community narrative: dataengineeringformachinelearning.com.
 
-FORJD’s product UI is a **static landing** (no console). Suite chrome must match
-DEML Viking-UI. Dumping fetch/Sentry/copy into the Angular component and inventing
-a second design system both recreate the drift we already paid to remove.
+## Context (historical)
 
-## Decision
+FORJD’s product UI was a **static landing** (no console). Suite chrome matched
+DEML Viking-UI via a forjd-ui adapter.
 
-### App layers (landing-only)
+## Decision (current)
 
-| Layer | Path | Owns |
-|-------|------|------|
-| Presentation | `frontend/src/app/landing/` | Signals, template, forjd-ui composition |
-| Content | `landing.content.ts` | Static narrative + suite link builders |
-| Use cases / infra | `frontend/src/app/core/` | `/ready` probe, SWR, monitoring, idle bootstrap |
-| Primitives | `libs/forjd-ui/` | Headless + suite classes — **no** `environment` / API |
-
-### Suite adapter
-
-- Visual SoT: DEML Viking-UI (`--suite-*`); FORJD vendors via `npm run sync:suite`
-- `forjd-ui` is a **`--fj-*` adapter**, not a fork or Material/shadcn runtime
-- Law: `docs/SUITE_UI_UNIFICATION.md`; app layer table: `frontend/src/app/README.md`
+- No product frontend in this repo
+- backend.forjd.co splash/docs/redoc → vendored deml-ui + `forjd-backend.css`
+- Public story → community marketing site + deml.app
 
 ## Consequences
 
-- Components must not implement `/ready` or assemble monitoring DSNs
-- Landing readiness uses a **single-slot** probe cache (not a multi-key global SWR map); UI state is local `signal` + derived `computed`
-- New reusable UI lands in forjd-ui first; app only composes
-- Public Storybook host retired — local/Chromatic only
+- Do not reintroduce forjd-ui, Viking suite CSS, or a forjd.co Vercel deploy
+- See `docs/SUITE_UI_UNIFICATION.md`

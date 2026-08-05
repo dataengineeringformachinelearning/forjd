@@ -3,7 +3,6 @@
 # Runtime typed consumers (do not duplicate defaults here as authority):
 #   backend → app.core.config.Settings
 #   engine  → data_plane::config::Config + process binary env
-#   frontend → src/environments/environment*.ts
 #
 # This file owns: names, layers, secrecy, feature-flag roles, and example paths.
 # Enforce with: python scripts/check_config_catalog.py
@@ -213,12 +212,3 @@ variables:
   - { name: DFLY_requirepass, layers: [infra], secret: true, settings: false, group: infra, summary: Dragonfly Fly secret (infra/dragonfly/) }
   - { name: PREFECT_HOME, layers: [backend], secret: false, settings: false, group: platform, summary: Set in fly.api.toml for Prefect home }
   - { name: HOME, layers: [backend], secret: false, settings: false, group: platform }
-
-  # Frontend (Angular fileReplacements — not process env)
-  - { name: production, layers: [frontend], secret: false, settings: false, example: frontend/src/environments/environment.ts, group: frontend, summary: Angular environment.production }
-  - { name: apiBaseUrl, layers: [frontend], secret: false, settings: false, example: frontend/src/environments/environment.ts, group: frontend }
-  - { name: sentryDsn, layers: [frontend], secret: false, settings: false, example: frontend/src/environments/environment.ts, group: frontend, summary: Public client DSN }
-  - { name: rollbarAccessToken, layers: [frontend], secret: false, settings: false, example: frontend/src/environments/environment.ts, group: frontend, summary: Public post_client_item token }
-
-  # Local tooling
-  - { name: CHROMATIC_PROJECT_TOKEN, layers: [tooling], secret: true, settings: false, group: tooling, summary: Root .env only; not CI }

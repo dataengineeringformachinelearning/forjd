@@ -1,14 +1,14 @@
-"""Suite-themed Swagger UI page served at ``GET /docs``.
+"""deml-ui Swagger UI page served at ``GET /docs``.
 
-Self-hosts swagger-ui-dist under ``/static/vendor/`` and skins via the
-shared suite contract — no jsDelivr or inline style blocks.
+Self-hosts swagger-ui-dist under ``/static/vendor/`` and skins via deml-ui
+plus ``forjd-backend.css`` — no jsDelivr or inline style blocks.
 """
 
 from __future__ import annotations
 
 from app.core.config import settings
 
-# --- Swagger UI shell (suite tokens + owned apidocs skin) ---
+# --- Swagger UI shell (deml-ui + owned backend chrome) ---
 _DOCS_HTML = """\
 <!doctype html>
 <html lang="en" data-theme="dark">
@@ -18,25 +18,21 @@ _DOCS_HTML = """\
 <title>{project} — API docs</title>
 <meta
   name="description"
-  content="Interactive Swagger documentation for the FORJD secure streaming API."
+  content="Interactive Swagger documentation for the FORJD sealed streaming API."
 />
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
 <link rel="icon" type="image/png" sizes="96x96" href="/static/favicon-96x96.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png" />
-<meta name="theme-color" content="#0a0a0a" />
+<meta name="theme-color" content="#35312D" />
 <link rel="stylesheet" href="/static/vendor/swagger-ui-dist/swagger-ui.css" />
-<link rel="stylesheet" href="/static/suite-fonts.css" />
-<link rel="stylesheet" href="/static/suite-tokens.css" />
-<link rel="stylesheet" href="/static/suite-components.css" />
-<link rel="stylesheet" href="/static/suite-backend.css" />
-<link rel="stylesheet" href="/static/suite-apidocs.css" />
-<link rel="stylesheet" href="/static/forjd-apidocs.css" />
+<link rel="stylesheet" href="/static/deml-ui.css" />
+<link rel="stylesheet" href="/static/forjd-backend.css" />
 </head>
-<body class="suite-backend-docs backend-swagger">
-  <header class="suite-backend-topbar backend-docs-topbar fj-topbar">
-    <a class="suite-backend-brand backend-docs-brand fj-brand" href="https://forjd.co/">{project}</a>
+<body class="forjd-backend-docs backend-swagger">
+  <header class="forjd-backend-topbar">
+    <a class="forjd-backend-brand" href="/">{project}</a>
     <nav aria-label="API documentation">
-      <a href="https://forjd.co/">product</a>
+      <a href="https://dataengineeringformachinelearning.com/">community</a>
       <a href="/redoc">redoc</a>
       <a href="/openapi.json">openapi</a>
       <a href="/health">health</a>
@@ -44,7 +40,7 @@ _DOCS_HTML = """\
     </nav>
   </header>
   <main aria-label="FORJD interactive API documentation">
-    <h1 class="suite-sr-only">{project} interactive API documentation</h1>
+    <h1 class="forjd-sr-only">{project} interactive API documentation</h1>
     <div id="swagger-ui"></div>
   </main>
   <script src="/static/vendor/swagger-ui-dist/swagger-ui-bundle.js"></script>

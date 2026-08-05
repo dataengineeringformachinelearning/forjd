@@ -6,9 +6,8 @@ Follow these unless the user explicitly overrides them.
 ## Naming
 - Platform: FORJD
 - Backend: forjd-backend / `backend/`
-- Frontend: forjd-frontend / `frontend/`
-- UI library: forjd-ui / `frontend/libs/forjd-ui/`
 - Engine: forjd-engine / `engine/` (Rust core; `cdylib` + `rlib` for future Python interop)
+- Public host: backend.forjd.co only (forjd.co product landing retired)
 
 ## Engine (Rust)
 - Manage with Cargo (`cargo test` / `cargo build`). Keep the crate root at `engine/src/lib.rs`.
@@ -30,15 +29,11 @@ Follow these unless the user explicitly overrides them.
 - Never use Polars as a substitute for streaming jobs.
 - Separation: FastAPI = API, Prefect = orchestration, Rust = streams, Polars = batch tables.
 
-## Frontend
-- Latest stable Angular (project is on v22; floor is v18+).
-- Standalone components + Signals by default.
-- Build UI in `libs/forjd-ui/` (generate with `ng generate library`); consume from `frontend`.
-- No heavy component libraries for core primitives (avoid Angular Material there).
-- Product frontend is a static FJORD landing; forjd-ui is a **suite adapter** — `--fj-*` must match DEML Viking-UI (void + electric `#2176ff` + gold). Law: `docs/SUITE_UI_UNIFICATION.md`. Own every class; patterns from Spartan/shadcn only — never their CSS.
-- Accessibility: aim for WCAG 2.2 AA on new UI (focus not obscured, ≥24px targets / 44px suite touch, keyboard alternatives to drag).
-- Storybook: add `*.stories.ts` next to each forjd-ui component; publish visuals with Chromatic.
-- Precision and density over flashy design. Chrome must be visually identical to deml.app / ui.deml.app.
+## Backend HTML chrome
+- No product Angular frontend — API-only.
+- Splash + `/docs` + `/redoc` use vendored **deml-ui** (`backend/static/deml-ui.css`) + `forjd-backend.css`.
+- Sync: `npm run sync:deml-ui`. Law: `docs/SUITE_UI_UNIFICATION.md`.
+- Warm ash NFTS only — never revive Viking void/electric or forjd-ui.
 
 ## Docker
 - Multi-stage builds mandatory.
@@ -59,11 +54,10 @@ Follow these unless the user explicitly overrides them.
 
 ## Configuration & secrets map
 - **Inventory SoT:** `config/forjd.catalog.yaml` + `docs/CONFIGURATION.md` (env vars, feature flags, layers). Drift gate: `uv run --project backend python scripts/check_config_catalog.py`.
-- **Runtime SoT:** backend `Settings` (`app/core/config.py` + `feature_flags.py`); engine `FORJD_ROLE` / data-plane env; frontend `environment*.ts`.
+- **Runtime SoT:** backend `Settings` (`app/core/config.py` + `feature_flags.py`); engine `FORJD_ROLE` / data-plane env.
 - Backend local: `backend/.env` from `backend/.env.example`.
 - Dragonfly on Fly: `DFLY_requirepass` via `fly secrets` (`infra/dragonfly/`).
 - Engine on Fly: deploy from `engine/` (`fly.toml` + `Dockerfile`); `ENGINE_URL=http://forjd-engine.internal:8080` + `ENGINE_API_TOKEN`; data plane via `FORJD_ROLE=all`, `DATABASE_URL`/`POSTGRES_DSN`, `REDIS_URL`, optional `FORJD_INTERNODE_*`; apply schema through `sql/026` (production path `003`–`026`; see `backend/sql/README.md`).
-- Chromatic: `CHROMATIC_PROJECT_TOKEN` in local root `.env` only (not wired in CI).
 - Never commit real tokens. Empty optional tokens disable those integrations.
 
 ## Comments
@@ -81,8 +75,7 @@ See `AGENTS.md` → **Quality gates**. Summary:
 - Commits: Conventional Commits + squash-merge — `docs/GIT.md`
 - Backend: `uv run ruff check . && uv run ruff format --check .` (+ unittest)
 - Engine: `cargo fmt --all -- --check` + clippy/test with `--no-default-features --features server,data-plane`
-- Frontend: `npm run format:check && npm run typecheck` (+ tests/build); Prettier only (no ESLint)
-- CI: `.github/workflows/ci.yml` (catalog + workflow validate + backend/engine/frontend)
+- CI: `.github/workflows/ci.yml` (catalog + workflow validate + backend/engine)
 
 ## Security invariants
 

@@ -6,8 +6,7 @@ Checks:
   2. Every catalog settings:true name exists on Settings.
   3. Keys in backend/.env.example and engine/.env.example are catalogued.
   4. Catalog entries with example: … appear in that file.
-  5. Frontend environment*.ts keys match the frontend catalog set.
-  6. feature_flags names exist in the variables inventory.
+  5. feature_flags names exist in the variables inventory.
 
 Exit 0 on success; print a report and exit 1 on drift.
 """
@@ -31,13 +30,8 @@ CATALOG_PATH = ROOT / "config" / "forjd.catalog.yaml"
 SETTINGS_PATH = ROOT / "backend" / "app" / "core" / "config.py"
 BACKEND_ENV = ROOT / "backend" / ".env.example"
 ENGINE_ENV = ROOT / "engine" / ".env.example"
-FRONTEND_ENVS = (
-    ROOT / "frontend" / "src" / "environments" / "environment.ts",
-    ROOT / "frontend" / "src" / "environments" / "environment.development.ts",
-)
 
 ENV_KEY_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=")
-FRONTEND_KEY_RE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:")
 
 
 # --- Parsers ---
@@ -75,22 +69,6 @@ def env_example_keys(path: Path, *, include_commented: bool = False) -> set[str]
         match = ENV_KEY_RE.match(stripped)
         if match:
             keys.add(match.group(1))
-    return keys
-
-
-def frontend_keys(path: Path) -> set[str]:
-    keys: set[str] = set()
-    in_object = False
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if "export const environment" in line:
-            in_object = True
-            continue
-        if in_object:
-            if line.strip().startswith("};"):
-                break
-            match = FRONTEND_KEY_RE.match(line)
-            if match:
-                keys.add(match.group(1))
     return keys
 
 
@@ -159,24 +137,6 @@ def main() -> int:
             if name not in documented_keys:
                 errors.append(
                     f"catalog {name} claims example {example} but key missing there"
-                )
-
-    # --- Frontend keys ---
-    frontend_catalog = {n for n, e in by_name.items() if "frontend" in (e.get("layers") or [])}
-    for path in FRONTEND_ENVS:
-        keys = frontend_keys(path)
-        if keys != frontend_catalog:
-            only_file = sorted(keys - frontend_catalog)
-            only_cat = sorted(frontend_catalog - keys)
-            if only_file:
-                errors.append(
-                    f"{path.relative_to(ROOT)} keys not in catalog: "
-                    + ", ".join(only_file)
-                )
-            if only_cat:
-                errors.append(
-                    f"catalog frontend keys missing from {path.relative_to(ROOT)}: "
-                    + ", ".join(only_cat)
                 )
 
     # --- Feature flag names must be inventory entries ---

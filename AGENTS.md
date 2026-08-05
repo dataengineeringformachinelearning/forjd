@@ -22,9 +22,9 @@ Agents: read this briefing first, then enforce constraints in `.cursorrules`.
 | Batch tables | Polars |
 | Engine | Rust (`engine/`) — one `forjd-engine` binary: Arrow/Parquet **59** + PyO3 + axum process HTTP + data plane (`FORJD_ROLE`, Postgres outbox, Dragonfly Streams) |
 | Cache / DB | Dragonfly (Fly.io) + Postgres (Supabase) |
-| UI | Angular static FJORD landing + forjd-ui adapter (Storybook / Chromatic); suite-locked to DEML Viking-UI — [docs/SUITE_UI_UNIFICATION.md](docs/SUITE_UI_UNIFICATION.md); no product console |
-| Observability | Structured JSON logs + `X-Request-ID` correlation; Rollbar (API + browser) + optional Sentry (`SENTRY_DSN`, `uv sync --group sentry`); Vercel Analytics + Speed Insights (frontend). Contract: [`docs/OBSERVABILITY.md`](docs/OBSERVABILITY.md) |
-| Configuration | Inventory SoT [`config/forjd.catalog.yaml`](config/forjd.catalog.yaml) + [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md); runtime SoT `Settings` / engine env / `environment*.ts`; flags via `app/core/feature_flags.py` |
+| UI | API-only — backend.forjd.co splash/docs use vendored deml-ui ([docs/SUITE_UI_UNIFICATION.md](docs/SUITE_UI_UNIFICATION.md)); no product console; forjd.co retired |
+| Observability | Structured JSON logs + `X-Request-ID` correlation; Rollbar + optional Sentry (`SENTRY_DSN`, `uv sync --group sentry`). Contract: [`docs/OBSERVABILITY.md`](docs/OBSERVABILITY.md) |
+| Configuration | Inventory SoT [`config/forjd.catalog.yaml`](config/forjd.catalog.yaml) + [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md); runtime SoT `Settings` / engine env; flags via `app/core/feature_flags.py` |
 | Rate limiting | Config-gated Dragonfly/Redis limiter (`app/core/rate_limit.py`; `RATE_LIMIT_ENABLED` + per-bucket RPM) |
 | Add-ons (optional) | Config-gated integrations under `app/addons/` — disabled by default, `FORJD_ADDONS=<slug,…>` or `all`; catalog at `GET /api/v1/addons` (OSV/nuclei/HoneyDB/CVE + ML/testing descriptors) |
 | External fetchers | Typed TET pipeline under `app/services/fetchers/` (query → extract → transform + `FetchResult`); OSINT/HIBP use it — no OpenBB/pandas finance stack |
@@ -50,7 +50,7 @@ Backend Python is pinned to **3.12** for stable, reproducible production builds.
 
 ## How to work
 
-- **First run:** [`docs/START_HERE.md`](docs/START_HERE.md) — `npm run bootstrap` → `dev:api` / `dev:web` → `npm run verify` (≈10 minutes of attention).
+- **First run:** [`docs/START_HERE.md`](docs/START_HERE.md) — `npm run bootstrap` → `dev:api` → `npm run verify` (≈10 minutes of attention).
 - **Extend / configure:** [`docs/EXTENDING.md`](docs/EXTENDING.md) — YAML workflows, detectors, add-ons; `npm run validate:workflows` before deploy.
 - Small, testable increments. Do not expand scope beyond what was asked.
 - Prefer configuration (YAML/JSON) over hardcoding.
@@ -58,7 +58,7 @@ Backend Python is pinned to **3.12** for stable, reproducible production builds.
 - **Commits:** Conventional Commits + squash-merge practice — [`docs/GIT.md`](docs/GIT.md). `commit-msg` hook via `npm run install-hooks`.
 - After meaningful progress, optionally append a `LOG.MD` entry (engineering journal — see `.cursorrules`); primary architecture docs are `ARCHITECTURE.md` and `AGENTS.md`.
 - **Non-obvious patterns:** record or cite an ADR under [`docs/adr/`](docs/adr/README.md) instead of re-arguing rejected stacks (second rate limiter, Polars-as-stream, partner end-user tokens, second design system, premature APM).
-- **Suite UI law:** chrome on forjd.co / backend.forjd.co must match deml.app / marketing (public Storybook hosts retired). Own every class; no Material/Bootstrap look packages. **Pass 1 tokens:** vendored `suite-tokens.css` (`--suite-*`; `--fj-*` aliases). No npm install for styles — `npm run sync:suite` from DEML sibling. Expand primitives in `frontend/libs/forjd-ui/` first.
+- **UI law:** backend HTML shells use deml-ui warm ash (`npm run sync:deml-ui`). No forjd-ui / Viking suite. Community + DEML own public product chrome.
 
 ## Quality gates
 
@@ -69,31 +69,20 @@ Backend Python is pinned to **3.12** for stable, reproducible production builds.
 - Backend: `cd backend && uv run ruff check . && uv run ruff format --check . && uv run python -m unittest discover -s tests`
 - Config catalog: `uv run --project backend python scripts/check_config_catalog.py`
 - Engine: `cd engine && cargo fmt --all -- --check && cargo clippy --no-default-features --features server,data-plane -- -D warnings && cargo test --no-default-features --features server,data-plane`
-- Frontend: `cd frontend && npm run format:check && npm run typecheck && npm run test:all && npm run build`
-- CI: `.github/workflows/ci.yml` (backend + engine + frontend)
+- CI: `.github/workflows/ci.yml` (backend + engine)
 - Security: Semgrep (Cursor rule), no secrets in git, `rate_limit.py` is the sole rate limiter
 
-Last updated: 2026-07-26
+Last updated: 2026-08-04
 
-**Deploy:** [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md) + [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md) — SQL `003`–`029`, mint `fjsvc_`, Fly backend/engine + Vercel frontend. Partners integrate via YAML workflows and tenant-bound service tokens.
+**Deploy:** [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md) + [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md) — SQL `003`–`029`, mint `fjsvc_`, Fly backend/engine. Partners integrate via YAML workflows and tenant-bound service tokens.
 
 ## Cursor Cloud specific instructions
 
 The startup update script runs `uv sync --project backend` (also builds the Rust
-engine via maturin/PyO3) and `npm install --prefix frontend`. Toolchain (`uv`,
-Python 3.14, Rust 1.97 via `rust-toolchain.toml`, Node via nvm, native Postgres +
-Redis) is baked into the VM image. First-run guide: [`docs/START_HERE.md`](docs/START_HERE.md)
-(`npm run bootstrap -- --skip-docker` when using native Postgres/Redis). Notes
-below are only the non-obvious caveats.
-
-### Node version gotcha (important)
-
-`/exec-daemon/node` is pinned to v22.14.0, which is **too old** for the Angular 22
-CLI (needs ≥ v22.22.3). A newer Node (v24) is installed via nvm and prepended to
-`PATH` in `~/.bashrc`, so interactive shells and tmux login shells get it
-automatically. If a build fails with "Angular CLI requires a minimum Node.js
-version", ensure `$HOME/.nvm/versions/node/v24.18.0/bin` is ahead of
-`/exec-daemon` on `PATH`.
+engine via maturin/PyO3). Toolchain (`uv`, Python 3.14, Rust 1.97 via
+`rust-toolchain.toml`, native Postgres + Redis) is baked into the VM image.
+First-run guide: [`docs/START_HERE.md`](docs/START_HERE.md)
+(`npm run bootstrap -- --skip-docker` when using native Postgres/Redis).
 
 ### Backing services (native, not Docker)
 
@@ -110,26 +99,17 @@ in for Dragonfly (wire-compatible); the app reports it as `dragonfly`.
 
 ### Running the stack
 
-- Root DX: `npm run doctor` · `npm run quality` · `npm run dev:api` · `npm run dev:web` ([`docs/DEV.md`](docs/DEV.md))
+- Root DX: `npm run doctor` · `npm run quality` · `npm run dev:api` ([`docs/DEV.md`](docs/DEV.md))
 - API: `cd backend && uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000 --reload-dir app`
-- Web: `cd frontend && npm start` (http://127.0.0.1:4200 — static landing; docs links only)
 - Ops probes: `GET /health`, `GET /ready`, `GET /api/v1/capabilities`. Partner
   traffic uses sealed ingest + tenant service tokens — not a browser console.
   Backend pins Python 3.12 (`requires-python <3.14`), so `uv run` selects the
   supported interpreter instead of the system CPython 3.14.
 
-### Frontend install scripts
-
-`npm install` under npm 11 warns about ungated build scripts (esbuild/lmdb native
-builds). The image ships a populated `frontend/node_modules`, so refresh installs
-are fine; only a from-scratch `rm -rf node_modules` reinstall may need those build
-scripts approved.
-
-### Tests / lint / format / types
+### Tests / lint / format
 
 - First clone: `npm run bootstrap` (or `-- --skip-docker` on Cloud) · `npm run verify` after `dev:api`.
 - Install hooks once: `npm run install-hooks` (pre-commit + commit-msg — [`docs/GIT.md`](docs/GIT.md)).
 - Meta: `npm run quality` (fast) / `npm run quality:full` from repo root (`scripts/forjd_tooling.py`).
 - Backend: `uv run ruff check .` / `uv run ruff format --check .`; tests: `uv run python -m unittest discover -s tests`.
 - Engine: `cargo fmt --all -- --check`, `cargo clippy --no-default-features --features server,data-plane -- -D warnings`, `cargo test` (same flags as CI).
-- Frontend: `npm run format:check`, `npm run typecheck`, `npm run test:all`; production build enforces `strictTemplates`. No ESLint — Prettier + TypeScript strict.

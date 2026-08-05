@@ -407,7 +407,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # --- Root splash + FJORD Swagger / ReDoc ---
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def landing() -> HTMLResponse:
-    """Minimal brand splash — docs live on forjd.co → /docs and /redoc."""
+    """Minimal brand splash — docs at /docs and /redoc on this host."""
     return HTMLResponse(content=render_landing())
 
 

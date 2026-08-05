@@ -10,7 +10,6 @@ Usage (from repo root):
   python scripts/forjd_tooling.py validate-workflows [-- …flags]
   python scripts/forjd_tooling.py install-hooks
   python scripts/forjd_tooling.py api
-  python scripts/forjd_tooling.py web
   python scripts/forjd_tooling.py help
 
 Or via root package.json: npm run bootstrap / doctor / verify / validate:workflows / quality / …
@@ -30,7 +29,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 BACKEND = ROOT / "backend"
-FRONTEND = ROOT / "frontend"
 ENGINE = ROOT / "engine"
 
 
@@ -130,13 +128,6 @@ def _hints_for_command(cmd: list[str], cwd: Path | None) -> list[str]:
                 "Then: cd backend && uv sync --locked",
             ]
         )
-    elif "npm" in joined or "ng " in joined or joined.rstrip().endswith(" ng"):
-        hints.extend(
-            [
-                "Node ^22.22.3 || ^24.15+ required (frontend/.nvmrc).",
-                "From frontend/: npm install && npm run preflight",
-            ]
-        )
     if "cargo" in joined:
         hints.append(
             "From engine/: rustup show && cargo test --features server,data-plane"
@@ -162,26 +153,6 @@ def cmd_doctor(_: argparse.Namespace) -> None:
 
     uv = _which("uv")
     note("uv", bool(uv), uv or "Install: https://docs.astral.sh/uv/")
-
-    node = _which("node")
-    if node:
-        ver = subprocess.run(
-            ["node", "-v"], check=False, capture_output=True, text=True
-        ).stdout.strip()
-        major_minor = ver.lstrip("v").split(".")
-        ok = False
-        if len(major_minor) >= 2:
-            major, minor = int(major_minor[0]), int(major_minor[1])
-            ok = (
-                (major == 22 and minor >= 22)
-                or (major == 24 and minor >= 15)
-                or major >= 26
-            )
-        note(
-            "node", ok, f"{ver} ({node})" if ok else f"{ver} — need ^22.22.3 / ^24.15+"
-        )
-    else:
-        note("node", False, "Install Node 24 (see frontend/.nvmrc)")
 
     rustc = _which("rustc")
     if rustc:
@@ -223,41 +194,21 @@ def cmd_doctor(_: argparse.Namespace) -> None:
         if (BACKEND / ".env").is_file()
         else "cp backend/.env.example backend/.env",
     )
+    deml_ui_css = BACKEND / "static" / "deml-ui.css"
     note(
-        "frontend/node_modules",
-        (FRONTEND / "node_modules" / "@angular" / "cli").is_dir(),
-        "ok"
-        if (FRONTEND / "node_modules" / "@angular" / "cli").is_dir()
-        else "cd frontend && npm install",
-    )
-    note(
-        "suite-tokens.css",
-        (FRONTEND / "libs/forjd-ui/src/lib/styles/suite-tokens.css").is_file(),
-        "ok"
-        if (FRONTEND / "libs/forjd-ui/src/lib/styles/suite-tokens.css").is_file()
-        else "cd frontend && npm run sync:suite",
+        "deml-ui.css",
+        deml_ui_css.is_file(),
+        "ok" if deml_ui_css.is_file() else "npm run sync:deml-ui (sibling deml-ui or deml pkg)",
     )
 
-    configured_deml = os.environ.get("FORJD_DEML_ROOT") or os.environ.get("DEML_ROOT")
-    deml_candidates = (
-        [Path(configured_deml)]
-        if configured_deml
-        else [ROOT.parent / "deml", ROOT.parent / "dataengineeringformachinelearning"]
-    )
-    deml = next(
-        (
-            candidate
-            for candidate in deml_candidates
-            if (candidate / "packages/viking-ui/src/tokens").is_dir()
-        ),
-        deml_candidates[0],
-    )
+    configured_ui = os.environ.get("FORJD_DEML_UI_ROOT")
+    ui_root = Path(configured_ui) if configured_ui else ROOT.parent / "deml-ui"
     note(
-        "DEML sibling",
-        (deml / "packages/viking-ui/src/tokens").is_dir(),
-        str(deml)
-        if (deml / "packages/viking-ui/src/tokens").is_dir()
-        else f"optional — set FORJD_DEML_ROOT (looked at {deml})",
+        "deml-ui sibling",
+        (ui_root / "dist" / "styles" / "deml-ui.css").is_file(),
+        str(ui_root)
+        if (ui_root / "dist" / "styles" / "deml-ui.css").is_file()
+        else f"optional — set FORJD_DEML_UI_ROOT (looked at {ui_root})",
     )
 
     docker = _which("docker")
@@ -301,7 +252,7 @@ def cmd_doctor(_: argparse.Namespace) -> None:
         print(f"  {label:<{width}}  [{mark}]  {detail}")
 
     hard_fail = any(
-        mark == "MISSING" and label in {"uv", "node", "rustc", "cargo"}
+        mark == "MISSING" and label in {"uv", "rustc", "cargo"}
         for label, mark, _ in rows
     )
     print()
@@ -395,15 +346,6 @@ def cmd_quality(args: argparse.Namespace) -> None:
             cwd=ENGINE,
         )
 
-    if (FRONTEND / "package.json").is_file():
-        _run(["npm", "run", "preflight"], cwd=FRONTEND)
-        _run(["npm", "run", "format:check"], cwd=FRONTEND)
-        _run(["npm", "run", "typecheck"], cwd=FRONTEND)
-        _run(["npm", "run", "suite:purity"], cwd=FRONTEND)
-        if stage == "full":
-            _run(["npm", "run", "test:all"], cwd=FRONTEND)
-            _run(["npm", "run", "build"], cwd=FRONTEND)
-
     print("\n✓ Quality gates passed.\n")
 
 
@@ -477,13 +419,6 @@ def cmd_api(_: argparse.Namespace) -> None:
     )
 
 
-def cmd_web(_: argparse.Namespace) -> None:
-    print("Starting Angular landing…")
-    print("  http://127.0.0.1:4200\n")
-    os.chdir(FRONTEND)
-    os.execvp("npm", ["npm", "start"])
-
-
 def cmd_help(_: argparse.Namespace) -> None:
     print(__doc__)
 
@@ -496,17 +431,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("doctor", help="Check Node/uv/Rust/.env/suite paths").set_defaults(
+    sub.add_parser("doctor", help="Check uv/Rust/.env/deml-ui paths").set_defaults(
         func=cmd_doctor
     )
     boot = sub.add_parser(
         "bootstrap",
-        help="First-time local setup (env, Docker DB, uv sync, npm install)",
+        help="First-time local setup (env, Docker DB, uv sync, deml-ui sync)",
     )
     boot.add_argument(
         "bootstrap_args",
         nargs="*",
-        help="Flags for bootstrap_local.sh (--frontend-only, --skip-docker, --no-hooks)",
+        help="Flags for bootstrap_local.sh (--skip-docker, --no-hooks)",
     )
     boot.set_defaults(func=cmd_bootstrap)
     sub.add_parser("verify", help="curl /health /ready /capabilities").set_defaults(
@@ -531,27 +466,24 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_const",
         const="fast",
         default="fast",
-        help="Catalog + ruff + prettier + typecheck + suite purity (default)",
+        help="Catalog + ruff (default)",
     )
     q.add_argument(
         "--full",
         dest="stage",
         action="store_const",
         const="full",
-        help="Also backend tests, engine fmt/clippy/test (CI-aligned), frontend tests + build",
+        help="Also backend tests, engine fmt/clippy/test (CI-aligned)",
     )
     q.set_defaults(func=cmd_quality)
 
     sub.add_parser(
         "install-hooks",
-        help="Install git pre-commit hooks (ruff, prettier, typecheck)",
+        help="Install git pre-commit hooks (ruff, catalog, engine fmt)",
     ).set_defaults(func=cmd_install_hooks)
 
     sub.add_parser("api", help="Run FastAPI with reload on :8000").set_defaults(
         func=cmd_api
-    )
-    sub.add_parser("web", help="Run Angular landing on :4200").set_defaults(
-        func=cmd_web
     )
     return parser
 

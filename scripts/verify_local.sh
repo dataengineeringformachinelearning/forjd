@@ -37,4 +37,4 @@ if [[ "$fail" -ne 0 ]]; then
 fi
 
 echo ""
-echo "✓ Local API looks healthy. Landing: npm run dev:web → http://127.0.0.1:4200"
+echo "✓ Local API looks healthy. Splash/docs: ${BASE}/  ·  ${BASE}/docs"

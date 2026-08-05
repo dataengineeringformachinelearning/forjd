@@ -61,7 +61,7 @@ class TestProductionDefaults(unittest.TestCase):
             SOFT_MIGRATE_SCHEMA=True,
             REQUIRE_RLS=False,
             REQUIRE_CRYPTO_SESSION=False,
-            CORS_ORIGINS=["https://forjd.co"],
+            CORS_ORIGINS=["https://deml.app"],
         )
         self.assertFalse(s.DEBUG)
         self.assertFalse(s.SOFT_MIGRATE_SCHEMA)
@@ -81,7 +81,7 @@ class TestProductionDefaults(unittest.TestCase):
             SOFT_MIGRATE_SCHEMA=True,
             REQUIRE_RLS=False,
             REQUIRE_CRYPTO_SESSION=False,
-            CORS_ORIGINS=["https://forjd.co"],
+            CORS_ORIGINS=["https://deml.app"],
         )
         self.assertFalse(s.DEBUG)
         self.assertFalse(s.SOFT_MIGRATE_SCHEMA)

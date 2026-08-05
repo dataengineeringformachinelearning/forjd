@@ -6,7 +6,7 @@ Universal secure streaming engine for sealed partner ingest, YAML workflows, and
 >
 > | Repo | Role | Production |
 > |------|------|------------|
-> | **This repo (`forjd`)** | Data plane | Vercel `forjd` → [forjd.co](https://forjd.co) · Fly `forjd-backend` / `forjd-engine` / `forjd-dragonfly` |
+> | **This repo (`forjd`)** | Data plane | Fly `forjd-backend` / `forjd-engine` / `forjd-dragonfly` → [backend.forjd.co](https://backend.forjd.co) |
 > | [`deml`](https://github.com/dataengineeringformachinelearning/deml) | Control plane | [deml.app](https://deml.app) / [backend.deml.app](https://backend.deml.app) |
 > | [`dataengineeringformachinelearning`](https://github.com/dataengineeringformachinelearning/dataengineeringformachinelearning) | Community / BOOK | [dataengineeringformachinelearning.com](https://dataengineeringformachinelearning.com) |
 
@@ -15,28 +15,25 @@ Universal secure streaming engine for sealed partner ingest, YAML workflows, and
 > [DEML](https://github.com/dataengineeringformachinelearning/deml)
 > own identity, billing, consent, and product UI — they call FORJD with tenant-bound
 > opaque `fjsvc_` tokens and AES-256-GCM sealed envelopes (never end-user tokens).
-> Production: API/engine on **Fly** + **Supabase**; landing on **Vercel** (`forjd.co`).
+> Production: API/engine on **Fly** + **Supabase**. Public story: community site + deml.app.
 > Extend workflows/detectors: [`docs/EXTENDING.md`](docs/EXTENDING.md). Partner contract:
 > [DEML `docs/FORJD_INTEGRATION.md`](https://github.com/dataengineeringformachinelearning/deml/blob/main/docs/FORJD_INTEGRATION.md).
 
 **New developer?** → **[`docs/START_HERE.md`](docs/START_HERE.md)** — understand the system and run it locally in about 10 minutes.
 
 ```bash
-npm run bootstrap     # env + Docker Postgres/Dragonfly + uv sync + frontend install
+npm run bootstrap     # env + Docker Postgres/Dragonfly + uv sync + deml-ui sync
 npm run doctor        # toolchain sanity
-npm run dev:api       # terminal A → http://127.0.0.1:8000
-npm run dev:web       # terminal B → http://127.0.0.1:4200
+npm run dev:api       # → http://127.0.0.1:8000
 npm run verify        # curl /health /ready /capabilities
 ```
 
-Partners integrate with tenant-bound `fjsvc_` tokens (headless). The Angular site is a static landing — there is no operational browser console.
+Partners integrate with tenant-bound `fjsvc_` tokens (headless). There is no product frontend — splash and API docs live on backend.forjd.co (deml-ui).
 
 ```text
 Partner SaaS ──fjsvc_──► FastAPI (backend/) ──► Rust engine (engine/)
                               │
                      Postgres + Dragonfly
-                              │
-                     Landing (frontend/) — docs / suite chrome only
 ```
 
 ## Prerequisites
@@ -45,7 +42,6 @@ Partner SaaS ──fjsvc_──► FastAPI (backend/) ──► Rust engine (eng
 |------|-----|
 | [uv](https://docs.astral.sh/uv/) | Backend deps + builds the Rust engine |
 | Rust **1.97** (`engine/rust-toolchain.toml`) | maturin / `forjd-engine` |
-| Node 22.22+ / 24+ (`frontend/.nvmrc`) | Angular 22 CLI |
 | Docker | Local Postgres + Dragonfly (`npm run bootstrap`) |
 | Supabase (production) | Auth + Postgres + pgvector |
 | [flyctl](https://fly.io/docs/hands-on/install-flyctl/) (optional) | Deploy API / engine / Dragonfly |
@@ -55,13 +51,13 @@ Python is pinned to **3.12** in `backend/` for reproducible production builds.
 ## Day-to-day commands
 
 ```bash
-npm run doctor          # Node / uv / Rust / .env / Docker / suite paths
-npm run quality         # format + lint + typecheck + suite purity
+npm run doctor          # uv / Rust / .env / deml-ui paths
+npm run quality         # catalog + ruff
 npm run quality:full    # also tests + engine clippy (CI-aligned)
-npm run format          # auto-fix frontend / backend / engine
+npm run format          # backend ruff + engine rustfmt
 npm run install-hooks   # pre-commit + Conventional Commits (docs/GIT.md)
 npm run dev:api         # API + reload → :8000
-npm run dev:web         # landing → :4200
+npm run sync:deml-ui    # vendor deml-ui CSS into backend/static
 ```
 
 | Doc | When |
@@ -69,14 +65,14 @@ npm run dev:web         # landing → :4200
 | [`docs/START_HERE.md`](docs/START_HERE.md) | First clone / first run |
 | [`docs/EXTENDING.md`](docs/EXTENDING.md) | New workflow / detector / add-on + `validate:workflows` |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`SECURITY.md`](SECURITY.md) | Contribute + report vulns |
-| [`docs/DEV.md`](docs/DEV.md) | Hot reload, EMFILE, suite sync, failures |
+| [`docs/DEV.md`](docs/DEV.md) | Local DX |
 | [`docs/GIT.md`](docs/GIT.md) | Commit messages + history |
-| [`docs/TESTING.md`](docs/TESTING.md) | Unit / e2e / CI map |
+| [`docs/TESTING.md`](docs/TESTING.md) | Unit / CI map |
 | [`AGENTS.md`](AGENTS.md) · [`ARCHITECTURE.md`](ARCHITECTURE.md) | Product + architecture contract |
 
 ## Local stack details
 
-`npm run bootstrap` copies `backend/.env.example` → `backend/.env` (local DSN + `SOFT_MIGRATE_SCHEMA=true`), starts **Dragonfly** + **Postgres** only, then syncs deps. Prefect is omitted locally so port **4200** stays free for the Angular landing.
+`npm run bootstrap` copies `backend/.env.example` → `backend/.env` (local DSN + `SOFT_MIGRATE_SCHEMA=true`), starts **Dragonfly** + **Postgres**, syncs deps, and vendors deml-ui CSS.
 
 Manual equivalent:
 
@@ -84,7 +80,7 @@ Manual equivalent:
 cp backend/.env.example backend/.env
 cd backend && docker compose --profile local-db up -d dragonfly postgres
 uv sync --locked
-cd ../frontend && npm install
+cd .. && npm run sync:deml-ui
 ```
 
 Optional HTTP engine container (otherwise the API uses the in-process PyO3 wheel):
@@ -140,18 +136,13 @@ Private URL: `http://forjd-engine.internal:8080`. Details: [`engine/README.md`](
 docker build -f backend/Dockerfile -t forjd-backend .   # from repo root
 ```
 
-### Frontend → Vercel
-
-[https://forjd.co](https://forjd.co) → API `https://backend.forjd.co`. Checklist: [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md).
-
-Storybook is local/Chromatic only (`cd frontend && npm run storybook`).
+Public API: [https://backend.forjd.co](https://backend.forjd.co). Community: [dataengineeringformachinelearning.com](https://dataengineeringformachinelearning.com). Checklist: [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md).
 
 ## Layout
 
 ```text
-backend/           FastAPI, Prefect, Polars, SQL
+backend/           FastAPI, Prefect, Polars, SQL + deml-ui HTML shells
 engine/            Rust core (PyO3 + process/data-plane / Fly)
-frontend/          Angular landing + forjd-ui
 infra/dragonfly/   Fly.io Dragonfly
 supabase/          Edge Functions + Realtime notes
 docs/START_HERE.md First-run guide
@@ -162,5 +153,3 @@ docs/START_HERE.md First-run guide
 **Resources:** [GitHub](https://github.com/dataengineeringformachinelearning/forjd) · [DEML control plane](https://github.com/dataengineeringformachinelearning/deml) · [Community](https://github.com/dataengineeringformachinelearning/dataengineeringformachinelearning)
 
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fdataengineeringformachinelearning%2Fforjd.svg?type=large&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Fdataengineeringformachinelearning%2Fforjd?ref=badge_large&issueType=license)
-
-![GitHub Repo stars](https://img.shields.io/github/stars/dataengineeringformachinelearning/forjd?style=social)

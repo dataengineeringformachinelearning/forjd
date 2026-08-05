@@ -4,6 +4,7 @@
 
 ## Log
 
+- 2026-08-04: Retired forjd.co Angular frontend + forjd-ui; backend.forjd.co HTML shells use vendored deml-ui warm ash; CI/DX API-only; community marketing owns the public story.
 - 2026-07-26: Sync pass for extend/configure DX — CI + pre-commit `validate_workflows` (+ `--include-examples`); ADR-0028; CONTRIBUTING/SECURITY; ARCHITECTURE/CONNECTION_MAP/PRODUCTION_*/TESTING/AGENTS aligned; DEML BOOK/WHITEPAPER/CONNECTION_MAP/AGENTS + Pipeline Studio.
 - 2026-07-26: Extend/configure DX — `docs/EXTENDING.md`, `npm run validate:workflows` (+ quality/doctor), workflow/detector templates under `examples/`, `WORKFLOWS_STRICT`; DEML Pipeline client validate + FORJD_INTEGRATION deploy loop.
 - 2026-07-26: Pipeline Studio — DEML `/pipeline` catalog+configure+YAML export (YAML remains SoT; no browser persist); FORJD workflow summaries expose size/rate anomaly + outputs for form hydration; Account card links into studio.
@@ -277,24 +278,6 @@ Direct dependencies only. Star these on GitHub.
 - [robotframework](https://github.com/robotframework/robotframework) — acceptance-test automation (`robotframework`)
 - [oss-fuzz](https://github.com/ShielderSec/oss-fuzz) — continuous fuzzing, CI/infra reference (`oss-fuzz`)
 - [design-patterns-python](https://github.com/RefactoringGuru/design-patterns-python) — reference material (`design-patterns-python`)
-
-### Frontend (Angular / npm)
-- [angular](https://github.com/angular/angular) — UI framework (+ CLI / build tooling)
-- [rxjs](https://github.com/ReactiveX/rxjs) — reactive streams
-- [tslib](https://github.com/microsoft/tslib) — TypeScript helpers
-- [sentry-javascript](https://github.com/getsentry/sentry-javascript) — `@sentry/angular` error + log monitoring
-- [rollbar.js](https://github.com/rollbar/rollbar.js) — browser error reporting
-- [vercel/analytics](https://github.com/vercel/analytics) — web analytics
-- [vercel/speed-insights](https://github.com/vercel/speed-insights) — performance insights
-- [storybook](https://github.com/storybookjs/storybook) — component workshop
-- [chromatic-cli](https://github.com/chromaui/chromatic-cli) — visual regression publishing
-- [vite](https://github.com/vitejs/vite) — bundler (Storybook / Vitest)
-- [vitest](https://github.com/vitest-dev/vitest) — unit tests
-- [playwright](https://github.com/microsoft/playwright) — landing critical-path e2e (`@playwright/test`)
-- [analog](https://github.com/analogjs/analog) — Vite plugin for Angular
-- [ng-packagr](https://github.com/ng-packagr/ng-packagr) — library packaging
-- [prettier](https://github.com/prettier/prettier) — code formatting
-- [jsdom](https://github.com/jsdom/jsdom) — DOM for tests
 
 ### Engine (Rust — process + data plane)
 - [tokio](https://github.com/tokio-rs/tokio) — async runtime
