@@ -6,9 +6,9 @@ Scale guidance (leases, worker roles, what not to build): [`docs/SCALE.md`](docs
 
 Non-obvious decisions (ADRs): [`docs/adr/`](docs/adr/README.md).
 
-## Suite UI (chrome)
+## UI chrome (API shells only)
 
-Visual identity is **suite-locked** with DEML Viking-UI: void-black surfaces, electric command `#2176ff`, institutional gold. FORJD `forjd-ui` is a thin `--fj-*` adapter — not a second design system. Contract: [`docs/SUITE_UI_UNIFICATION.md`](docs/SUITE_UI_UNIFICATION.md). Hosts: forjd.co and backend.forjd.co must match deml.app / marketing chrome (Storybook is local/Chromatic only).
+FORJD has **no product frontend**. Splash + `/docs` + `/redoc` on [backend.forjd.co](https://backend.forjd.co) use vendored **deml-ui** (warm ash NFTS). Contract: [`docs/SUITE_UI_UNIFICATION.md`](docs/SUITE_UI_UNIFICATION.md). Refresh CSS with `npm run sync:deml-ui`. Community story lives on [dataengineeringformachinelearning.com](https://dataengineeringformachinelearning.com/); product UI on [deml.app](https://deml.app).
 
 Connection map (probes, auth lanes, Fly admission): [`docs/CONNECTION_MAP.md`](docs/CONNECTION_MAP.md).
 

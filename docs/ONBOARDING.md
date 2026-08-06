@@ -1,44 +1,18 @@
-# Suite onboarding / empty guidance
+# Onboarding / empty guidance
 
-First-time guidance for **forjd.co** (partner deploy sequence) and **deml.app**
-(status-page wizard + checklist).
+> **Superseded.** FORJD has no product frontend. Partner onboarding and empty
+> states are owned by the DEML control plane ([deml.app](https://deml.app)).
+> Historical suite primitives (`forjd-ui` / Viking checklist adapters) are retired.
 
-| Item | Detail |
-|------|--------|
-| Storage | `suite-onboarding-v1` (JSON) |
-| Sync | Cross-tab via `storage`; same-tab via `suite-onboarding-change` |
-| Checklist | `forjd-onboarding-checklist` / `viking-onboarding-checklist` |
-| Empty | `forjd-empty` / `viking-empty-state` + `SUITE_EMPTY_GUIDANCE_EYEBROW` |
-| ADR | [0025](adr/0025-onboarding-empty-guidance.md) |
+## Current path
 
-## Fields (v1)
+| Audience | Where |
+|----------|--------|
+| DEML operators | deml.app wizards, dashboards, and empty states (deml-ui) |
+| FORJD partners | [backend.forjd.co/docs](https://backend.forjd.co/docs) + community BOOK |
+| Local API | [`docs/START_HERE.md`](START_HERE.md) · `npm run bootstrap` |
 
-| Field | Values | Notes |
-|-------|--------|--------|
-| `dismissed` | boolean | User hid the guide without finishing |
-| `completed` | boolean | User finished the flow |
-| `completedSteps` | string[] | Stable step ids (max 32) |
-| `activeFlow` | `deml-status` \| `forjd-partner` \| null | Which journey is in focus |
-| `updatedAt` | epoch ms | Last-write-wins across tabs |
+## Empty-state law (DEML product)
 
-## Flows
-
-| Flow | Surface | Steps |
-|------|---------|--------|
-| `deml-status` | DEML wizard + dashboard checklist | `welcome`, `site`, `endpoint`, `publish`, `done` |
-| `forjd-partner` | FORJD landing sequence | `bind`, `seal`, `project`, `operate` |
-
-## Empty-state law
-
-Do **not** invent a second empty primitive. Use the suite empty component with
-eyebrow **`Getting started`** (`SUITE_EMPTY_GUIDANCE_EYEBROW`) and project
-primary/secondary CTAs (open wizard, go to Sites, docs link).
-
-## Portable transfer
-
-Onboarding state is included in the suite data pack (ADR-0026) from Preferences
-→ Export / import. See [`docs/PREFERENCES.md`](PREFERENCES.md).
-
-## Never store
-
-`fjsvc_`, JWTs, API keys, session/auth flags, or any ciphertext.
+Use deml-ui empty / callout primitives with clear primary and secondary CTAs.
+Do not invent a second empty system on FORJD shells.
