@@ -46,10 +46,10 @@
   --color-error: #9e3d47;
   --color-success: #3f6b54;
 
-  --shadow-sm: 0 0 0 1px color-mix(in srgb, #1c1916 30%, transparent);
-  --shadow-md: 0 8px 32px color-mix(in srgb, #1c1916 36%, transparent);
-  --shadow-card: 0 8px 32px color-mix(in srgb, #1c1916 26%, transparent),
-    0 0 0 1px color-mix(in srgb, #1c1916 12%, transparent);
+  --shadow-sm: 0 0 0 1px color-mix(in srgb, #1c1916 28%, transparent);
+  --shadow-md: 0 10px 36px color-mix(in srgb, #1c1916 32%, transparent);
+  --shadow-card: 0 10px 36px color-mix(in srgb, #1c1916 22%, transparent),
+    0 0 0 1px color-mix(in srgb, #1c1916 10%, transparent);
 
   /* Semantic aliases (deml app + legacy deml-ui) */
   --color-background: var(--color-bg);
@@ -118,6 +118,7 @@
   --gutter: var(--space-2);
   --demo-padding: var(--space-3);
 
+  /* WCAG 2.0 AA — ≥44px controls; 2px focus ring on high-contrast ink */
   --hit-target: var(--space-6);
   --icon-size: var(--space-4);
   --icon-size-sm: var(--space-3);
@@ -125,6 +126,7 @@
   --focus-ring-offset: 2px;
   --border-width: 1px;
   --radius-pill: 9999px;
+  /* Sharp elevated modules; pills only on chips / compact controls */
   --radius-sm: 0;
   --radius-md: 0;
   --radius-lg: 0;
@@ -161,15 +163,21 @@
   --chart-series-3: var(--color-accent-gold);
   --chart-series-4: var(--color-accent-red);
 
-  /* Equal tile rhythm — NFTS dash-row; minmax grids grow, never squash */
+  /*
+   * Equal tile rhythm — 8px grid only.
+   * Peer rows: minmax(var(--tile-row-*), auto|1fr) so boards share height without gaps.
+   * Never fixed-only grid-auto-rows (squash).
+   */
   --tile-gap: var(--space-2);
   --tile-row-unit: var(--space-16);
   --tile-row-micro: var(--space-22);
   --tile-row-card: var(--space-52);
   --tile-cols: 6;
   --dash-row: var(--tile-row-unit);
+  /* Equal inset on every elevated module (card / panel / chart shell / tile) */
   --module-pad: var(--space-3);
   --module-pad-lg: var(--space-4);
+  --module-gap: var(--tile-gap);
 
   /* Navbar — equal inset; solid opaque shell (never see-through) */
   --navbar-inset: var(--space-2);
@@ -198,7 +206,7 @@
   --font-size-display-lg: var(--font-size-2xl);
   --font-size-title: var(--font-size-lg);
   --font-size-title-sm: var(--font-size-md);
-  /* Geist only — new-from-the-start (no Syne / Fraunces mix) */
+  /* Geist only — dense display + tracked marks (no Syne / Fraunces mix) */
   --font-family: "Geist Variable", "Geist", system-ui, -apple-system, sans-serif;
   --font-sans: var(--font-family);
   --font-serif: var(--font-family);
@@ -207,25 +215,32 @@
   --font-secondary: var(--font-sans);
   --font-body: var(--font-sans);
   --font-stretch-display: normal;
-  --font-weight-display: 700;
+  /* Heavy display for hero titles; medium marks for eyebrows */
+  --font-weight-display: 800;
   --font-weight-mark: 600;
   --font-weight-bold: 700;
   --font-weight-semibold: 600;
   --font-weight-medium: 600;
   --font-weight-regular: 400;
-  --leading-display: 1.05;
-  --leading-tight: 1.15;
+  --leading-display: 1.02;
+  --leading-tight: 1.12;
   --leading-snug: 1.35;
-  --leading-body: 1.5;
-  --leading-relaxed: 1.6;
+  --leading-body: 1.55;
+  --leading-relaxed: 1.65;
   --leading-ui: 1.3;
 
-  /* Marks / eyebrows share wide tracking; display titles use tight tracking */
-  --tracking-mark: 0.22em;
+  /*
+   * Type roles:
+   * — display: bold, tight tracking (large headings)
+   * — mark / eyebrow: wide tracked caps (small headers)
+   * — intro / lede: open tracking, readable body size
+   */
+  --tracking-mark: 0.24em;
   --tracking-eyebrow: var(--tracking-mark);
-  --tracking-intro: 0.06em;
-  --tracking-display: -0.04em;
-  --tracking-tight: -0.025em;
+  --tracking-intro: 0.08em;
+  --tracking-display: -0.045em;
+  --tracking-tight: -0.03em;
+  --tracking-body: 0.01em;
 
   --content-width: 1200px;
   --content-width-sm: 600px;
@@ -284,10 +299,10 @@
   --color-on-primary: #ffffff;
   --color-on-accent: #ffffff;
   --color-selection: color-mix(in srgb, var(--color-primary) 28%, transparent);
-  --shadow-sm: 0 0 0 1px color-mix(in srgb, #1c1916 30%, transparent);
-  --shadow-md: 0 8px 32px color-mix(in srgb, #1c1916 36%, transparent);
-  --shadow-card: 0 8px 32px color-mix(in srgb, #1c1916 26%, transparent),
-    0 0 0 1px color-mix(in srgb, #1c1916 12%, transparent);
+  --shadow-sm: 0 0 0 1px color-mix(in srgb, #1c1916 28%, transparent);
+  --shadow-md: 0 10px 36px color-mix(in srgb, #1c1916 32%, transparent);
+  --shadow-card: 0 10px 36px color-mix(in srgb, #1c1916 22%, transparent),
+    0 0 0 1px color-mix(in srgb, #1c1916 10%, transparent);
   --shadow-color: color-mix(in srgb, #1c1916 36%, transparent);
   --shadow-color-soft: color-mix(in srgb, #1c1916 20%, transparent);
 
@@ -343,8 +358,8 @@
   --color-on-accent: #ffffff;
   --color-selection: color-mix(in srgb, var(--color-primary) 18%, transparent);
   --shadow-sm: 0 0 0 1px color-mix(in srgb, #4a453f 14%, transparent);
-  --shadow-md: 0 8px 32px color-mix(in srgb, #1c1916 12%, transparent);
-  --shadow-card: 0 8px 32px color-mix(in srgb, #1c1916 10%, transparent),
+  --shadow-md: 0 10px 36px color-mix(in srgb, #1c1916 10%, transparent);
+  --shadow-card: 0 10px 36px color-mix(in srgb, #1c1916 8%, transparent),
     0 0 0 1px color-mix(in srgb, #4a453f 12%, transparent);
   --shadow-color: color-mix(in srgb, #1c1916 12%, transparent);
   --shadow-color-soft: color-mix(in srgb, #1c1916 7%, transparent);
@@ -419,25 +434,38 @@ body {
   color: var(--color-highlight);
 }
 
+/* Large bold display — tight tracking, 8px-linked clamp */
 .type-display {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(calc(var(--grid) * 3.5), 4.5vw, var(--font-size-xl));
+  font-size: clamp(calc(var(--grid) * 4), 5.5vw, var(--font-size-2xl));
   font-weight: var(--font-weight-display);
   letter-spacing: var(--tracking-display);
   line-height: var(--leading-display);
   color: var(--color-text);
 }
 
+/* Open-tracked intro — readable secondary ink */
 .type-intro,
 .lede {
   margin: 0;
+  max-width: 48ch;
   font-family: var(--font-body);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-regular);
   letter-spacing: var(--tracking-intro);
   line-height: var(--leading-body);
   color: var(--color-text-secondary);
+}
+
+.type-body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: var(--tracking-body);
+  line-height: var(--leading-body);
+  color: var(--color-text);
 }
 
 .page {
@@ -726,14 +754,18 @@ body {
   color: var(--color-text-primary);
 }
 
-/* Shared interactive focus — components may refine, not omit */
+/* Shared interactive focus — WCAG 2.0 AA; components may refine, not omit */
 a:focus-visible,
 button:focus-visible,
 summary:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
 [role="button"]:focus-visible,
 [role="tab"]:focus-visible,
 [role="menuitem"]:focus-visible,
 [role="option"]:focus-visible,
+[role="link"]:focus-visible,
 [tabindex]:not([tabindex="-1"]):focus-visible {
   outline: var(--focus-ring-width) solid var(--color-focus);
   outline-offset: var(--focus-ring-offset);
@@ -746,6 +778,24 @@ a {
 
 a:hover {
   color: var(--color-highlight-hover);
+}
+
+/* Equal-height peer boards — stretch children into shared row tracks */
+.peer-board {
+  display: grid;
+  gap: var(--tile-gap);
+  align-items: stretch;
+  justify-items: stretch;
+  grid-auto-rows: minmax(var(--tile-row-unit), auto);
+}
+
+.peer-board > * {
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  align-self: stretch;
+  justify-self: stretch;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -5516,7 +5566,8 @@ deml-card[data-visual='none'],
   height: 100%;
   min-height: 100%;
   margin: 0;
-  padding: var(--space-6) var(--module-pad) 0;
+  /* Equal outer inset on every side — 8px grid module pad */
+  padding: var(--module-pad-lg);
   overflow: hidden;
   text-align: center;
   color: var(--color-card-text);
@@ -5557,18 +5608,18 @@ deml-card[data-visual='none'],
   font-size: clamp(calc(var(--grid) * 3.5), 4vw, var(--font-size-lg));
   font-weight: var(--font-weight-display);
   letter-spacing: var(--tracking-display);
-  line-height: 1.05;
+  line-height: var(--leading-display);
   color: var(--color-card-text);
 }
 
 .card-subtext {
   margin: 0 0 var(--space-4);
-  max-width: 32ch;
+  max-width: 36ch;
   font-family: var(--font-body);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-regular);
   letter-spacing: var(--tracking-intro);
-  line-height: 1.5;
+  line-height: var(--leading-body);
   color: var(--color-card-text-secondary);
 }
 
@@ -5576,7 +5627,7 @@ deml-card[data-visual='none'],
   display: flex;
   justify-content: center;
   width: 100%;
-  margin-bottom: var(--space-5);
+  margin-bottom: 0;
   background-color: transparent;
 }
 
@@ -5826,7 +5877,7 @@ deml-metric-card[data-accent='primary'],
   height: 100%;
   min-height: 100%;
   margin: 0;
-  padding: var(--space-3);
+  padding: var(--module-pad);
   overflow: hidden;
   color: var(--color-card-text);
   background-color: var(--color-card);
@@ -5959,7 +6010,7 @@ deml-stat-card[data-size='hero'] .stat-card-value,
 
 @media screen and (min-width: 800px) {
   .stat-card {
-    padding: var(--space-4);
+    padding: var(--module-pad-lg);
   }
 }
 
@@ -6088,7 +6139,7 @@ deml-microcard[data-visual='olive'],
   gap: var(--space-1);
   box-sizing: border-box;
   width: 100%;
-  padding: var(--space-3);
+  padding: var(--module-pad);
   background-color: transparent;
 }
 
@@ -6698,7 +6749,7 @@ app-chart-card[data-accent='primary'],
   height: 100%;
   min-height: 0;
   margin: 0;
-  padding: var(--space-2);
+  padding: var(--module-pad);
   overflow: hidden;
   --chart-stage-max-inline: 100%;
   color: var(--color-card-text);
@@ -6850,7 +6901,7 @@ app-chart-card[data-size='wide'] .chart-card-heading {
 
 @media screen and (min-width: 800px) {
   .chart-card {
-    padding: var(--space-3);
+    padding: var(--module-pad-lg);
   }
 }
 
@@ -8622,7 +8673,8 @@ deml-chart-empty-state,
   height: auto;
   margin: 0;
   overflow: visible;
-  padding: var(--space-6) var(--space-2);
+  /* Equal horizontal inset from page edges (8px grid) */
+  padding: var(--space-6) var(--space-3);
   color: var(--color-text);
   background-color: var(--color-bg);
   background-image:
@@ -8686,10 +8738,10 @@ deml-banner[data-variant='hero'] .banner {
 }
 
 .banner .banner-heading {
-  max-width: 14ch;
+  max-width: 16ch;
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(calc(var(--grid) * 4.5), 6vw, var(--font-size-2xl));
+  font-size: clamp(calc(var(--grid) * 5), 7vw, var(--font-size-2xl));
   font-weight: var(--font-weight-display);
   letter-spacing: var(--tracking-display);
   line-height: var(--leading-display);
@@ -8697,8 +8749,10 @@ deml-banner[data-variant='hero'] .banner {
 }
 
 .banner .lede {
-  max-width: 42ch;
+  max-width: 44ch;
   margin: 0;
+  letter-spacing: var(--tracking-intro);
+  line-height: var(--leading-body);
   font-family: var(--font-body);
   letter-spacing: var(--tracking-intro);
   line-height: var(--leading-body);
@@ -9300,7 +9354,8 @@ deml-form-panel,
   height: 100%;
   min-height: 100%;
   margin: 0;
-  padding: var(--space-5) var(--space-4);
+  /* Equal outer inset — matches card / chart shells */
+  padding: var(--module-pad-lg);
   color: var(--color-card-text);
   background-color: var(--color-card);
   background-image: linear-gradient(
@@ -9336,7 +9391,7 @@ deml-form-panel,
 .form-panel__title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(calc(var(--grid) * 3.5), 4vw, var(--font-size-lg));
+  font-size: clamp(calc(var(--grid) * 3.5), 4.25vw, var(--font-size-xl));
   font-weight: var(--font-weight-display);
   letter-spacing: var(--tracking-display);
   line-height: var(--leading-display);
@@ -9345,7 +9400,7 @@ deml-form-panel,
 
 .form-panel__description {
   margin: 0;
-  max-width: 42ch;
+  max-width: 44ch;
   font-family: var(--font-body);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-regular);
