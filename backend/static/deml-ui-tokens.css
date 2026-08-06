@@ -151,7 +151,7 @@
   --chart-grid: var(--color-plot-grid);
   --chart-baseline: var(--color-plot-baseline);
   --chart-accent: var(--color-primary);
-  --chart-node: #ffffff;
+  --chart-node: var(--color-accent-gold);
   --chart-label: var(--color-plot-muted);
   --chart-value: var(--color-plot-ink);
   --chart-series-1: var(--color-primary);
