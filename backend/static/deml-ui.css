@@ -45,6 +45,10 @@
   --color-focus: #f3f0ea;
   --color-error: #9e3d47;
   --color-success: #3f6b54;
+  /* Status label ink on page ground (AA body text); fills keep success/error solids */
+  --color-success-ink: #9bc4a8;
+  --color-error-ink: #e8a0a6;
+  --color-warning-ink: var(--color-highlight);
 
   --shadow-sm: 0 0 0 1px color-mix(in srgb, #1c1916 28%, transparent);
   --shadow-md: 0 10px 36px color-mix(in srgb, #1c1916 32%, transparent);
@@ -293,6 +297,9 @@
   --color-focus: #f3f0ea;
   --color-error: #9e3d47;
   --color-success: #3f6b54;
+  --color-success-ink: #9bc4a8;
+  --color-error-ink: #e8a0a6;
+  --color-warning-ink: #9bb8d4;
   --color-olive: var(--color-plot);
   --color-highlight: #9bb8d4;
   --color-highlight-hover: #c2d4e6;
@@ -329,13 +336,17 @@
   --color-card: #faf8f4;
   --color-card-text: #1c1916;
   --color-card-text-secondary: #4a453f;
-  --color-card-border: color-mix(in srgb, #4a453f 20%, #d4cec5);
-  --color-primary: #2f5f8f;
-  --color-primary-hover: color-mix(in srgb, #2f5f8f 78%, #1c1916);
-  --color-accent-gold: #3f6b54;
-  --color-accent-gold-hover: color-mix(in srgb, #3f6b54 78%, #1c1916);
-  --color-accent-red: #9e3d47;
-  --color-accent-red-hover: color-mix(in srgb, #9e3d47 78%, #1c1916);
+  --color-card-border: color-mix(in srgb, #4a453f 22%, #d4cec5);
+  /*
+   * Light theme fills/links are deepened so body text and links meet WCAG AA
+   * (≥4.5:1) on page ground #d4cec5 while white-on-fill CTAs stay ≥4.5:1.
+   */
+  --color-primary: #23486d;
+  --color-primary-hover: color-mix(in srgb, #23486d 78%, #1c1916);
+  --color-accent-gold: #2f5540;
+  --color-accent-gold-hover: color-mix(in srgb, #2f5540 78%, #1c1916);
+  --color-accent-red: #7a3038;
+  --color-accent-red-hover: color-mix(in srgb, #7a3038 78%, #1c1916);
   --color-accent: var(--color-accent-red);
   --color-accent-hover: var(--color-accent-red-hover);
   --color-text: #1c1916;
@@ -347,13 +358,17 @@
   --color-plot-grid: color-mix(in srgb, #c6c0b7 22%, transparent);
   --color-plot-baseline: color-mix(in srgb, #c6c0b7 35%, transparent);
   --color-plot-border: color-mix(in srgb, #c6c0b7 24%, #1c1916);
-  --color-border: color-mix(in srgb, #4a453f 26%, #d4cec5);
-  --color-focus: #2f5f8f;
-  --color-error: #9e3d47;
-  --color-success: #3f6b54;
+  --color-border: color-mix(in srgb, #4a453f 30%, #d4cec5);
+  --color-focus: #23486d;
+  --color-error: #7a3038;
+  --color-success: #2f5540;
+  /* On light grounds, ink matches solid fills (already AA as body text). */
+  --color-success-ink: var(--color-success);
+  --color-error-ink: var(--color-error);
+  --color-warning-ink: var(--color-primary);
   --color-olive: var(--color-plot);
-  --color-highlight: #2f5f8f;
-  --color-highlight-hover: color-mix(in srgb, #2f5f8f 78%, #1c1916);
+  --color-highlight: #23486d;
+  --color-highlight-hover: color-mix(in srgb, #23486d 78%, #1c1916);
   --color-on-primary: #ffffff;
   --color-on-accent: #ffffff;
   --color-selection: color-mix(in srgb, var(--color-primary) 18%, transparent);
@@ -3227,7 +3242,7 @@ deml-panel-grid > *,
   box-shadow: var(--shadow-md);
 }
 
-/* Outline — secondary action */
+/* Outline — secondary action (AA body text on surface both themes) */
 .button--secondary {
   color: var(--color-text);
   background-color: var(--color-surface);
@@ -4846,28 +4861,33 @@ progress::-moz-progress-bar {
   background-color: var(--color-text-secondary);
 }
 
+/* Dot fills can use solid tokens; label ink uses *-ink for AA on page ground */
+.status-badge[data-tone='success'] {
+  color: var(--color-success-ink);
+}
+
 .status-badge[data-tone='success'] .status-badge__dot {
-  background-color: var(--color-success);
+  background-color: var(--color-success-ink);
 }
 
 .status-badge[data-tone='error'],
 .status-badge[data-tone='danger'] {
-  color: var(--color-error);
+  color: var(--color-error-ink);
 }
 
 .status-badge[data-tone='error'] .status-badge__dot,
 .status-badge[data-tone='danger'] .status-badge__dot {
-  background-color: var(--color-error);
+  background-color: var(--color-error-ink);
 }
 
 .status-badge[data-tone='warn'],
 .status-badge[data-tone='warning'] {
-  color: var(--color-highlight);
+  color: var(--color-warning-ink);
 }
 
 .status-badge[data-tone='warn'] .status-badge__dot,
 .status-badge[data-tone='warning'] .status-badge__dot {
-  background-color: var(--color-highlight);
+  background-color: var(--color-warning-ink);
 }
 
 /* inlined: components/status-pill/status-pill.css */
