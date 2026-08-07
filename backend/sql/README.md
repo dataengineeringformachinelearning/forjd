@@ -39,11 +39,12 @@ idempotent migrations are reapplied to backfill the ledger.
 | `027_partner_provision_isolation.sql` | Partner uniqueness, credential/tenant + revocation integrity, and active DEML `ml:write` upgrade |
 | `028_status_child_tenant_integrity.sql` | Validated page/service/probe tenant FKs plus latest-observation readiness index |
 | `029_revoke_authenticated_telemetry_writes.sql` | Revoke direct `authenticated` INSERT on telemetry/embeddings (API-only writes) |
+| `030_platform_status_isolation.sql` | Immutable `platform-status` sentinel; requires `metadata.kind=platform` |
 
-## Secure path (`003`–`029`)
+## Secure path (`003`–`030`)
 
 1. Enable extensions **vector** and **pgcrypto** (Dashboard → Database → Extensions).
-2. Run `uv run python scripts/apply_sql_migrations.py` for `003` → `029` and
+2. Run `uv run python scripts/apply_sql_migrations.py` for `003` → `030` and
    confirm the migration ledger/checksums.
 3. Realtime: `015`/`016` add `stream_results`, `telemetry_events`, `ml_scores`, `training_runs` when publication exists.
 4. Set backend env: `SUPABASE_URL`, `SUPABASE_JWT_SECRET` (or rely on JWKS), `POSTGRES_DSN` (Supabase only — not Neon).

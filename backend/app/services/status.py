@@ -24,6 +24,8 @@ logger = logging.getLogger("forjd.status")
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 _HISTORY_DAYS = 30
 _ANALYTICS_WINDOW_HOURS = 24
+# DEML platform dogfood sentinel — never creatable/mutable via product APIs.
+PLATFORM_STATUS_SLUG = "platform-status"
 
 
 # --- Public slug aliases (legacy embeds / domain-style URLs) ---
@@ -87,6 +89,9 @@ async def create_page(
     slug = slug.strip().lower()
     if not _SLUG_RE.match(slug):
         raise ValueError("invalid slug")
+    # --- Platform / product boundary ---
+    if slug == PLATFORM_STATUS_SLUG:
+        raise ValueError("slug 'platform-status' is reserved for the DEML platform tenant")
     row = await pool.fetchrow(
         """
         INSERT INTO status_pages (tenant_id, slug, title, description, is_published)
@@ -429,11 +434,15 @@ async def update_page(
         min_roles=frozenset({"owner", "admin"}),
         required_scopes=frozenset({"status:write"}),
     )
-    await _require_page(pool, tenant_id=tenant_id, page_id=page_id)
+    existing = await _require_page(pool, tenant_id=tenant_id, page_id=page_id)
+    if existing.get("slug") == PLATFORM_STATUS_SLUG:
+        raise ValueError("platform status page is immutable")
     if slug is not None:
         slug = slug.strip().lower()
         if not _SLUG_RE.match(slug):
             raise ValueError("invalid slug")
+        if slug == PLATFORM_STATUS_SLUG:
+            raise ValueError("slug 'platform-status' is reserved for the DEML platform tenant")
     row = await pool.fetchrow(
         """
         UPDATE status_pages SET
@@ -472,6 +481,9 @@ async def delete_page(
         min_roles=frozenset({"owner", "admin"}),
         required_scopes=frozenset({"status:write"}),
     )
+    existing = await _require_page(pool, tenant_id=tenant_id, page_id=page_id)
+    if existing.get("slug") == PLATFORM_STATUS_SLUG:
+        raise ValueError("platform status page is immutable")
     result = await pool.execute(
         "DELETE FROM status_pages WHERE id = $1::uuid AND tenant_id = $2::uuid",
         str(page_id),
@@ -824,7 +836,7 @@ async def delete_incident(
 async def _require_page(pool: asyncpg.Pool, *, tenant_id: UUID, page_id: UUID) -> dict[str, Any]:
     row = await pool.fetchrow(
         """
-        SELECT id::text FROM status_pages
+        SELECT id::text, slug FROM status_pages
         WHERE id = $1::uuid AND tenant_id = $2::uuid
         """,
         str(page_id),
@@ -832,7 +844,7 @@ async def _require_page(pool: asyncpg.Pool, *, tenant_id: UUID, page_id: UUID) -
     )
     if row is None:
         raise ValueError("status page not found")
-    return {"id": row["id"]}
+    return {"id": row["id"], "slug": row["slug"]}
 
 
 def _resolve_probe_url(probe_url: str | None, description: str) -> str | None:

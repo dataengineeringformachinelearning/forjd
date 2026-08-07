@@ -24,8 +24,13 @@ ACTION_REPLAY = "replay.run"
 ACTION_DLQ_RETRY = "replay.dlq_retry"
 
 
-# --- Ensure table exists (soft path for local; production applies sql/010) ---
+# --- Soft DDL is local-dev only; production must apply sql/010 (+ RLS in 020) ---
 async def ensure_audit_schema(pool: asyncpg.Pool) -> None:
+    from app.core.config import settings
+
+    if settings.is_production:
+        # Never create audit_events without RLS in deployed environments.
+        raise RuntimeError("audit_events missing — apply sql/010 and sql/020 before writes")
     await pool.execute(
         """
         CREATE TABLE IF NOT EXISTS audit_events (
@@ -156,10 +161,10 @@ def _sanitize_details(details: dict[str, Any]) -> dict[str, Any]:
         lk = str(key).lower()
         if lk in _FORBIDDEN_KEYS or any(p in lk for p in ("cipher", "secret", "private")):
             continue
-        if isinstance(value, (str, int, float, bool)) or value is None:
+        if isinstance(value, str | int | float | bool) or value is None:
             out[key] = value
         elif isinstance(value, list) and all(
-            isinstance(x, (str, int, float, bool)) for x in value[:50]
+            isinstance(x, str | int | float | bool) for x in value[:50]
         ):
             out[key] = value[:50]
         elif isinstance(value, dict):
