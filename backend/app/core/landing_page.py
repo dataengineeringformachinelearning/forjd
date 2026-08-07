@@ -1,6 +1,6 @@
-"""Community-style splash served at ``GET /``.
+"""Minimal brand splash served at ``GET /``.
 
-Simple deml-ui hero with the FORJD mark. Human docs live on the community site.
+Centered FORJD mark on warm ash. Human docs live on the community site.
 """
 
 from __future__ import annotations
@@ -9,14 +9,7 @@ from app.core.config import settings
 
 # --- Stable public suite hosts (splash chrome only) ---
 _COMMUNITY_URL = "https://dataengineeringformachinelearning.com/"
-_BOOK_URL = "https://dataengineeringformachinelearning.com/book"
-_WHITEPAPER_URL = "https://dataengineeringformachinelearning.com/whitepaper"
 _DOCS_URL = "https://dataengineeringformachinelearning.com/documentation"
-_BLOG_URL = "https://dataengineeringformachinelearning.com/blog"
-_COMPLIANCE_URL = "https://dataengineeringformachinelearning.com/compliance"
-_PRIVACY_URL = "https://dataengineeringformachinelearning.com/privacy/"
-_TERMS_URL = "https://dataengineeringformachinelearning.com/terms/"
-_DEML_URL = "https://deml.app/"
 _META_DESCRIPTION = "FORJD — secure streaming API for product integrations."
 
 # --- Splash (deml-ui + forjd-backend.css) ---
@@ -90,85 +83,24 @@ _LANDING_HTML = """<!doctype html>
 </head>
 <body class="forjd-backend-splash">
   <a class="skip-link" href="#main-content">Skip to main content</a>
-  <header class="forjd-backend-nav" aria-label="Site">
-    <a class="forjd-backend-nav__brand" href="/" aria-label="{project} home">
-      <img src="/static/forjd.svg" width="28" height="28" alt="" />
-      <span>{project}</span>
-    </a>
-    <nav class="forjd-backend-nav__links" aria-label="Primary">
-      <a href="{book}">Book</a>
-      <a href="{whitepaper}">Whitepaper</a>
-      <a href="{docs}">Docs</a>
-      <a href="{blog}">Blog</a>
-      <a href="{compliance}">Compliance</a>
-      <a href="{community}">Community</a>
-    </nav>
-    <div class="forjd-backend-nav__actions">
-      <a class="button button--primary button--pill" href="{deml}">DEML</a>
-    </div>
-  </header>
   <main id="main-content" class="forjd-backend-shell" tabindex="-1">
-    <div class="page">
-      <section class="banner banner--hero" data-variant="hero" aria-labelledby="main-title">
-        <a class="forjd-backend-logo" href="/" aria-label="{project} home">
-          <img src="/static/forjd.svg" width="120" height="120" alt="{project}" />
-        </a>
-        <p class="preheader">{project}</p>
-        <h1 class="banner-heading" id="main-title">Secure streaming for product integrations.</h1>
-        <p class="lede">
-          Send events, run workflows, and read analytics through the FORJD API.
-        </p>
-        <div class="banner-actions">
-          <div class="button-group" data-layout="row" role="group" aria-label="Primary actions">
-            <a class="button button--primary button--pill" href="{docs}">Documentation</a>
-            <a class="button button--secondary button--pill" href="{community}">Community</a>
-          </div>
-        </div>
-      </section>
-    </div>
+    <a
+      class="forjd-backend-logo"
+      href="{community}"
+      aria-label="{project} community home"
+    >
+      <img src="/static/forjd.svg" width="270" height="270" alt="{project}" />
+    </a>
   </main>
-  <footer class="site-footer">
-    <div class="site-footer__inner">
-      <nav class="site-footer__directory" aria-label="Footer">
-        <div class="site-footer__group">
-          <p class="site-footer__heading">Resources</p>
-          <ul class="site-footer__list">
-            <li><a href="{book}">Book</a></li>
-            <li><a href="{whitepaper}">Whitepaper</a></li>
-            <li><a href="{docs}">Docs</a></li>
-            <li><a href="{blog}">Blog</a></li>
-            <li><a href="{deml}">DEML</a></li>
-            <li><a href="{community}">Community</a></li>
-          </ul>
-        </div>
-        <div class="site-footer__group">
-          <p class="site-footer__heading">Legal</p>
-          <ul class="site-footer__list">
-            <li><a href="{compliance}">Compliance</a></li>
-            <li><a href="{privacy}">Privacy</a></li>
-            <li><a href="{terms}">Terms</a></li>
-            <li><a href="/health">Health</a></li>
-          </ul>
-        </div>
-      </nav>
-    </div>
-  </footer>
 </body>
 </html>"""
 
 
 def render_landing() -> str:
-    """Return the community-style deml-ui splash HTML."""
+    """Return the centered brand-mark splash HTML."""
     return _LANDING_HTML.format(
         project=settings.PROJECT_NAME.upper(),
         meta_description=_META_DESCRIPTION,
         community=_COMMUNITY_URL,
-        book=_BOOK_URL,
-        whitepaper=_WHITEPAPER_URL,
         docs=_DOCS_URL,
-        blog=_BLOG_URL,
-        compliance=_COMPLIANCE_URL,
-        privacy=_PRIVACY_URL,
-        terms=_TERMS_URL,
-        deml=_DEML_URL,
     )

@@ -10,109 +10,68 @@
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: var(--color-bg, #35312d);
   color: var(--color-text, #f3f0ea);
   font-family: var(--font-body, var(--font-secondary, system-ui, sans-serif));
-}
-
-.forjd-backend-nav {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  column-gap: var(--space-4, 1rem);
-  padding: var(--space-2, 0.5rem) max(var(--space-3, 0.75rem), env(safe-area-inset-left))
-    var(--space-2, 0.5rem) max(var(--space-3, 0.75rem), env(safe-area-inset-right));
-  background: var(--color-surface, #1c1916);
-  border-bottom: 1px solid var(--color-border, rgba(198, 192, 183, 0.3));
-}
-
-.forjd-backend-nav__brand {
-  display: inline-flex;
-  align-items: center;
-  justify-self: start;
-  gap: var(--space-2, 0.5rem);
-  min-height: var(--hit-target, 44px);
-  color: var(--color-text, #f3f0ea);
-  text-decoration: none;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-size: var(--font-size-sm, 0.875rem);
-}
-
-.forjd-backend-nav__brand img {
-  display: block;
-  width: 28px;
-  height: 28px;
-}
-
-.forjd-backend-nav__brand:hover {
-  color: var(--color-highlight, #9bb8d4);
-}
-
-.forjd-backend-nav__links {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  justify-self: stretch;
-  gap: var(--space-1, 0.25rem) var(--space-3, 0.75rem);
-  min-width: 0;
-}
-
-.forjd-backend-nav__links a {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--hit-target, 44px);
-  color: var(--color-text-secondary, #c6c0b7);
-  text-decoration: none;
-  font-size: var(--font-size-sm, 0.875rem);
-}
-
-.forjd-backend-nav__links a:hover {
-  color: var(--color-text, #f3f0ea);
-}
-
-.forjd-backend-nav__actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  justify-self: end;
-  gap: var(--space-2, 0.5rem);
-}
-
-.forjd-backend-nav__actions .button {
-  min-height: var(--hit-target, 44px);
+  color-scheme: dark light;
+  /* Full-page warm ash atmosphere (matches deml-ui banner wash) */
+  background-color: var(--color-bg, #35312d);
+  background-image:
+    radial-gradient(
+      110% 80% at 50% 120%,
+      color-mix(in srgb, var(--color-primary, #2f5f8f) 28%, transparent) 0%,
+      transparent 58%
+    ),
+    radial-gradient(
+      70% 50% at 14% 16%,
+      color-mix(in srgb, var(--color-primary, #2f5f8f) 14%, transparent) 0%,
+      transparent 64%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-surface, #1c1916) 38%, var(--color-bg, #35312d)) 0%,
+      var(--color-bg, #35312d) 100%
+    );
+  background-attachment: fixed;
 }
 
 .forjd-backend-shell {
-  flex: 1 1 auto;
-  width: 100%;
   box-sizing: border-box;
-}
-
-.forjd-backend-shell .page {
-  min-height: 100%;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: max(var(--space-4, 1rem), env(safe-area-inset-top))
+    max(var(--space-3, 0.75rem), env(safe-area-inset-right))
+    max(var(--space-4, 1rem), env(safe-area-inset-bottom))
+    max(var(--space-3, 0.75rem), env(safe-area-inset-left));
+  background: transparent;
 }
 
 .forjd-backend-logo {
   display: block;
   width: fit-content;
+  max-width: 100%;
+  margin: auto;
   line-height: 0;
   text-decoration: none;
   outline-offset: 4px;
 }
 
-.forjd-backend-logo img {
-  display: block;
-  width: min(120px, 32vw);
-  height: auto;
+.forjd-backend-logo:focus-visible {
+  outline: var(--focus-ring-width, 2px) solid var(--color-focus, #2f5f8f);
+  outline-offset: var(--focus-ring-offset, 2px);
 }
 
-/* Splash footer uses deml-ui .site-footer (categorized columns). */
+.forjd-backend-logo img {
+  display: block;
+  width: min(10rem, 40vw);
+  height: auto;
+  margin: 0;
+}
 
 /* --- Docs topbar --- */
 .forjd-backend-docs {

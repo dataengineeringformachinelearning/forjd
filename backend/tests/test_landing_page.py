@@ -8,19 +8,15 @@ from app.core.landing_page import render_landing
 
 COMMUNITY = "https://dataengineeringformachinelearning.com/"
 DOCS = "https://dataengineeringformachinelearning.com/documentation"
-BLOG = "https://dataengineeringformachinelearning.com/blog"
-DEML = "https://deml.app/"
 
 
 class TestLandingPage(unittest.TestCase):
-    def test_landing_is_community_style_splash(self) -> None:
+    def test_landing_is_centered_brand_splash(self) -> None:
         html = render_landing()
         self.assertIn("FORJD", html)
         self.assertIn("/static/forjd.svg", html)
         self.assertIn(COMMUNITY, html)
         self.assertIn(DOCS, html)
-        self.assertIn(BLOG, html)
-        self.assertIn(DEML, html)
         self.assertIn('property="og:title"', html)
         self.assertIn('rel="canonical"', html)
         self.assertIn("application/ld+json", html)
@@ -29,13 +25,11 @@ class TestLandingPage(unittest.TestCase):
         self.assertIn("/static/forjd-backend.css", html)
         self.assertIn("forjd-backend-shell", html)
         self.assertIn("forjd-backend-logo", html)
-        self.assertIn("forjd-backend-nav", html)
-        self.assertIn("site-footer", html)
-        self.assertIn("site-footer__group", html)
-        self.assertIn("Resources", html)
-        self.assertIn("Legal", html)
-        self.assertIn("banner banner--hero", html)
-        self.assertIn("Secure streaming for product integrations.", html)
+        self.assertIn("forjd-backend-splash", html)
+        self.assertNotIn("forjd-backend-nav", html)
+        self.assertNotIn("site-footer", html)
+        self.assertNotIn("forjd-backend-caption", html)
+        self.assertNotIn("banner banner--hero", html)
         self.assertNotIn('href="/docs"', html)
         self.assertNotIn('href="/redoc"', html)
         self.assertNotIn("swagger-ui", html)
