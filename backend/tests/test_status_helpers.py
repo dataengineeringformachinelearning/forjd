@@ -11,6 +11,7 @@ from app.services import status as status_svc
 from app.services.status import (
     _day_status,
     _fill_uptime_history,
+    _honest_overall_status,
     _merge_day_stats,
     _overall_status,
     _page_dict,
@@ -39,13 +40,29 @@ def _page_row() -> dict[str, Any]:
 
 
 class TestOverallStatus(unittest.TestCase):
-    def test_empty_operational(self) -> None:
-        self.assertEqual(_overall_status([]), "operational")
+    def test_empty_unknown(self) -> None:
+        self.assertEqual(_overall_status([]), "unknown")
 
     def test_worst_wins(self) -> None:
         self.assertEqual(
             _overall_status(["operational", "degraded", "major_outage"]),
             "major_outage",
+        )
+
+    def test_honest_operational_requires_probes(self) -> None:
+        self.assertEqual(
+            _honest_overall_status(["operational"], has_probe_samples=False),
+            "unknown",
+        )
+        self.assertEqual(
+            _honest_overall_status(["operational"], has_probe_samples=True),
+            "operational",
+        )
+
+    def test_honest_keeps_explicit_degraded_without_probes(self) -> None:
+        self.assertEqual(
+            _honest_overall_status(["degraded"], has_probe_samples=False),
+            "degraded",
         )
 
 

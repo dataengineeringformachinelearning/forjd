@@ -9,7 +9,7 @@ Accepted — 2026-07-26
 Env vars and flags lived in `Settings`, `.env.example`, engine Rust, Fly tomls,
 `.cursorrules`, and deploy docs — with drift (`ROLLBAR_ENVIRONMENT` orphan,
 missing `DB_POOL_*`, Scale.md inventing unset knobs). A single Pydantic class
-cannot describe engine/frontend/tooling layers.
+cannot describe engine/tooling layers.
 
 ## Decision
 

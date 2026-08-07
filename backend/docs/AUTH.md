@@ -14,15 +14,16 @@ FORJD never accepts a partner's end-user tokens.
 ## CSRF vs XSS (browser threat model)
 
 FORJD is a **header-authenticated API**, not a cookie-session app.
-**forjd.co / backend.forjd.co do not set session cookies.** Analytics vendors may
-set their own cookies; that is not FORJD write authority. See
+**backend.forjd.co does not set session cookies.** Analytics vendors may set
+their own cookies; that is not FORJD write authority. See
 [`docs/adr/0016-secure-defaults-cookies-headers-api.md`](../../docs/adr/0016-secure-defaults-cookies-headers-api.md).
+There is no product SPA — client XSS / open-redirect hardening is N/A.
 
 | Threat | Control |
 |--------|---------|
 | **CSRF** | Mutating routes require `Authorization: Bearer …` (Supabase JWT or `fjsvc_…`) and/or `X-API-Key`. Browsers do not auto-attach those headers on cross-site form posts, so classic CSRF tokens are **not** used. Do not introduce cookie-only write authority. |
-| **XSS / clickjacking** | API responses set a strict `Content-Security-Policy` (`default-src 'none'; frame-ancestors 'none'`), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cross-Origin-Opener-Policy`, CORP, and HSTS in production (`app.core.security.SecurityHeadersMiddleware`). The static landing SPA on Vercel ships CSP + `X-Frame-Options: DENY` + CORP in `frontend/vercel.json`. |
-| **Open redirects** | Landing/suite links go through `safeHref` / `safeHttpBase` (forjd-ui) with a host allowlist — see [`docs/adr/0013-client-side-attack-hardening.md`](../../docs/adr/0013-client-side-attack-hardening.md). |
+| **XSS / clickjacking** | API responses set a strict `Content-Security-Policy` (`default-src 'none'; frame-ancestors 'none'`), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cross-Origin-Opener-Policy`, CORP, and HSTS in production (`app.core.security.SecurityHeadersMiddleware`). The splash (`/`) uses a narrower CSP for self-hosted static assets. |
+| **Open redirects** | N/A for a product SPA. Partner BFFs own their own redirect allowlists. |
 | **CORS / TLS** | Exact `CORS_ORIGINS` allowlist; production rejects `*` and requires an `https://` origin; `allow_credentials=False`. Production cleartext via `X-Forwarded-Proto: http` gets a 308 to HTTPS. |
 | **Cookies (if ever)** | Use `app.core.cookies.build_set_cookie` (Secure in production, HttpOnly, SameSite=Lax). Never as `/api/v1` write authority. |
 

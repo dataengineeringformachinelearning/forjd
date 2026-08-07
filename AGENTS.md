@@ -22,7 +22,7 @@ Agents: read this briefing first, then enforce constraints in `.cursorrules`.
 | Batch tables | Polars |
 | Engine | Rust (`engine/`) — one `forjd-engine` binary: Arrow/Parquet **59** + PyO3 + axum process HTTP + data plane (`FORJD_ROLE`, Postgres outbox, Dragonfly Streams) |
 | Cache / DB | Dragonfly (Fly.io) + Postgres (Supabase) |
-| UI | API-only — backend.forjd.co splash/docs use vendored deml-ui ([docs/SUITE_UI_UNIFICATION.md](docs/SUITE_UI_UNIFICATION.md)); no product console; forjd.co retired |
+| UI | API-only — backend.forjd.co splash uses vendored deml-ui ([docs/SUITE_UI_UNIFICATION.md](docs/SUITE_UI_UNIFICATION.md)); human docs on community `/documentation`; no product console; forjd.co retired |
 | Observability | Structured JSON logs + `X-Request-ID` correlation; Rollbar + optional Sentry (`SENTRY_DSN`, `uv sync --group sentry`). Contract: [`docs/OBSERVABILITY.md`](docs/OBSERVABILITY.md) |
 | Configuration | Inventory SoT [`config/forjd.catalog.yaml`](config/forjd.catalog.yaml) + [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md); runtime SoT `Settings` / engine env; flags via `app/core/feature_flags.py` |
 | Rate limiting | Config-gated Dragonfly/Redis limiter (`app/core/rate_limit.py`; `RATE_LIMIT_ENABLED` + per-bucket RPM) |
@@ -74,7 +74,7 @@ Backend Python is pinned to **3.12** for stable, reproducible production builds.
 
 Last updated: 2026-08-04
 
-**Deploy:** [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md) + [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md) — SQL `003`–`030`, mint `fjsvc_`, Fly backend/engine. Partners integrate via YAML workflows and tenant-bound service tokens.
+**Deploy:** [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md) + [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md) — SQL `003`–`031`, mint `fjsvc_`, Fly backend/engine. Partners integrate via YAML workflows and tenant-bound service tokens.
 
 ## Cursor Cloud specific instructions
 

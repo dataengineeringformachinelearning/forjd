@@ -11,8 +11,7 @@ Follow [`docs/START_HERE.md`](docs/START_HERE.md):
 ```bash
 npm run bootstrap
 npm run doctor
-npm run dev:api    # terminal A
-npm run dev:web    # terminal B
+npm run dev:api
 npm run verify
 ```
 
@@ -31,11 +30,11 @@ Templates: `backend/workflows/examples/`. Do not invent a workflow write API.
 ## Quality gates
 
 ```bash
-npm run quality          # catalog + workflows + ruff + prettier + typecheck + suite purity
-npm run quality:full     # also tests + engine + frontend build
+npm run quality          # catalog + workflows + ruff
+npm run quality:full     # also tests + engine clippy
 ```
 
-CI: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (includes workflow validation).
+CI: [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 Commits: Conventional Commits — [`docs/GIT.md`](docs/GIT.md).
 
 ## Security

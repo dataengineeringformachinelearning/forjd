@@ -30,4 +30,4 @@ envelopes must stay opaque (ADR-0002); the browser must never hold `fjsvc_`.
 
 - Widen key/value patterns carefully; prefer false-positive filter over leak
 - Ciphertext fields are filtered by key — never decrypt for logging
-- Cookie CSRF and second rate limiters remain out of scope (ADR-0013 / 0015)
+- Cookie CSRF and second rate limiters remain out of scope (ADR-0016 / ADR-0015)

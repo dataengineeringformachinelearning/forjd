@@ -507,7 +507,7 @@ async def _ensure_secure_schema_uncached(pool: asyncpg.Pool) -> None:
             page_id UUID NOT NULL,
             tenant_id UUID NOT NULL REFERENCES tenants (id) ON DELETE CASCADE,
             name TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'operational',
+            status TEXT NOT NULL DEFAULT 'unknown',
             description TEXT NOT NULL DEFAULT '',
             sort_order INT NOT NULL DEFAULT 0,
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

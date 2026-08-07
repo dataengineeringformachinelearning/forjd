@@ -35,6 +35,9 @@ class FeatureFlags:
     supabase_auth_required: bool
 
     # --- Worker enables (interval/tick > 0) ---
+    ingest_processing_enabled: bool
+    soar_worker_enabled: bool
+    exports_worker_enabled: bool
     analytics_worker_enabled: bool
     training_worker_enabled: bool
     retention_worker_enabled: bool
@@ -62,6 +65,9 @@ def resolve_feature_flags(cfg: Settings | None = None) -> FeatureFlags:
         require_rls=bool(s.REQUIRE_RLS),
         require_crypto_session=bool(s.REQUIRE_CRYPTO_SESSION),
         supabase_auth_required=bool(s.SUPABASE_AUTH_REQUIRED),
+        ingest_processing_enabled=s.INGEST_PROCESSING_INTERVAL_SECONDS > 0,
+        soar_worker_enabled=s.SOAR_WORKER_INTERVAL_SECONDS > 0,
+        exports_worker_enabled=s.EXPORT_WORKER_INTERVAL_SECONDS > 0,
         analytics_worker_enabled=s.ANALYTICS_ROLLUP_INTERVAL_SECONDS > 0,
         training_worker_enabled=s.TRAINING_TICK_SECONDS > 0,
         retention_worker_enabled=s.RETENTION_SWEEP_INTERVAL_SECONDS > 0,

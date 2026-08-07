@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Pin and download self-hosted Swagger UI + ReDoc into backend/static/vendor/.
-# Durable alternative to jsDelivr CDN (docs/SUITE_UI_UNIFICATION_COMPLETION.md G1).
+# Durable alternative to jsDelivr CDN (deml-ui / OpenAPI shell).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

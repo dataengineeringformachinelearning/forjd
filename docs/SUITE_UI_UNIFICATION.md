@@ -1,14 +1,15 @@
 # Suite UI — FORJD (API-only)
 
-**Status:** Superseded product landing retired. FORJD has **no public product frontend**.
-**Visual SoT for HTML shells:** [deml-ui](https://github.com/dataengineeringformachinelearning/deml-ui) (warm ash NFTS).
+**Status:** No public product frontend. HTML shells only.
+**Visual SoT:** [deml-ui](https://github.com/dataengineeringformachinelearning/deml-ui) (warm ash NFTS).
 
 ## Public hosts
 
 | Host | Surface |
 | ---- | ------- |
-| [backend.forjd.co](https://backend.forjd.co) | Splash + Swagger `/docs` + ReDoc `/redoc` |
-| ~~forjd.co~~ | **Retired** — community story lives on [dataengineeringformachinelearning.com](https://dataengineeringformachinelearning.com/) |
+| [backend.forjd.co](https://backend.forjd.co) | Community-style splash only (FORJD mark + links to community docs) |
+| Community docs | [dataengineeringformachinelearning.com/documentation](https://dataengineeringformachinelearning.com/documentation) |
+| Community | [dataengineeringformachinelearning.com](https://dataengineeringformachinelearning.com/) |
 
 ## Backend chrome
 
@@ -16,7 +17,7 @@
 | ----- | ---- | ---- |
 | deml-ui CSS | `backend/static/deml-ui.css` | Vendored via `npm run sync:deml-ui` |
 | Shell chrome | `backend/static/forjd-backend.css` | Splash + docs topbar on deml-ui tokens |
-| HTML | `backend/app/core/landing_page.py`, `docs_page.py`, `redoc_page.py` | Load deml-ui → forjd-backend |
+| HTML | `backend/app/core/landing_page.py` | Splash only — deml-ui → forjd-backend |
 
 ## Hard rules
 
@@ -27,6 +28,5 @@
 
 ## Related
 
-- Community marketing: deml-ui on dataengineeringformachinelearning.com
-- DEML product: deml.app (deml-ui)
-- ADR: [`adr/0006-landing-layers-suite-adapter.md`](adr/0006-landing-layers-suite-adapter.md) (historical; landing removed)
+- Community marketing + DEML product own public chrome (deml-ui).
+- Historical: former landing-layer ADR removed with the product SPA.

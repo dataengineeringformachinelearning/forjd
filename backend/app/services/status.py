@@ -11,7 +11,7 @@ import logging
 import math
 import re
 from datetime import UTC, date, datetime, timedelta
-from typing import Any
+from typing import Any, Final
 from uuid import UUID
 
 import asyncpg
@@ -26,6 +26,16 @@ _HISTORY_DAYS = 30
 _ANALYTICS_WINDOW_HOURS = 24
 # DEML platform dogfood sentinel — never creatable/mutable via product APIs.
 PLATFORM_STATUS_SLUG = "platform-status"
+_SERVICE_STATUSES: Final[frozenset[str]] = frozenset(
+    {
+        "operational",
+        "degraded",
+        "partial_outage",
+        "major_outage",
+        "maintenance",
+        "unknown",
+    }
+)
 
 
 # --- Public slug aliases (legacy embeds / domain-style URLs) ---
@@ -130,13 +140,13 @@ async def list_pages(
         """,
         str(tenant_id),
     )
-    # Explore / directory cards bind KPIs — hydrate the same telemetry as public slug.
+    # Owned-list SoT includes overall_status (same honesty rules as public slug).
     pages: list[dict[str, Any]] = []
     for row in rows:
         page = _page_dict(row)
         service_rows = await pool.fetch(
             """
-            SELECT id::text
+            SELECT id::text, status
             FROM status_services
             WHERE page_id = $1::uuid
             ORDER BY sort_order ASC, name ASC
@@ -150,6 +160,10 @@ async def list_pages(
             service_ids=service_ids,
         )
         intelligence = await _public_page_intelligence(pool, tenant_id=str(tenant_id))
+        page["overall_status"] = _honest_overall_status(
+            [str(s["status"]) for s in service_rows],
+            has_probe_samples=telemetry.get("overall_uptime") is not None,
+        )
         page.update(_kpi_fields(telemetry, intelligence))
         pages.append(page)
     return pages
@@ -182,7 +196,10 @@ async def _hydrate_public_page(
         service_ids=service_ids,
     )
     intelligence = await _public_page_intelligence(pool, tenant_id=tenant_id)
-    overall = _overall_status([s["status"] for s in services])
+    overall = _honest_overall_status(
+        [str(s["status"]) for s in services],
+        has_probe_samples=telemetry.get("overall_uptime") is not None,
+    )
     base = _public_page_dict(page_row) if not include_tenant_id else _page_dict(page_row)
     if include_tenant_id:
         # BFF-only routing field — public browsers must not receive this.
@@ -546,7 +563,7 @@ async def upsert_service(
     tenant_id: UUID,
     page_id: UUID,
     name: str,
-    status: str = "operational",
+    status: str = "unknown",
     description: str = "",
     probe_url: str | None = None,
     sort_order: int = 0,
@@ -558,6 +575,8 @@ async def upsert_service(
         min_roles=frozenset({"owner", "admin", "member"}),
         required_scopes=frozenset({"status:write"}),
     )
+    if status not in _SERVICE_STATUSES:
+        raise ValueError(f"invalid service status: {status}")
     page = await _require_page(pool, tenant_id=tenant_id, page_id=page_id)
     resolved_probe = _resolve_probe_url(probe_url, description)
     # Update existing row with same name on the page; else insert.
@@ -629,6 +648,8 @@ async def update_service(
         min_roles=frozenset({"owner", "admin", "member"}),
         required_scopes=frozenset({"status:write"}),
     )
+    if status is not None and status not in _SERVICE_STATUSES:
+        raise ValueError(f"invalid service status: {status}")
     explicit_probe: str | None = None
     clear_probe = False
     if probe_url is not None:
@@ -909,16 +930,26 @@ def _public_page_dict(row: Any) -> dict[str, Any]:
 
 
 def _overall_status(statuses: list[str]) -> str:
+    # Empty / never-probed pages must not claim green — honest "unknown".
     if not statuses:
-        return "operational"
+        return "unknown"
     rank = {
-        "major_outage": 4,
-        "partial_outage": 3,
-        "degraded": 2,
-        "maintenance": 1,
+        "major_outage": 5,
+        "partial_outage": 4,
+        "degraded": 3,
+        "maintenance": 2,
+        "unknown": 1,
         "operational": 0,
     }
-    return max(statuses, key=lambda s: rank.get(s, 0))
+    return max(statuses, key=lambda s: rank.get(s, 1))
+
+
+def _honest_overall_status(statuses: list[str], *, has_probe_samples: bool) -> str:
+    """Worst-of services, but never claim operational without probe evidence."""
+    overall = _overall_status(statuses)
+    if overall == "operational" and not has_probe_samples:
+        return "unknown"
+    return overall
 
 
 # --- Public KPI / intelligence shaping ---

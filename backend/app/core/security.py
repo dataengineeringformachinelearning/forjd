@@ -7,7 +7,6 @@ docs/adr/0016-secure-defaults-cookies-headers-api.md
 from __future__ import annotations
 
 import hmac
-import secrets
 from collections.abc import Awaitable, Callable
 
 from fastapi import Request, Response
@@ -21,8 +20,6 @@ from app.core.config import settings
 _PUBLIC_PREFIXES = (
     "/health",
     "/ready",
-    "/docs",
-    "/redoc",
     "/openapi.json",
 )
 
@@ -35,9 +32,8 @@ def _is_mutating(method: str) -> bool:
     return method.upper() in {"POST", "PUT", "PATCH", "DELETE"}
 
 
-# API JSON stays locked down. HTML shells (/ , /docs, /redoc) use self-hosted
-# suite CSS + vendored Swagger/ReDoc under /static/vendor/ (no jsDelivr).
-# Landing retains 'unsafe-inline' scripts for gtag/Clarity boot snippets only.
+# API JSON stays locked down. The splash (/) uses self-hosted deml-ui under
+# /static/ plus first-party analytics boot snippets ('unsafe-inline').
 # CSRF is not token-based here: mutating routes require Authorization / X-API-Key
 # (header credentials are not auto-attached by browsers the way cookies are).
 _API_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
@@ -58,32 +54,11 @@ _HTML_SHELL_CSP = (
     "https://*.google-analytics.com https://*.analytics.google.com "
     "https://*.googletagmanager.com https://*.clarity.ms https://*.bing.com"
 )
-_HTML_SHELL_PATHS = frozenset({"/", "/docs", "/redoc"})
-_REDOC_NONCE_STATE_KEY = "redoc_csp_nonce"
-# The vendored ReDoc bundle injects perfect-scrollbar's static stylesheet before
-# Redoc.init can apply its nonce. Admit that exact, immutable stylesheet without
-# weakening the rest of the ReDoc policy to unsafe-inline.
-_REDOC_SCROLLBAR_STYLE_HASH = "'sha256-QMIg+bpjm3JdElJ388KYke01izlUW0UoNOeKjpMxdgc='"
-# styled-components creates an empty bootstrap style before it applies the
-# configured nonce. This hash admits only that empty block.
-_REDOC_EMPTY_STYLE_HASH = "'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='"
+_HTML_SHELL_PATHS = frozenset({"/"})
 
 
-def _csp_for_path(path: str, *, redoc_nonce: str | None = None) -> str:
+def _csp_for_path(path: str) -> str:
     if path in _HTML_SHELL_PATHS:
-        if path == "/redoc" and redoc_nonce:
-            redoc_csp = _HTML_SHELL_CSP.replace(
-                "style-src 'self'",
-                "style-src 'self' "
-                f"'nonce-{redoc_nonce}' "
-                f"{_REDOC_SCROLLBAR_STYLE_HASH} "
-                f"{_REDOC_EMPTY_STYLE_HASH}",
-            )
-            redoc_csp = redoc_csp.replace(
-                "img-src 'self' data:",
-                "img-src 'self' data: https://cdn.redoc.ly",
-            )
-            return f"{redoc_csp}; worker-src 'self' blob:"
         return _HTML_SHELL_CSP
     return _API_CSP
 
@@ -108,10 +83,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        redoc_nonce = None
-        if request.url.path == "/redoc":
-            redoc_nonce = secrets.token_urlsafe(24)
-            setattr(request.state, _REDOC_NONCE_STATE_KEY, redoc_nonce)
         response = await call_next(request)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
@@ -123,7 +94,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         )
         response.headers.setdefault(
             "Content-Security-Policy",
-            _csp_for_path(request.url.path, redoc_nonce=redoc_nonce),
+            _csp_for_path(request.url.path),
         )
         response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
         response.headers.setdefault("Cross-Origin-Resource-Policy", "same-site")

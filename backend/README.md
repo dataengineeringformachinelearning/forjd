@@ -4,7 +4,7 @@ FastAPI control plane for the universal secure streaming engine:
 
 `Partners / UI docs → FastAPI → Rust (PyO3 or HTTP) + Polars + Prefect + Supabase Postgres + Dragonfly`
 
-The API root (`GET /` and `GET /docs`) serves a FJORD-themed Swagger UI. Product work happens through authenticated `/api/v1/*` routes (service tokens / JWTs) — not through an in-browser run console. The public product page lives at forjd.co.
+The API root (`GET /`) is an on-brand deml-ui splash. Human documentation lives on the community site (`/documentation`). Product work happens through authenticated `/api/v1/*` routes (service tokens / JWTs).
 
 ## Local (uv)
 
@@ -16,7 +16,7 @@ uv sync --locked
 cp .env.example .env   # local DSN already points at Compose Postgres; soft-migrate on
 # Env/flag inventory: ../config/forjd.catalog.yaml · ../docs/CONFIGURATION.md
 
-# Dragonfly + local Postgres (do not start prefect-server — it steals :4200 from the landing)
+# Dragonfly + local Postgres (do not start prefect-server unless you need it)
 docker compose --profile local-db up -d dragonfly postgres
 
 uv run forjd
@@ -27,15 +27,14 @@ uv run forjd
 
 1. Create a project and copy the connection string (prefer pooler for serverless; direct is fine for this API).
 2. Set `POSTGRES_DSN=postgresql+asyncpg://…` in `.env` (keep the `+asyncpg` form — clients normalize it).
-3. Apply SQL `003`→`028` (see [`sql/README.md`](sql/README.md)). Enable the **vector** extension for optional ML.
+3. Apply SQL `003`→`031` (see [`sql/README.md`](sql/README.md)). Enable the **vector** extension for optional ML.
 4. For the production-equivalent ML catalog: `uv sync --group ml --group ml-spiking`.
 
 ### Endpoints
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/` | FJORD-themed Swagger UI |
-| GET | `/docs` | Same Swagger UI (alias) |
+| GET | `/` | deml-ui splash (docs on community site) |
 | GET | `/health` | Liveness |
 | GET | `/ready` | Postgres + Dragonfly + supervised workers (+ object storage in production) |
 | GET | `/api/v1/capabilities` | Machine-readable product contract |
@@ -73,7 +72,7 @@ configured source/artifact byte budgets, without silent truncation.
 
 ### Secure streaming (Supabase Auth + E2EE)
 
-1. Run SQL `003`→`028` (see [`sql/README.md`](sql/README.md)).
+1. Run SQL `003`→`031` (see [`sql/README.md`](sql/README.md)).
 2. Set `SUPABASE_URL` and/or `SUPABASE_JWT_SECRET` in `.env`.
 3. **Enterprise users:** Supabase Auth → `Authorization: Bearer <access_token>`.
 4. **Subprocessors:** admin mints `POST /api/v1/service-accounts` → the partner calls with `Bearer fjsvc_…` (see [`docs/AUTH.md`](docs/AUTH.md)). Partners keep their own end-user auth.
@@ -180,7 +179,7 @@ fly secrets set POSTGRES_DSN='…' REDIS_URL='redis://:…@forjd-dragonfly.inter
 fly deploy --config fly.api.toml --ha=false
 ```
 
-Set matching `ENGINE_URL=http://forjd-engine.internal:8080` (already in `fly.api.toml`) and the same `ENGINE_API_TOKEN` on `forjd-engine`. For ML scoring in prod: enable Supabase **vector**, apply `sql/016` (with the rest of `003`–`028`), use the image-installed `ml` + `ml-spiking` groups, and call `/api/v1/ml` (`sql/002_anomaly_embeddings.sql` is historical/unused).
+Set matching `ENGINE_URL=http://forjd-engine.internal:8080` (already in `fly.api.toml`) and the same `ENGINE_API_TOKEN` on `forjd-engine`. For ML scoring in prod: enable Supabase **vector**, apply `sql/016` (with the rest of `003`–`031`), use the image-installed `ml` + `ml-spiking` groups, and call `/api/v1/ml`.
 
 ## Workflows
 

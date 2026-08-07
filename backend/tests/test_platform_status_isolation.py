@@ -6,11 +6,105 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+from fastapi import Request
+
+from app.api.v1 import status as status_api
 from app.core.auth import AuthUser, PrincipalKind
 from app.services import status as status_svc
 
 
 class PlatformStatusIsolationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_public_page_strips_tenant_for_foreign_service(self) -> None:
+        page_tenant = str(uuid4())
+        foreign = AuthUser(
+            user_id="svc-foreign",
+            email=None,
+            role="service",
+            raw_claims={},
+            kind=PrincipalKind.SERVICE,
+            tenant_id=str(uuid4()),
+            scopes=frozenset({"status:read"}),
+        )
+        page = {
+            "id": str(uuid4()),
+            "tenant_id": page_tenant,
+            "slug": "customer-site",
+            "title": "Customer",
+            "is_published": True,
+        }
+        request = MagicMock(spec=Request)
+        request.app = MagicMock()
+        with (
+            patch.object(
+                status_api.status_svc,
+                "get_published_page",
+                new=AsyncMock(return_value=dict(page)),
+            ),
+            patch.object(status_api, "_pool", return_value=MagicMock()),
+        ):
+            body = await status_api.public_page(request, slug="customer-site", user=foreign)
+        self.assertNotIn("tenant_id", body["page"])
+
+    async def test_public_page_keeps_tenant_for_bound_service(self) -> None:
+        page_tenant = str(uuid4())
+        owner = AuthUser(
+            user_id="svc-owner",
+            email=None,
+            role="service",
+            raw_claims={},
+            kind=PrincipalKind.SERVICE,
+            tenant_id=page_tenant,
+            scopes=frozenset({"status:read"}),
+        )
+        page = {
+            "id": str(uuid4()),
+            "tenant_id": page_tenant,
+            "slug": "customer-site",
+            "title": "Customer",
+            "is_published": True,
+        }
+        request = MagicMock(spec=Request)
+        with (
+            patch.object(
+                status_api.status_svc,
+                "get_published_page",
+                new=AsyncMock(return_value=dict(page)),
+            ),
+            patch.object(status_api, "_pool", return_value=MagicMock()),
+        ):
+            body = await status_api.public_page(request, slug="customer-site", user=owner)
+        self.assertEqual(body["page"]["tenant_id"], page_tenant)
+
+    async def test_public_page_keeps_tenant_for_resolve_scope(self) -> None:
+        page_tenant = str(uuid4())
+        platform = AuthUser(
+            user_id="svc-platform",
+            email=None,
+            role="service",
+            raw_claims={},
+            kind=PrincipalKind.SERVICE,
+            tenant_id=str(uuid4()),
+            scopes=frozenset({"status:tenant-resolve"}),
+        )
+        page = {
+            "id": str(uuid4()),
+            "tenant_id": page_tenant,
+            "slug": "customer-site",
+            "title": "Customer",
+            "is_published": True,
+        }
+        request = MagicMock(spec=Request)
+        with (
+            patch.object(
+                status_api.status_svc,
+                "get_published_page",
+                new=AsyncMock(return_value=dict(page)),
+            ),
+            patch.object(status_api, "_pool", return_value=MagicMock()),
+        ):
+            body = await status_api.public_page(request, slug="customer-site", user=platform)
+        self.assertEqual(body["page"]["tenant_id"], page_tenant)
+
     async def test_create_page_rejects_platform_status_slug(self) -> None:
         pool = MagicMock()
         user = AuthUser(

@@ -25,37 +25,22 @@ _EXTERNAL_REF_RE = re.compile(r"^[a-z0-9][a-z0-9:_-]{3,127}$")
 _PARTNER_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 
-# Explicit DEML BFF contract. Keep generic service-account defaults unchanged.
+# Explicit DEML product-account contract — status + sealed widget path only.
+# Deliberately omits ``status:tenant-resolve`` and ``*`` so product fjsvc_
+# tokens cannot enumerate other published tenants' UUIDs via public slug.
+# SIEM/ML/exports/playbooks are not minted here; partners that need them
+# mint a separate scoped token on FORJD.
 DEML_PROVISION_SCOPES: tuple[str, ...] = (
     "ingest:write",
     "ingest:read",
-    "projections:read",
-    "projections:run",
     "sessions:write",
     "sessions:read",
-    "replay:read",
-    "replay:write",
     "status:read",
     "status:write",
-    "analytics:read",
-    "ml:read",
-    "ml:write",
-    "exports:read",
-    "exports:write",
-    "vulnerabilities:read",
-    "vulnerabilities:write",
-    "integrations:write",
-    "siem:read",
-    "siem:write",
-    "cases:read",
-    "cases:write",
-    "playbooks:read",
-    "playbooks:write",
-    "playbooks:execute",
-    "threat-intel:read",
-    "reports:read",
-    "reports:write",
 )
+
+# Reserved — partner tenants must never collide with platform dogfood.
+_PLATFORM_TENANT_SLUG = "platform-status"
 
 
 async def ensure_partner_provision_schema(pool: asyncpg.Pool) -> None:
@@ -224,11 +209,15 @@ async def provision_partner_tenant(
     await ensure_partner_provision_schema(pool)
 
     tenant_slug = _slug_for_external_ref(ref, partner=partner_key, explicit=slug)
+    if tenant_slug == _PLATFORM_TENANT_SLUG:
+        raise ValueError("slug is reserved for the platform tenant")
     tenant_name = _name_for_external_ref(ref, partner=partner_key, explicit=name)
     scopes = _scopes_for_partner(
         partner_key,
         include_tenant_erase=include_tenant_erase,
     )
+    if "status:tenant-resolve" in scopes or "*" in scopes:
+        raise ValueError("partner provisions cannot mint tenant-resolve or wildcard scopes")
 
     async with pool.acquire() as conn, conn.transaction():
         await conn.fetchval(

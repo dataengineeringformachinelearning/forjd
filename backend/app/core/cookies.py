@@ -6,8 +6,7 @@ set their own cookies; FORJD must not introduce cookie write authority for
 with ``build_set_cookie`` so Secure / HttpOnly / SameSite cannot be omitted
 insecurely.
 
-ADR: docs/adr/0013-client-side-attack-hardening.md,
-docs/adr/0016-secure-defaults-cookies-headers-api.md
+ADR: docs/adr/0016-secure-defaults-cookies-headers-api.md
 """
 
 from __future__ import annotations

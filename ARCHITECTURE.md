@@ -8,7 +8,7 @@ Non-obvious decisions (ADRs): [`docs/adr/`](docs/adr/README.md).
 
 ## UI chrome (API shells only)
 
-FORJD has **no product frontend**. Splash + `/docs` + `/redoc` on [backend.forjd.co](https://backend.forjd.co) use vendored **deml-ui** (warm ash NFTS). Contract: [`docs/SUITE_UI_UNIFICATION.md`](docs/SUITE_UI_UNIFICATION.md). Refresh CSS with `npm run sync:deml-ui`. Community story lives on [dataengineeringformachinelearning.com](https://dataengineeringformachinelearning.com/); product UI on [deml.app](https://deml.app).
+FORJD has **no product frontend**. Splash-only HTML on [backend.forjd.co](https://backend.forjd.co) uses vendored **deml-ui** (warm ash NFTS). Human docs live on [dataengineeringformachinelearning.com/documentation](https://dataengineeringformachinelearning.com/documentation). Contract: [`docs/SUITE_UI_UNIFICATION.md`](docs/SUITE_UI_UNIFICATION.md). Refresh CSS with `npm run sync:deml-ui`. Product UI on [deml.app](https://deml.app).
 
 Connection map (probes, auth lanes, Fly admission): [`docs/CONNECTION_MAP.md`](docs/CONNECTION_MAP.md).
 
@@ -16,15 +16,7 @@ Observability (logs, correlation, Rollbar/Sentry, never-log list): [`docs/OBSERV
 
 Configuration inventory (env vars, feature flags, layers): [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) · [`config/forjd.catalog.yaml`](config/forjd.catalog.yaml).
 
-Landing offline is graceful shell-only (not an offline data plane): [`docs/adr/0009-graceful-offline-landing.md`](docs/adr/0009-graceful-offline-landing.md).
-
-Frontend state stays flat (scalars + derived computeds; index windows, not nested VMs): [`docs/adr/0010-normalize-flat-reactive-state.md`](docs/adr/0010-normalize-flat-reactive-state.md).
-
-Client fetches share loading / error / success phases via `createFetchHandle`: [`docs/adr/0011-consistent-fetch-states.md`](docs/adr/0011-consistent-fetch-states.md).
-
-Client caches use per-resource SWR (`createSwrCache`) with hard/soft invalidation and background revalidation: [`docs/adr/0012-swr-cache-invalidation.md`](docs/adr/0012-swr-cache-invalidation.md).
-
-Browser XSS / open-redirect hygiene (`safeHref`, CSP `frame-ancestors 'none'`): [`docs/adr/0013-client-side-attack-hardening.md`](docs/adr/0013-client-side-attack-hardening.md). CSRF remains header-auth (`AUTH.md`).
+Product UI state lives on deml.app (FORJD has no product frontend). Client XSS / open-redirect SPA hygiene is N/A. CSRF + security headers: [`docs/adr/0016-secure-defaults-cookies-headers-api.md`](docs/adr/0016-secure-defaults-cookies-headers-api.md) · [`backend/docs/AUTH.md`](backend/docs/AUTH.md).
 
 UGC / third-party sanitization (`sanitize_text`, fetcher bounds, Sentry scrub): [`docs/adr/0014-sanitize-ugc-and-third-party.md`](docs/adr/0014-sanitize-ugc-and-third-party.md).
 
@@ -48,9 +40,9 @@ Defensive outbound HTTP (timeouts, no redirects, byte caps, JSON shape guards): 
 ## Layers
 
 ```
-Static landing (forjd.co)   Docs / product surface only (no browser seal console)
 Partner SaaS (subprocessor)  Tenant-scoped service token (fjsvc_… / M2M JWT)
 Enterprise operators         Supabase Auth user JWT (API / admin paths)
+HTML shells (API host)       Splash only (deml-ui; no product console; docs on community)
         │
         ▼
 FastAPI (forjd-backend)     Principal verify (user vs service), tenancy, Prefect

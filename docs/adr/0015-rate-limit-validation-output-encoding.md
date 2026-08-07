@@ -26,9 +26,9 @@ domain models. Output sinks differ: JSON (serializer), HTML shells, PDF literals
      request `input` echoes.
 3. **Output encoding** — context helpers in `app/core/encoding.py`:
    - JSON: Starlette/FastAPI serialization (no HTML context).
-   - HTML: `encode_html_text` / frontend `encodeForHtml` (after sanitize).
+   - HTML shells: `encode_html_text` (after sanitize).
    - PDF: `encode_pdf_literal` for `(…) Tj` / Info strings.
-   - Prefer Angular `{{ }}` auto-escape; never `[innerHTML]` for UGC.
+   - Partner UIs own template auto-escape; never raw HTML for UGC.
 
 ## Consequences
 

@@ -15,7 +15,7 @@ Use [Conventional Commits](https://www.conventionalcommits.org/) with an imperat
 | Part | Rule |
 |------|------|
 | **type** | One of: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`, `ci`, `build`, `style`, `revert` |
-| **scope** | Optional area: `backend`, `engine`, `frontend`, `forjd-ui`, `sql`, `docs`, `ci`, … |
+| **scope** | Optional area: `backend`, `engine`, `sql`, `docs`, `ci`, … |
 | **`!`** | Breaking change (also describe in body with `BREAKING CHANGE:`) |
 | **subject** | Imperative, ≤72 chars, no trailing period, no `WIP` / `tmp` |
 | **body** | Optional; blank line after subject; wrap ~72; focus on motivation |
@@ -37,7 +37,7 @@ docs: document commit message and history practice
 ```
 
 ```text
-chore(ci): run prettier and typecheck before frontend tests
+chore(ci): run prettier and typecheck before quality gates
 ```
 
 ### Allowed exceptions (machine / git)
@@ -55,7 +55,7 @@ chore(ci): run prettier and typecheck before frontend tests
 Validate a draft message:
 
 ```bash
-echo 'feat(frontend): add preferences store' | python3 scripts/check_commit_msg.py
+echo 'feat(backend): add preferences store' | python3 scripts/check_commit_msg.py
 # or: python3 scripts/check_commit_msg.py .git/COMMIT_EDITMSG
 ```
 

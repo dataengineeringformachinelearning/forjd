@@ -13,13 +13,19 @@
   }
 
   const styles = window.getComputedStyle(document.documentElement);
-  const token = (name) => styles.getPropertyValue(name).trim();
-  // Quiet HTTP verbs — same surface/ink as Swagger chips (KD13).
-  const quietVerb = token("--suite-surface-2");
+  const token = (name, fallback = "") =>
+    styles.getPropertyValue(name).trim() || fallback;
+  // Quiet HTTP verbs — same surface/ink as Swagger chips.
+  const quietVerb = token("--color-surface");
+  const fontSans = token("--font-sans", "Geist, system-ui, sans-serif");
+  const fontMono = token(
+    "--font-mono",
+    "ui-monospace, SFMono-Regular, Menlo, monospace",
+  );
   const options = {
     nativeScrollbars: true,
     sanitize: true,
-    scrollYOffset: ".suite-backend-topbar",
+    scrollYOffset: ".forjd-backend-topbar",
     theme: {
       spacing: {
         unit: 8,
@@ -28,28 +34,28 @@
       },
       colors: {
         primary: {
-          main: token("--suite-primary-strong"),
-          contrastText: token("--suite-bg"),
+          main: token("--color-primary"),
+          contrastText: token("--color-bg"),
         },
         success: {
-          main: token("--suite-success-text"),
-          contrastText: token("--suite-bg"),
+          main: token("--color-success-ink"),
+          contrastText: token("--color-bg"),
         },
         warning: {
-          main: token("--suite-warning-text"),
-          contrastText: token("--suite-bg"),
+          main: token("--color-warning-ink"),
+          contrastText: token("--color-bg"),
         },
         error: {
-          main: token("--suite-danger-text"),
-          contrastText: token("--suite-bg"),
+          main: token("--color-error-ink"),
+          contrastText: token("--color-bg"),
         },
         text: {
-          primary: token("--suite-ink"),
-          secondary: token("--suite-ink-muted"),
+          primary: token("--color-text"),
+          secondary: token("--color-text-secondary"),
         },
         border: {
-          dark: token("--suite-border-strong"),
-          light: token("--suite-border"),
+          dark: token("--color-border"),
+          light: token("--color-border"),
         },
         http: {
           get: quietVerb,
@@ -69,53 +75,53 @@
         fontWeightRegular: "400",
         fontWeightBold: "600",
         fontWeightLight: "300",
-        fontFamily: token("--suite-font-sans"),
+        fontFamily: fontSans,
         headings: {
-          fontFamily: token("--suite-font-sans"),
+          fontFamily: fontSans,
           fontWeight: "600",
           lineHeight: "1.35em",
         },
         code: {
           fontSize: "13px",
-          fontFamily: token("--suite-font-mono"),
-          color: token("--suite-success-text"),
-          backgroundColor: token("--suite-surface-2"),
+          fontFamily: fontMono,
+          color: token("--color-success-ink"),
+          backgroundColor: token("--color-surface"),
           wrap: true,
         },
         links: {
-          color: token("--suite-primary-strong"),
-          visited: token("--suite-primary-strong"),
-          hover: token("--suite-ink"),
+          color: token("--color-primary"),
+          visited: token("--color-primary"),
+          hover: token("--color-text"),
           textDecoration: "underline",
           hoverTextDecoration: "underline",
         },
       },
       sidebar: {
         width: "280px",
-        backgroundColor: token("--suite-surface"),
-        textColor: token("--suite-ink-muted"),
-        activeTextColor: token("--suite-ink"),
+        backgroundColor: token("--color-surface"),
+        textColor: token("--color-text-secondary"),
+        activeTextColor: token("--color-text"),
         arrow: {
-          color: token("--suite-ink-muted"),
+          color: token("--color-text-secondary"),
         },
       },
       rightPanel: {
         width: "40%",
-        backgroundColor: token("--suite-bg-subtle"),
-        textColor: token("--suite-ink"),
+        backgroundColor: token("--color-bg"),
+        textColor: token("--color-text"),
         servers: {
           overlay: {
-            backgroundColor: token("--suite-surface"),
-            textColor: token("--suite-ink"),
+            backgroundColor: token("--color-surface"),
+            textColor: token("--color-text"),
           },
           url: {
-            backgroundColor: token("--suite-surface-2"),
+            backgroundColor: token("--color-surface"),
           },
         },
       },
       fab: {
-        backgroundColor: token("--suite-surface-2"),
-        color: token("--suite-ink"),
+        backgroundColor: token("--color-surface"),
+        color: token("--color-text"),
       },
     },
   };

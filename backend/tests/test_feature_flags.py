@@ -19,6 +19,9 @@ class TestFeatureFlags(unittest.TestCase):
         cfg.REQUIRE_RLS = True
         cfg.REQUIRE_CRYPTO_SESSION = True
         cfg.SUPABASE_AUTH_REQUIRED = True
+        cfg.INGEST_PROCESSING_INTERVAL_SECONDS = 2.0
+        cfg.SOAR_WORKER_INTERVAL_SECONDS = 0.0
+        cfg.EXPORT_WORKER_INTERVAL_SECONDS = 0.0
         cfg.ANALYTICS_ROLLUP_INTERVAL_SECONDS = 300.0
         cfg.TRAINING_TICK_SECONDS = 0.0
         cfg.RETENTION_SWEEP_INTERVAL_SECONDS = 3600.0
@@ -27,6 +30,9 @@ class TestFeatureFlags(unittest.TestCase):
         flags = resolve_feature_flags(cfg)
         self.assertTrue(flags.addons_all)
         self.assertTrue(flags.addon_enabled("osv-dev"))
+        self.assertTrue(flags.ingest_processing_enabled)
+        self.assertFalse(flags.soar_worker_enabled)
+        self.assertFalse(flags.exports_worker_enabled)
         self.assertTrue(flags.analytics_worker_enabled)
         self.assertFalse(flags.training_worker_enabled)
         self.assertTrue(flags.retention_worker_enabled)
@@ -42,6 +48,9 @@ class TestFeatureFlags(unittest.TestCase):
         cfg.REQUIRE_RLS = False
         cfg.REQUIRE_CRYPTO_SESSION = False
         cfg.SUPABASE_AUTH_REQUIRED = False
+        cfg.INGEST_PROCESSING_INTERVAL_SECONDS = 0.0
+        cfg.SOAR_WORKER_INTERVAL_SECONDS = 0.0
+        cfg.EXPORT_WORKER_INTERVAL_SECONDS = 0.0
         cfg.ANALYTICS_ROLLUP_INTERVAL_SECONDS = 0.0
         cfg.TRAINING_TICK_SECONDS = 0.0
         cfg.RETENTION_SWEEP_INTERVAL_SECONDS = 0.0
@@ -52,6 +61,7 @@ class TestFeatureFlags(unittest.TestCase):
         self.assertTrue(flags.addon_enabled("nuclei"))
         self.assertFalse(flags.addon_enabled("honeydb"))
         self.assertFalse(flags.rate_limit_enabled)
+        self.assertFalse(flags.ingest_processing_enabled)
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ fallback) own streaming work.
 ## Topology
 
 ```
-Partner / DEML BFF                 Operators (forjd.co docs only)
+Partner / DEML BFF                 Operators (API / JWT)
   │ fjsvc_ tenant token              │ Supabase user JWT
   ▼                                  ▼
 FastAPI control plane (Fly: forjd-backend)
@@ -29,7 +29,7 @@ See [`EXTENDING.md`](EXTENDING.md) · ADR-0028.
 | Path | Meaning | Used by |
 |------|---------|---------|
 | `GET /health` | Process liveness | Operators, soft probes |
-| `GET /ready` | Postgres + Redis + workers (+ optional engine info) | **Fly route admission**, DEML soft probe, landing continuity |
+| `GET /ready` | Postgres + Redis + workers (+ optional engine info) | **Fly route admission**, DEML soft probe |
 
 `/ready` returns 503 when hard checks fail. `engine` is informational — API
 stays ready when the engine restarts independently.
@@ -40,7 +40,6 @@ stays ready when the engine restarts independently.
 |---------|---------|
 | Fly admission | HTTP check → `/ready` (grace 90s) |
 | Engine probe | 2-attempt retry inside `remote_version`; readiness wraps with 1s timeout |
-| Landing continuity | AbortController 2.5s; signal starts `checking`, never optimistic `ok` |
 | Partner writes | Fail closed on auth/tenant mismatch; no silent Pathway fallback path |
 
 ## Env surfaces
@@ -48,7 +47,6 @@ stays ready when the engine restarts independently.
 | Deploy | Owns |
 |--------|------|
 | Fly `fly.api.toml` | FastAPI + workers, `ENGINE_URL`, ML volume |
-| Vercel (forjd.co) | Static Angular landing only |
 | Supabase | Postgres, Auth, Realtime publication |
 
 ## Runtime verification

@@ -10,8 +10,6 @@ idempotent migrations are reapplied to backfill the ledger.
 
 | File | Purpose |
 |------|---------|
-| `historical/001_pulses.sql` | Archived — unused legacy stack smoke table |
-| `historical/002_anomaly_embeddings.sql` | Archived — unused; prefer tenant-scoped `/api/v1/ml` + `016` |
 | `003_secure_tenancy.sql` | **Production path** — tenants, RLS, E2EE telemetry, vector embeddings |
 | `004_crypto_sessions.sql` | X25519 public-key session directory (private keys never stored) |
 | `005_stream_results.sql` | Rust/Python/Prefect outputs (metadata scores; RLS) |
@@ -40,11 +38,12 @@ idempotent migrations are reapplied to backfill the ledger.
 | `028_status_child_tenant_integrity.sql` | Validated page/service/probe tenant FKs plus latest-observation readiness index |
 | `029_revoke_authenticated_telemetry_writes.sql` | Revoke direct `authenticated` INSERT on telemetry/embeddings (API-only writes) |
 | `030_platform_status_isolation.sql` | Immutable `platform-status` sentinel; requires `metadata.kind=platform` |
+| `031_status_service_unknown.sql` | Allow/default service `status='unknown'` (never invent operational) |
 
-## Secure path (`003`–`030`)
+## Secure path (`003`–`031`)
 
 1. Enable extensions **vector** and **pgcrypto** (Dashboard → Database → Extensions).
-2. Run `uv run python scripts/apply_sql_migrations.py` for `003` → `030` and
+2. Run `uv run python scripts/apply_sql_migrations.py` for `003` → `031` and
    confirm the migration ledger/checksums.
 3. Realtime: `015`/`016` add `stream_results`, `telemetry_events`, `ml_scores`, `training_runs` when publication exists.
 4. Set backend env: `SUPABASE_URL`, `SUPABASE_JWT_SECRET` (or rely on JWKS), `POSTGRES_DSN` (Supabase only — not Neon).

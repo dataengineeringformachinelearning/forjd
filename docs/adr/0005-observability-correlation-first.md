@@ -17,10 +17,10 @@ Ship **correlation + structured logs + optional error trackers** first:
 1. Validate/echo/generate `X-Request-ID`; bind ContextVars; JSON log fields
 2. Unhandled `500` bodies include `request_id` (no internals in production)
 3. Outbound engine HTTP forwards `X-Request-ID`
-4. Rollbar (API + browser) + optional Sentry; empty token/DSN disables
+4. Rollbar (API) + optional Sentry; empty token/DSN disables
 5. Workers emit `worker_tick` extras (`duration_ms`, `outcome`) — not a second
    metrics daemon
-6. Client scrub (`frontend/.../scrub.ts`) before tracker payloads leave the browser
+6. Server scrub via `sanitize.scrub_for_logs` before tracker payloads leave the process
 
 **Deferred:** `/metrics`, OTLP collectors, second rate/metrics libraries.
 

@@ -7,23 +7,27 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.responses import (
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+)
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
 from app.core.auth import warm_jwks
 from app.core.clients import create_db_pool, create_redis_client
 from app.core.config import settings
-from app.core.docs_page import render_docs
 from app.core.http_errors import register_exception_handlers
 from app.core.ingest_body_limit import IngestBodyLimitMiddleware
 from app.core.ingest_limits import ingest_write_paths
 from app.core.landing_page import render_landing
 from app.core.logging import configure_logging
 from app.core.rate_limit import PublicRateLimitMiddleware
-from app.core.redoc_page import render_redoc
 from app.core.request_context import RequestContextMiddleware
 from app.core.rollbar import configure_rollbar
 from app.core.security import (
@@ -86,49 +90,53 @@ async def _ensure_background_workers(app: FastAPI, pool: Any | None) -> None:
         run_ingest_processing_worker,
     )
 
-    _start_worker(
-        app,
-        "ingest-processing",
-        lambda: run_ingest_processing_worker(
-            lambda: getattr(app.state, "db_pool", None),
-            app.state.worker_stop,
-            interval_seconds=settings.INGEST_PROCESSING_INTERVAL_SECONDS,
-            batch_size=settings.INGEST_PROCESSING_BATCH_SIZE,
-            health=app.state.worker_health,
-        ),
-        stale_after_seconds=max(
-            INGEST_PROCESSING_LEASE_SECONDS * 2,
-            settings.INGEST_PROCESSING_INTERVAL_SECONDS * 4,
-        ),
-    )
+    # Interval 0 = disabled (status-continuous / idle-accept cuts).
+    if settings.INGEST_PROCESSING_INTERVAL_SECONDS > 0:
+        _start_worker(
+            app,
+            "ingest-processing",
+            lambda: run_ingest_processing_worker(
+                lambda: getattr(app.state, "db_pool", None),
+                app.state.worker_stop,
+                interval_seconds=settings.INGEST_PROCESSING_INTERVAL_SECONDS,
+                batch_size=settings.INGEST_PROCESSING_BATCH_SIZE,
+                health=app.state.worker_health,
+            ),
+            stale_after_seconds=max(
+                INGEST_PROCESSING_LEASE_SECONDS * 2,
+                settings.INGEST_PROCESSING_INTERVAL_SECONDS * 4,
+            ),
+        )
     if pool is None:
         return
 
     from app.services.exports import run_export_worker
     from app.services.playbooks import run_playbook_retry_worker
 
-    _start_worker(
-        app,
-        "soar-retries",
-        lambda: run_playbook_retry_worker(
-            pool,
-            app.state.worker_stop,
-            interval_seconds=settings.SOAR_WORKER_INTERVAL_SECONDS,
-            batch_size=settings.SOAR_WORKER_BATCH_SIZE,
-            health=app.state.worker_health,
-        ),
-        stale_after_seconds=max(600.0, settings.SOAR_WORKER_INTERVAL_SECONDS * 4),
-    )
-    _start_worker(
-        app,
-        "exports",
-        lambda: run_export_worker(
-            pool,
-            app.state.worker_stop,
-            health=app.state.worker_health,
-        ),
-        stale_after_seconds=max(600.0, settings.EXPORT_WORKER_INTERVAL_SECONDS * 4),
-    )
+    if settings.SOAR_WORKER_INTERVAL_SECONDS > 0:
+        _start_worker(
+            app,
+            "soar-retries",
+            lambda: run_playbook_retry_worker(
+                pool,
+                app.state.worker_stop,
+                interval_seconds=settings.SOAR_WORKER_INTERVAL_SECONDS,
+                batch_size=settings.SOAR_WORKER_BATCH_SIZE,
+                health=app.state.worker_health,
+            ),
+            stale_after_seconds=max(600.0, settings.SOAR_WORKER_INTERVAL_SECONDS * 4),
+        )
+    if settings.EXPORT_WORKER_INTERVAL_SECONDS > 0:
+        _start_worker(
+            app,
+            "exports",
+            lambda: run_export_worker(
+                pool,
+                app.state.worker_stop,
+                health=app.state.worker_health,
+            ),
+            stale_after_seconds=max(600.0, settings.EXPORT_WORKER_INTERVAL_SECONDS * 4),
+        )
     if settings.ANALYTICS_ROLLUP_INTERVAL_SECONDS > 0:
         from app.services.analytics_worker import run_analytics_worker
 
@@ -184,23 +192,29 @@ async def _ensure_background_workers(app: FastAPI, pool: Any | None) -> None:
 
 
 async def _verify_worker_contracts(app: FastAPI, pool: Any) -> None:
-    """Fail readiness when a durable worker's migrated schema is incomplete."""
+    """Fail readiness when an enabled durable worker's schema is incomplete."""
     pool_identity = id(pool)
     verified_pools: dict[int, Any] = app.state.verified_worker_contract_pools
     if verified_pools.get(pool_identity) is pool:
         return
-    from app.services.exports import ensure_export_schema
-    from app.services.ingest_processing import ensure_ingest_processing_schema
-    from app.services.playbooks import ensure_playbook_schema
-    from app.services.siem import ensure_siem_schema
 
     async with app.state.worker_lock:
         if verified_pools.get(pool_identity) is pool:
             return
-        await ensure_ingest_processing_schema(pool)
-        await ensure_siem_schema(pool)
-        await ensure_playbook_schema(pool)
-        await ensure_export_schema(pool)
+        if settings.INGEST_PROCESSING_INTERVAL_SECONDS > 0:
+            from app.services.ingest_processing import ensure_ingest_processing_schema
+
+            await ensure_ingest_processing_schema(pool)
+        if settings.SOAR_WORKER_INTERVAL_SECONDS > 0:
+            from app.services.playbooks import ensure_playbook_schema
+            from app.services.siem import ensure_siem_schema
+
+            await ensure_siem_schema(pool)
+            await ensure_playbook_schema(pool)
+        if settings.EXPORT_WORKER_INTERVAL_SECONDS > 0:
+            from app.services.exports import ensure_export_schema
+
+            await ensure_export_schema(pool)
         verified_pools[pool_identity] = pool
 
 
@@ -260,7 +274,14 @@ async def _runtime_readiness_checks(app: FastAPI, pool: Any) -> dict[str, bool]:
 
 
 def _worker_health(app: FastAPI) -> tuple[bool, dict[str, dict[str, Any]]]:
-    expected = {"ingest-processing", "soar-retries", "exports"}
+    # Only expect workers that are configured to run (interval > 0).
+    expected: set[str] = set()
+    if settings.INGEST_PROCESSING_INTERVAL_SECONDS > 0:
+        expected.add("ingest-processing")
+    if settings.SOAR_WORKER_INTERVAL_SECONDS > 0:
+        expected.add("soar-retries")
+    if settings.EXPORT_WORKER_INTERVAL_SECONDS > 0:
+        expected.add("exports")
     if settings.PROJECTION_TICK_SECONDS > 0:
         expected.add("projection-catchup")
     if settings.ANALYTICS_ROLLUP_INTERVAL_SECONDS > 0:
@@ -351,7 +372,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 # --- App + middleware stack ---
-# Default FastAPI Swagger/ReDoc off; FJORD shells gated by ENABLE_API_DOCS.
+# No human docs HTML on this host — community site owns /documentation.
+# Machine OpenAPI JSON stays optional behind ENABLE_API_DOCS.
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.PROJECT_VERSION,
@@ -404,34 +426,27 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-# --- Root splash + FJORD Swagger / ReDoc ---
+# --- Root splash (human docs on the community site) ---
+_COMMUNITY_DOCS = "https://dataengineeringformachinelearning.com/documentation"
+
+
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def landing() -> HTMLResponse:
-    """Minimal brand splash — docs at /docs and /redoc on this host."""
+    """On-brand splash — documentation lives on the community site."""
     return HTMLResponse(content=render_landing())
 
 
-@app.get("/docs", response_class=HTMLResponse, include_in_schema=False)
-async def docs() -> HTMLResponse:
-    """Interactive Swagger docs, restyled with the FJORD palette."""
-    if not settings.ENABLE_API_DOCS:
-        raise HTTPException(status_code=404, detail="Not Found")
-    return HTMLResponse(content=render_docs())
-
-
-@app.get("/redoc", response_class=HTMLResponse, include_in_schema=False)
-async def redoc(request: Request) -> HTMLResponse:
-    """ReDoc reference, restyled with the FJORD palette."""
-    if not settings.ENABLE_API_DOCS:
-        raise HTTPException(status_code=404, detail="Not Found")
-    return HTMLResponse(content=render_redoc(nonce=getattr(request.state, "redoc_csp_nonce", None)))
+@app.get("/docs", include_in_schema=False)
+@app.get("/redoc", include_in_schema=False)
+async def docs_redirect() -> RedirectResponse:
+    """Legacy HTML docs → community documentation."""
+    return RedirectResponse(url=_COMMUNITY_DOCS, status_code=301)
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse, include_in_schema=False)
 async def robots() -> PlainTextResponse:
     return PlainTextResponse(
-        "User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /docs\n"
-        "Disallow: /redoc\nDisallow: /openapi.json\n"
+        "User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /openapi.json\n"
         "Allow: /api/v1/addons\nSitemap: https://backend.forjd.co/sitemap.xml\n"
     )
 

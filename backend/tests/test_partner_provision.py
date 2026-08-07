@@ -228,16 +228,18 @@ class TestPartnerProvisionHelpers(unittest.TestCase):
             "acme-tenant",
         )
 
-    def test_deml_scope_profile_is_explicit_and_ml_write_capable(self) -> None:
+    def test_deml_scope_profile_is_status_and_ingest_only(self) -> None:
         scopes = provision_svc._scopes_for_partner(
             "deml",
             include_tenant_erase=False,
         )
         self.assertEqual(scopes, list(provision_svc.DEML_PROVISION_SCOPES))
-        self.assertIn("ml:write", scopes)
+        self.assertIn("status:write", scopes)
+        self.assertIn("ingest:write", scopes)
+        self.assertNotIn("ml:write", scopes)
+        self.assertNotIn("siem:read", scopes)
         self.assertNotIn("*", scopes)
         self.assertNotIn("tenants:erase", scopes)
-        self.assertNotIn("ml:write", sa_svc.DEFAULT_SCOPES)
         self.assertTrue(set(scopes).issubset(sa_svc.ALLOWED_SCOPES))
 
     def test_non_deml_partner_keeps_generic_defaults(self) -> None:
@@ -246,7 +248,7 @@ class TestPartnerProvisionHelpers(unittest.TestCase):
             include_tenant_erase=False,
         )
         self.assertEqual(scopes, list(sa_svc.DEFAULT_SCOPES))
-        self.assertNotIn("ml:write", scopes)
+        self.assertNotIn("status:tenant-resolve", scopes)
 
     def test_blank_or_invalid_partner_is_not_coerced_to_deml(self) -> None:
         for partner in ("", "   ", "../deml", "deml:other"):
@@ -398,7 +400,8 @@ class TestPartnerProvisionSemantics(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(reminted["reminted"])
         self.assertEqual(initial["tenant"], reminted["tenant"])
         self.assertEqual(pool.store.service_account_sequence, 2)
-        self.assertIn("ml:write", reminted["service_account"]["scopes"])  # type: ignore[index]
+        self.assertIn("status:write", reminted["service_account"]["scopes"])  # type: ignore[index]
+        self.assertNotIn("ml:write", reminted["service_account"]["scopes"])  # type: ignore[index]
 
     async def test_corrupt_cross_tenant_mapping_fails_read_and_repairs_without_revocation(
         self,

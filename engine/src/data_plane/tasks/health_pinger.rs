@@ -115,7 +115,8 @@ async fn probe_service(service: MonitoredService, skip_tls_verify: bool) -> Ping
             Err(_) => client.get(target).send().await?,
         };
         let code = response.status().as_u16();
-        Ok::<(u16, bool), anyhow::Error>((code, (200..500).contains(&code)))
+        // Only 2xx counts as healthy — 3xx (redirects blocked) / 4xx / 5xx are not.
+        Ok::<(u16, bool), anyhow::Error>((code, (200..300).contains(&code)))
     }
     .await;
 
@@ -237,9 +238,12 @@ async fn persist_result(pool: &PgPool, observation_key: &str, result: &PingResul
     // Reflect latest probe status onto the status service row.
     let status = if result.is_active {
         "operational"
-    } else if result.status_code >= 500 {
+    } else if result.status_code >= 500 || result.status_code == 0 {
         "major_outage"
+    } else if (400..500).contains(&result.status_code) {
+        "degraded"
     } else {
+        // 3xx with redirects disabled, or other non-success.
         "degraded"
     };
     sqlx::query(

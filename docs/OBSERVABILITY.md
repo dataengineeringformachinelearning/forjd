@@ -1,7 +1,7 @@
 # FORJD observability
 
-Runtime logging and error reporting for the data plane. Suite design CI purity
-is **not** covered here (see `docs/SUITE_UI_UNIFICATION*.md`).
+Runtime logging and error reporting for the data plane. HTML shell chrome:
+[`docs/SUITE_UI_UNIFICATION.md`](SUITE_UI_UNIFICATION.md).
 
 **ADR:** [`adr/0005-observability-correlation-first.md`](adr/0005-observability-correlation-first.md).
 
@@ -12,8 +12,8 @@ is **not** covered here (see `docs/SUITE_UI_UNIFICATION*.md`).
 | Probes | `GET /health`, `GET /ready`, engine role-aware `/ready` | Always on |
 | Structured logs | JSON stdout (`backend/app/core/logging.py`); Rust `tracing` JSON | Always on |
 | Correlation | `X-Request-ID` (validate/echo/generate) → log fields → 500 body → engine HTTP | Always on |
-| Error trackers | Rollbar (API + browser); optional Sentry (`SENTRY_DSN`, `uv sync --group sentry`) | Empty token/DSN disables |
-| Product analytics | Vercel Analytics / Speed Insights; GA4 + Clarity on landing | Frontend / marketing only |
+| Error trackers | Rollbar (API); optional Sentry (`SENTRY_DSN`, `uv sync --group sentry`) | Empty token/DSN disables |
+| Product analytics | GA4 / Clarity on HTML splash only (not API write authority) | Optional |
 | Rate limiting | Sole implementation: `app/core/rate_limit.py` | Config-gated |
 
 **Deferred until load warrants** (see `docs/SCALE.md`): thin RED metrics /
@@ -44,15 +44,14 @@ collector + cost decision.
 
 **ADR:** [`adr/0017-secrets-and-sensitive-data.md`](adr/0017-secrets-and-sensitive-data.md).
 
-Client scrub helpers live in `frontend/src/app/core/monitoring/scrub.ts`
-(`beforeSend` / Rollbar `transform` / scrubbed `console.error`). Server:
+Server scrubbing:
 
 - JSON stdout: `JsonFormatter` → `scrub_for_logs` on every line
 - Sentry: `send_default_pii=False` + `before_send` → `scrub_for_logs`
 - Rollbar: expanded `scrub_fields` + deep scrub on `_build_payload`
 
-Unhandled API 500s also tag Sentry `request_id`. Patterns stay in lockstep
-between `sanitize.py` and `scrub.ts`.
+Unhandled API 500s also tag Sentry `request_id`. Patterns live in
+`backend/app/core/sanitize.py`.
 
 ## Backend
 
@@ -61,13 +60,6 @@ between `sanitize.py` and `scrub.ts`.
 - Request middleware: `RequestContextMiddleware` (`app/core/request_context.py`).
 - Workers: use `app/core/worker_logging.py` extras (`worker`, `duration_ms`,
   `outcome`) on tick boundaries; health via `WorkerHealthRegistry`.
-
-## Frontend (landing)
-
-- Idle-init Sentry + Rollbar via `monitoring.facade.ts`.
-- `GlobalErrorHandler`: chunk one-shot reload, danger toast, then capture.
-- Breadcrumbs for soft failures (e.g. `/ready` probe) — not dual console storms.
-- Storybook: **no** third-party analytics or Sentry (see `.storybook/`).
 
 ## Engine (Rust)
 

@@ -75,6 +75,9 @@ ALLOWED_SCOPES = frozenset(
         "ml:read",
         "ml:write",
         "tenants:erase",
+        # Platform BFF only — learn published page tenant_id for widget routing.
+        # Never mint on product partner provisions (see DEML_PROVISION_SCOPES).
+        "status:tenant-resolve",
         "*",
     }
 )

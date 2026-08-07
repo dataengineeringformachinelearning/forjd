@@ -1,13 +1,13 @@
-# Production deploy — FORJD (Fly + Vercel)
+# Production deploy — FORJD (Fly)
 
 Final operator runbook for the FORJD **data-plane** repo
 ([`forjd`](https://github.com/dataengineeringformachinelearning/forjd)).
 Partner BFF/UI steps live in each partner's own deploy runbook
 (DEML: [`deml` PRODUCTION_DEPLOY](https://github.com/dataengineeringformachinelearning/deml/blob/main/docs/PRODUCTION_DEPLOY.md)).
+Public story: community site + deml.app — FORJD has no product SPA.
 
 | Surface | GitHub | Host |
 |---------|--------|------|
-| Landing | this repo (`frontend/`) → Vercel `forjd` | `forjd.co` |
 | API | this repo → Fly `forjd-backend` (`fly.api.toml`) | `backend.forjd.co` |
 | Engine | this repo (`engine/`) → Fly `forjd-engine` | `forjd-engine.fly.dev` / private |
 | Cache | this repo (`infra/dragonfly/`) → Fly `forjd-dragonfly` | private |
@@ -91,7 +91,7 @@ From **repo root** (Dockerfile builds Rust wheel):
 fly deploy -a forjd-backend -c fly.api.toml
 # Secrets (once): POSTGRES_DSN, REDIS_URL, SUPABASE_*, ENGINE_URL,
 # ENGINE_API_TOKEN, OBJECT_STORAGE_ENDPOINT/ACCESS_KEY/SECRET_KEY/BUCKET,
-# ENVIRONMENT=production, CORS_ORIGINS including https://forjd.co,
+# ENVIRONMENT=production, CORS_ORIGINS = partner BFF origins (e.g. https://deml.app),
 # OUTBOUND_HOST_ALLOWLIST=taxii.vendor.com,*.hooks.partner.example
 # WEBHOOK_SIGNING_SECRETS_JSON={"primary-hook":"secret-manager-value"}
 ```
@@ -136,21 +136,10 @@ Private URL for API: `http://forjd-engine.internal:8080`.
 
 ---
 
-## 4. Vercel — FORJD web (`forjd.co`)
+## 4. DNS
 
-GitHub source: `dataengineeringformachinelearning/forjd`, root `frontend`.
-
-```bash
-cd frontend
-npx vercel link --project forjd --yes
-npx vercel git connect https://github.com/dataengineeringformachinelearning/forjd.git --yes
-# apiBaseUrl = https://backend.forjd.co (see frontend env / vercel.json)
-npx vercel deploy --prod --yes
-```
-
-Storybook: local / Chromatic only — public `ui.forjd.co` (Vercel project `ui`) is retired.
-
-DNS: `backend.forjd.co` → Fly `forjd-backend` (`fly certs add backend.forjd.co`).
+`backend.forjd.co` → Fly `forjd-backend` (`fly certs add backend.forjd.co`).
+There is no Vercel product landing in this repo.
 
 ---
 

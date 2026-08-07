@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     HOST: str = "0.0.0.0"
     PORT: int = 8000
-    # Interactive OpenAPI shells (/docs, /redoc, /openapi.json). Off in production
-    # unless explicitly re-enabled (local/dev defaults to on).
+    # Machine OpenAPI JSON at /openapi.json. Off in production unless explicit.
+    # Human docs live on the community site (/documentation).
     ENABLE_API_DOCS: bool = True
 
     # --- CORS ---
@@ -154,7 +154,8 @@ class Settings(BaseSettings):
     OBJECT_STORAGE_BUCKET: str = "forjd-exports"
     OBJECT_STORAGE_REGION: str = "us-east-1"
     OBJECT_STORAGE_ADDRESSING_STYLE: str = "path"
-    EXPORT_WORKER_INTERVAL_SECONDS: float = Field(default=2.0, ge=0.25, le=60.0)
+    # 0 disables the exports worker (status-continuous cut).
+    EXPORT_WORKER_INTERVAL_SECONDS: float = Field(default=2.0, ge=0.0, le=60.0)
     EXPORT_MAX_ATTEMPTS: int = Field(default=5, ge=1, le=20)
     EXPORT_TTL_SECONDS: int = Field(default=604_800, ge=300, le=31_536_000)
     EXPORT_MAX_ARTIFACT_BYTES: int = Field(
@@ -163,9 +164,11 @@ class Settings(BaseSettings):
     EXPORT_MAX_SOURCE_BYTES: int = Field(
         default=64 * 1024 * 1024, ge=1024 * 1024, le=1024 * 1024 * 1024
     )
-    INGEST_PROCESSING_INTERVAL_SECONDS: float = Field(default=2.0, ge=0.25, le=60.0)
+    # 0 disables ingest-processing (keep >0 when widget/sealed ingest is live).
+    INGEST_PROCESSING_INTERVAL_SECONDS: float = Field(default=2.0, ge=0.0, le=60.0)
     INGEST_PROCESSING_BATCH_SIZE: int = Field(default=10, ge=1, le=100)
-    SOAR_WORKER_INTERVAL_SECONDS: float = Field(default=5.0, ge=1.0, le=60.0)
+    # 0 disables SOAR retry worker (status-continuous cut).
+    SOAR_WORKER_INTERVAL_SECONDS: float = Field(default=5.0, ge=0.0, le=60.0)
     SOAR_WORKER_BATCH_SIZE: int = Field(default=50, ge=1, le=200)
     # Continuous analytics rollups + ML score refresh (0 disables the worker).
     ANALYTICS_ROLLUP_INTERVAL_SECONDS: float = Field(default=300.0, ge=0.0, le=3600.0)

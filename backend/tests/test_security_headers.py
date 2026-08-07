@@ -57,34 +57,22 @@ class TestSecurityHeadersMiddleware(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.headers["Cross-Origin-Resource-Policy"], "same-site")
         self.assertEqual(response.headers["Cache-Control"], "no-store")
 
-    async def test_html_shells_get_docs_csp(self) -> None:
+    async def test_splash_gets_html_shell_csp(self) -> None:
         async def call_next(_request: Request) -> HTMLResponse:
             return HTMLResponse("<html></html>")
 
         middleware = SecurityHeadersMiddleware(AsyncMock())
-        for path in ("/", "/docs", "/redoc"):
-            response = await middleware.dispatch(_request(path), call_next)
-            csp = response.headers["Content-Security-Policy"]
-            # Swagger/ReDoc are self-hosted — CDN must not remain a docs dependency.
-            self.assertNotIn("cdn.jsdelivr.net", csp)
-            self.assertIn("form-action 'self'", csp)
-            self.assertIn("googletagmanager.com", csp)
-            self.assertIn("clarity.ms", csp)
-            self.assertIn("style-src 'self'", csp)
-            self.assertIn("script-src", csp)
-            self.assertIn("connect-src 'self'", csp)
-            if path == "/redoc":
-                self.assertRegex(csp, r"style-src 'self' 'nonce-[A-Za-z0-9_-]+'")
-                self.assertIn(
-                    "'sha256-QMIg+bpjm3JdElJ388KYke01izlUW0UoNOeKjpMxdgc='",
-                    csp,
-                )
-                self.assertIn(
-                    "'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='",
-                    csp,
-                )
-                self.assertIn("https://cdn.redoc.ly", csp)
-                self.assertIn("worker-src 'self' blob:", csp)
+        response = await middleware.dispatch(_request("/"), call_next)
+        csp = response.headers["Content-Security-Policy"]
+        self.assertNotIn("cdn.jsdelivr.net", csp)
+        self.assertIn("form-action 'self'", csp)
+        self.assertIn("googletagmanager.com", csp)
+        self.assertIn("clarity.ms", csp)
+        self.assertIn("style-src 'self'", csp)
+        self.assertIn("script-src", csp)
+        self.assertIn("connect-src 'self'", csp)
+        self.assertNotIn("cdn.redoc.ly", csp)
+        self.assertNotIn("worker-src", csp)
 
 
 class TestHttpsRedirectMiddleware(unittest.IsolatedAsyncioTestCase):

@@ -46,9 +46,15 @@ class UpdatePageRequest(BaseModel):
 class CreateServiceRequest(BaseModel):
     tenant_id: UUID
     name: Name128
-    status: Literal["operational", "degraded", "partial_outage", "major_outage", "maintenance"] = (
-        "operational"
-    )
+    # Default unknown — never invent Operational before a probe or explicit write.
+    status: Literal[
+        "operational",
+        "degraded",
+        "partial_outage",
+        "major_outage",
+        "maintenance",
+        "unknown",
+    ] = "unknown"
     description: Description4k = ""
     probe_url: str | None = None
     sort_order: int = 0
@@ -58,7 +64,15 @@ class UpdateServiceRequest(BaseModel):
     tenant_id: UUID
     name: OptionalName128 = None
     status: (
-        Literal["operational", "degraded", "partial_outage", "major_outage", "maintenance"] | None
+        Literal[
+            "operational",
+            "degraded",
+            "partial_outage",
+            "major_outage",
+            "maintenance",
+            "unknown",
+        ]
+        | None
     ) = None
     description: OptionalDescription4k = None
     probe_url: str | None = None
@@ -138,16 +152,29 @@ async def public_page(
     slug: Slug64,
     user: AuthUser | None = Depends(get_optional_user),
 ) -> dict[str, Any]:
-    # Service principals (DEML BFF) get tenant_id for widget/ingest routing only.
-    # Anonymous browsers never receive tenant_id (enumeration hardening).
-    include_tenant_id = bool(user is not None and user.is_service)
+    # Fetch with tenant_id for a server-side bind check, then strip unless:
+    # - the caller's fjsvc_ is bound to **this** page's tenant, or
+    # - the caller holds ``status:tenant-resolve`` / ``*`` (platform BFF only).
+    # Ordinary product tokens must not learn other published tenant UUIDs.
     page = await status_svc.get_published_page(
         _pool(request),
         slug=slug,
-        include_tenant_id=include_tenant_id,
+        include_tenant_id=True,
     )
     if page is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="status page not found")
+    page_tenant = str(page.get("tenant_id") or "")
+    scopes = user.scopes if user is not None else ()
+    allow_tenant = bool(
+        user is not None
+        and user.is_service
+        and user.tenant_id
+        and (
+            str(user.tenant_id) == page_tenant or "*" in scopes or "status:tenant-resolve" in scopes
+        )
+    )
+    if not allow_tenant:
+        page.pop("tenant_id", None)
     return {"ok": True, "page": page}
 
 
