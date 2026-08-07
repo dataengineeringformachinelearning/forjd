@@ -101,9 +101,11 @@ _LANDING_HTML = """<!doctype html>
       <a href="{docs}">Docs</a>
       <a href="{blog}">Blog</a>
       <a href="{compliance}">Compliance</a>
-      <a href="{deml}">DEML</a>
       <a href="{community}">Community</a>
     </nav>
+    <div class="forjd-backend-nav__actions">
+      <a class="button button--primary button--pill" href="{deml}">DEML</a>
+    </div>
   </header>
   <main id="main-content" class="forjd-backend-shell" tabindex="-1">
     <div class="page">
@@ -125,19 +127,31 @@ _LANDING_HTML = """<!doctype html>
       </section>
     </div>
   </main>
-  <footer class="forjd-backend-footer">
-    <nav aria-label="Footer">
-      <a href="{book}">Book</a>
-      <a href="{whitepaper}">Whitepaper</a>
-      <a href="{docs}">Docs</a>
-      <a href="{blog}">Blog</a>
-      <a href="{compliance}">Compliance</a>
-      <a href="{privacy}">Privacy</a>
-      <a href="{terms}">Terms</a>
-      <a href="/health">Health</a>
-      <a href="{deml}">DEML</a>
-      <a href="{community}">Community</a>
-    </nav>
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <nav class="site-footer__directory" aria-label="Footer">
+        <div class="site-footer__group">
+          <p class="site-footer__heading">Resources</p>
+          <ul class="site-footer__list">
+            <li><a href="{book}">Book</a></li>
+            <li><a href="{whitepaper}">Whitepaper</a></li>
+            <li><a href="{docs}">Docs</a></li>
+            <li><a href="{blog}">Blog</a></li>
+            <li><a href="{deml}">DEML</a></li>
+            <li><a href="{community}">Community</a></li>
+          </ul>
+        </div>
+        <div class="site-footer__group">
+          <p class="site-footer__heading">Legal</p>
+          <ul class="site-footer__list">
+            <li><a href="{compliance}">Compliance</a></li>
+            <li><a href="{privacy}">Privacy</a></li>
+            <li><a href="{terms}">Terms</a></li>
+            <li><a href="/health">Health</a></li>
+          </ul>
+        </div>
+      </nav>
+    </div>
   </footer>
 </body>
 </html>"""

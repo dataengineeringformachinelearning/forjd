@@ -19,10 +19,10 @@
   position: sticky;
   top: 0;
   z-index: 20;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3, 0.75rem);
+  column-gap: var(--space-4, 1rem);
   padding: var(--space-2, 0.5rem) max(var(--space-3, 0.75rem), env(safe-area-inset-left))
     var(--space-2, 0.5rem) max(var(--space-3, 0.75rem), env(safe-area-inset-right));
   background: var(--color-surface, #1c1916);
@@ -32,6 +32,7 @@
 .forjd-backend-nav__brand {
   display: inline-flex;
   align-items: center;
+  justify-self: start;
   gap: var(--space-2, 0.5rem);
   min-height: var(--hit-target, 44px);
   color: var(--color-text, #f3f0ea);
@@ -55,8 +56,11 @@
 .forjd-backend-nav__links {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: center;
+  justify-self: stretch;
   gap: var(--space-1, 0.25rem) var(--space-3, 0.75rem);
+  min-width: 0;
 }
 
 .forjd-backend-nav__links a {
@@ -70,6 +74,18 @@
 
 .forjd-backend-nav__links a:hover {
   color: var(--color-text, #f3f0ea);
+}
+
+.forjd-backend-nav__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  justify-self: end;
+  gap: var(--space-2, 0.5rem);
+}
+
+.forjd-backend-nav__actions .button {
+  min-height: var(--hit-target, 44px);
 }
 
 .forjd-backend-shell {
@@ -96,32 +112,7 @@
   height: auto;
 }
 
-.forjd-backend-footer {
-  padding: var(--space-3, 0.75rem) max(var(--space-3, 0.75rem), env(safe-area-inset-left))
-    max(var(--space-4, 1rem), env(safe-area-inset-bottom))
-    max(var(--space-3, 0.75rem), env(safe-area-inset-right));
-  border-top: 1px solid var(--color-border, rgba(198, 192, 183, 0.3));
-  background: var(--color-surface, #1c1916);
-}
-
-.forjd-backend-footer nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2, 0.5rem) var(--space-4, 1rem);
-}
-
-.forjd-backend-footer a {
-  color: var(--color-text-secondary, #c6c0b7);
-  text-decoration: none;
-  font-size: var(--font-size-sm, 0.875rem);
-  min-height: var(--hit-target, 44px);
-  display: inline-flex;
-  align-items: center;
-}
-
-.forjd-backend-footer a:hover {
-  color: var(--color-text, #f3f0ea);
-}
+/* Splash footer uses deml-ui .site-footer (categorized columns). */
 
 /* --- Docs topbar --- */
 .forjd-backend-docs {
